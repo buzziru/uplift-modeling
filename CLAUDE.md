@@ -1,7 +1,3 @@
-# CLAUDE.md
-
-Hillstrom 이메일 실험 데이터로 고객별 최적 메일을 고르는 uplift modeling 포트폴리오 프로젝트다. 명세는 `SPEC.md`이고, 결정의 정본은 `docs/` 아래 분야 문서다. 문서는 한국어로 쓰고, 새 내부 용어는 `docs/glossary.md`에 적는다.
-
 <!-- solo-harness:start -->
 ## 하네스
 
