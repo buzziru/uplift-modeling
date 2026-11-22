@@ -13,5 +13,10 @@ results/
 
 # 기타
 .env
+.env.*
+!.env.example
 .DS_Store
 node_modules/
+
+# 하네스 작업 공간
+_workspace/
