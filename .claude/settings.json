@@ -37,8 +37,21 @@
       "PowerShell(vercel deploy --prod*)",
       "Bash(vercel promote*)",
       "PowerShell(vercel promote*)",
-      "Read(./.env)",
-      "Read(./.env.*)"
+      "Bash(vercel * --prod*)",
+      "PowerShell(vercel * --prod*)",
+      "Bash(vercel *--target*production*)",
+      "PowerShell(vercel *--target*production*)",
+      "Bash(npx vercel*--prod*)",
+      "PowerShell(npx vercel*--prod*)",
+      "Bash(gh api * visibility*)",
+      "PowerShell(gh api * visibility*)",
+      "Bash(gh api * private*)",
+      "PowerShell(gh api * private*)",
+      "PowerShell(Remove-Item * data*)",
+      "PowerShell(Remove-Item data*)",
+      "PowerShell(rm data*)",
+      "Read(**/.env)",
+      "Read(**/.env.*)"
     ]
   }
 }
