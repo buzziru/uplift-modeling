@@ -8,6 +8,7 @@
 - 같은 지시를 두 번 받으면 스킬이나 규칙 후보로 기록한다.
 - 사용자가 고쳐 준 것은 그 자리에서 세션 맥락에 안내된 `record.mjs observe --source conversation`으로 남긴다.
 - 산출물을 바꾼 작업은 PR 전에 `run-evaluation` 스킬로 평가를 운영한다.
+- 모든 작업은 PR을 열기 전에 저장소에 정해진 검사를 돌린 뒤 `pr-reviewer` 에이전트로 브랜치를 검토한다. 라운드 상한은 2이고, `blocked`면 고쳐서 다시 받는다. 라운드별 판정, 지적 수와 주요 지적, 반영 커밋을 PR 첫 댓글로 남긴다.
 - 하네스 파일(이 절, `.claude/skills/`, `.claude/rules/`, `.claude/agents/`, `.claude/rubrics/`, 거부 규칙, `.claude/harness/config.json`)을 바꾸면 `.claude/harness/CHANGELOG.md`에 행을 더한다.
 
 ### 승인 지점
