@@ -21,3 +21,4 @@
 | 2026-11-23 | 쌓임 | mechanical | `.claude/harness/config.json` | `check`에 ruff check, ruff format --check, pyright, pytest, marimo check를 등록 | SPEC.md 15절의 PR 전 검사를 PR 생성 때 돌림. 원본 체크섬은 받을 때만 확인하므로 넣지 않음(사용자 결정) | `.claude/harness/config.json` | 요청: 2026-11-23 |
 | 2026-11-23 | 보완 | workflow | CLAUDE.md | PR 범위 줄의 "따로 모은다"를 "다른 브랜치에 모은다"로 좁히고 하네스 파일 정의를 가리킴 | 같은 브랜치 안에서 커밋만 나누는 뜻으로도 읽혔음(PR #3 검토 2라운드 should) | 장치 없음: CLAUDE.md 문장 | 요청: 2026-11-23 |
 | 2026-11-23 | 보완 | workflow | `.claude/skills/run-evaluation/SKILL.md` | 산출물을 루브릭이 판정하는 파일로 정의하고 평가 입력 목록을 그 범위로 좁힘 | 하네스 밖 파일이 모두 산출물로 취급되어 CI 설정이나 의존성 파일을 고쳐도 평가가 다시 돌았음(PR #4, #5) | 장치 없음: 스킬 절차 | 요청: 2026-11-23 |
+| 2026-11-23 | 쌓임 | workflow | `.claude/skills/run-evaluation/SKILL.md` | 상한에 닿아 남은 should와 nit은 다음 같은 종류 PR에서 처리 | 남은 지적이 PR 본문에만 남아 처리되지 않았음 | 장치 없음: 스킬 절차 | 요청: 2026-11-23 |
