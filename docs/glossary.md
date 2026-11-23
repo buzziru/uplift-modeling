@@ -12,7 +12,7 @@
 | 기준값 파일 | 채택한 실행의 지표를 고정한 파일. 회귀 테스트가 새 결과를 이 값과 비교한다. | SPEC.md 9절 |
 | 승인 지점 | 작업을 멈추고 사용자 승인을 받는 결정. | SPEC.md 11절 |
 | 부품 모델 | uplift 방법 안에서 반응 함수나 처치 효과를 학습하는 일반 회귀·분류 모델(base learner). uplift random forest처럼 자체 트리를 쓰는 방법에는 없다. 무엇을 쓰는지는 `docs/MODELING.md`. | SPEC.md 4절 |
-| 실행 | 실험 하나를 한 설정으로 한 번 돌린 것. DuckDB에서 `run_id`로 구분한다. 기준값 파일은 채택한 실행의 지표다. | `docs/DATA.md` |
+| 실행 | 실험 하나를 한 설정으로 한 번 돌린 것. DuckDB에서 `run_id`로 구분한다. | `docs/DATA.md` |
 | OOF 예측 | 학습 세트 안 CV에서 각 고객을 그 고객이 빠진 fold로 학습한 모델로 예측한 값. 결합 가중치와 모델 비교에 쓰고 시험 세트는 쓰지 않는다. | `docs/MODELING.md` |
 | 실험(EXP) | `experiments/EXP-<번호>-<주제>/`에 설정과 실행 스크립트를 두고 다시 돌려 비교하는 모델 작업. | `docs/ENGINEERING.md` |
 | 분석(ANA) | `analyses/ANA-<번호>-<주제>.py` marimo 노트북에서 한 번 보고 판단하는 작업. | `docs/ENGINEERING.md` |
