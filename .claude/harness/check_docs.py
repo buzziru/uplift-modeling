@@ -61,7 +61,9 @@ def check_refs(text: str) -> list[str]:
     errors = []
     for path, title in re.findall(r"`([^`]+\.md)` \"([^\"]+)\" 절", text):
         target = ROOT / path
-        if target.exists() and not any(title in h for h in headings(target)):
+        if not target.exists():
+            errors.append(f"없는 파일: `{path}`")
+        elif not any(title in h for h in headings(target)):
             errors.append(f'없는 절: `{path}` "{title}"')
     spec_numbers = {
         m.group(1) for h in headings(ROOT / "SPEC.md") if (m := re.match(r"(\d+)\.", h))
@@ -89,7 +91,7 @@ def check_copies(new_text: str, path: str) -> list[str]:
 
 
 def check_removed(old_text: str, new_text: str) -> list[str]:
-    phrases = set(re.findall(r"`([^`]{4,})`|\"([^\"]{4,})\"", old_text))
+    phrases = set(re.findall(r"`([^`\n]{4,})`|\"([^\"\n]{4,})\"", old_text))
     removed = {p for pair in phrases for p in pair if p and p not in new_text}
     warnings = []
     for f in scope_files():
@@ -123,7 +125,7 @@ def run(old_text: str, new_text: str, path: str) -> tuple[list[str], list[str]]:
 
 
 def in_scope(path: str) -> bool:
-    return any(Path(path).match(p) or path == p for p in SCOPE)
+    return path in {rel(f) for f in scope_files()}
 
 
 def hook() -> None:
@@ -135,8 +137,9 @@ def hook() -> None:
     path = rel(file_path)
     if not in_scope(path):
         return
-    old = tool_input.get("old_string", "")
-    new = tool_input.get("new_string") or tool_input.get("content", "")
+    edits = tool_input.get("edits") or [tool_input]
+    old = "\n".join(e.get("old_string", "") for e in edits)
+    new = "\n".join(e.get("new_string") or e.get("content", "") for e in edits)
     errors, warnings = run(old, new, path)
     lines = [f"오류: {e}" for e in errors] + [f"알림: {w}" for w in warnings]
     if not lines:
@@ -150,8 +153,17 @@ def hook() -> None:
 
 
 def branch() -> int:
+    base = subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", "origin/main"],
+        cwd=ROOT,
+        capture_output=True,
+    )
+    if base.returncode != 0:
+        print("origin/main이 없어 문서 정합 검사를 건너뛴다(git fetch 뒤 다시 돌린다).")
+        return 0
     diff = subprocess.run(
-        ["git", "diff", "-U0", "origin/main...HEAD", "--", *SCOPE],
+        ["git", "-c", "core.quotepath=false", "diff", "-U0", "origin/main...HEAD", "--"]
+        + [rel(f) for f in scope_files()],
         cwd=ROOT,
         capture_output=True,
         text=True,
