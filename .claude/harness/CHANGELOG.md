@@ -19,3 +19,4 @@
 | 2026-11-23 | 보완 | workflow | CLAUDE.md | 변경 이력 줄 끝 문장이 걸리는 시점을 "이미 행을 더했으면"으로 고침 | 앞 문장은 행을 고치기로 정한 뒤에야 4절로 가게 읽혀 새 행을 더할지 고칠지 고르는 시점에 정본이 적용되지 않음 | 장치 없음: CLAUDE.md 문장 | 요청: 2026-11-23 |
 | 2026-11-23 | 쌓임 | workflow | CLAUDE.md | 작은 수정은 모으고 PR 범위를 사용자와 먼저 정하는 원칙, 하네스 수정은 작업 변경과 따로 모음, `experiments/`의 실험 폴더 하나는 PR 하나 | 지시마다 PR을 열어 PR이 실제 작업보다 많아지고 PR마다 평가와 검토가 돌았음(PR #2\~#4) | 장치 없음: CLAUDE.md 원칙 | 요청: 2026-11-23 |
 | 2026-11-23 | 쌓임 | mechanical | `.claude/harness/config.json` | `check`에 ruff check, ruff format --check, pyright, pytest, marimo check를 등록 | SPEC.md 15절의 PR 전 검사를 PR 생성 때 돌림. 원본 체크섬은 받을 때만 확인하므로 넣지 않음(사용자 결정) | `.claude/harness/config.json` | 요청: 2026-11-23 |
+| 2026-11-23 | 보완 | workflow | CLAUDE.md | PR 범위 줄의 "따로 모은다"를 "다른 브랜치에 모은다"로 좁히고 하네스 파일 정의를 가리킴 | 같은 브랜치 안에서 커밋만 나누는 뜻으로도 읽혔음(PR #3 검토 2라운드 should) | 장치 없음: CLAUDE.md 문장 | 요청: 2026-11-23 |
