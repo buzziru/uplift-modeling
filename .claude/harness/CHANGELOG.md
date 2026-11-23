@@ -22,3 +22,5 @@
 | 2026-11-23 | 보완 | workflow | CLAUDE.md | PR 범위 줄의 "따로 모은다"를 "다른 브랜치에 모은다"로 좁히고 하네스 파일 정의를 가리킴 | 같은 브랜치 안에서 커밋만 나누는 뜻으로도 읽혔음(PR #3 검토 2라운드 should) | 장치 없음: CLAUDE.md 문장 | 요청: 2026-11-23 |
 | 2026-11-23 | 보완 | workflow | `.claude/skills/run-evaluation/SKILL.md` | 산출물을 루브릭이 판정하는 파일로 정의하고 평가 입력 목록을 그 범위로 좁힘 | 하네스 밖 파일이 모두 산출물로 취급되어 CI 설정이나 의존성 파일을 고쳐도 평가가 다시 돌았음(PR #4, #5) | 장치 없음: 스킬 절차 | 요청: 2026-11-23 |
 | 2026-11-23 | 쌓임 | workflow | `.claude/skills/run-evaluation/SKILL.md` | 상한에 닿아 남은 should와 nit은 다음 같은 종류 PR에서 처리 | 남은 지적이 PR 본문에만 남아 처리되지 않았음 | 장치 없음: 스킬 절차 | 요청: 2026-11-23 |
+| 2026-11-23 | 보완 | quality | `.claude/rubrics/analysis.md#R3` | 사용자 지시 결정도 실제 대안을 적고, 결정 절 하나에 결정 하나 | 두 작업에서 기각한 대안 "없음"과 한 절에 결정 여럿이 지적됨 | 장치 없음: 루브릭 문장 | queue: quality .claude/rubrics/analysis.md#R3 |
+| 2026-11-23 | 쌓임 | quality | `.claude/rubrics/analysis.md#R8` | 문서 간 정합 항목 R8 추가 | 두 작업의 항목 밖 지적 16건 가운데 절반 이상이 정본 충돌, 사본, 없는 절 가리키기였음 | 장치 없음: 루브릭 항목 | queue: quality .claude/rubrics/analysis.md#new |
