@@ -1,5 +1,11 @@
 {
-  "check": [],
+  "check": [
+    "uv run ruff check .",
+    "uv run ruff format --check .",
+    "uv run pyright",
+    "uv run pytest",
+    "uv run marimo check analyses"
+  ],
   "axes": {
     "독자": [
       "채용 담당자"
