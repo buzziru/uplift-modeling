@@ -8,12 +8,13 @@ from pathlib import Path
 
 import pandas as pd
 
-from uplift.db import build_tables, profile, write_db
+from uplift.db import build_tables, profile, tables_markdown, write_db
 
 ROOT = Path(__file__).resolve().parents[1]
 RAW = ROOT / "data" / "raw" / "hillstrom.parquet"
 DB = ROOT / "data" / "uplift.duckdb"
 PROFILE = ROOT / "artifacts" / "data" / "profile.json"
+PREVIEW = ROOT / "artifacts" / "data" / "tables.md"
 
 
 def main() -> None:
@@ -23,7 +24,8 @@ def main() -> None:
     PROFILE.write_text(
         json.dumps(profile(tables), ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
-    print(f"{DB} 적재, 요약 -> {PROFILE}")
+    PREVIEW.write_text(tables_markdown(tables), encoding="utf-8")
+    print(f"{DB} 적재, 요약 -> {PROFILE}, 미리보기 -> {PREVIEW}")
 
 
 if __name__ == "__main__":

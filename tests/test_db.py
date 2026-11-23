@@ -2,7 +2,7 @@ import duckdb
 import pandas as pd
 import pytest
 
-from uplift.db import build_tables, profile, write_db
+from uplift.db import build_tables, profile, tables_markdown, write_db
 
 
 @pytest.fixture
@@ -33,6 +33,15 @@ def test_build_tables_assigns_row_order_ids_and_treatments(raw):
     assert "segment" not in tables["customers"].columns
 
 
+def test_build_tables_keeps_rows_aligned_by_customer_id(raw):
+    tables = build_tables(raw)
+    customer = tables["customers"].set_index("customer_id").loc[2]
+    outcome = tables["outcomes"].set_index("customer_id").loc[2]
+    assert customer["channel"] == "Multichannel"
+    assert customer["history"] == 30.0
+    assert outcome["spend"] == 29.99
+
+
 def test_build_tables_rejects_unknown_segment(raw):
     raw.loc[0, "segment"] = "SMS"
     with pytest.raises(ValueError, match="SMS"):
@@ -54,3 +63,15 @@ def test_profile_counts_by_treatment(raw):
     assert p["rows"]["customers"] == 3
     assert p["by_treatment"]["Womens E-Mail"]["n"] == 1
     assert p["by_treatment"]["Womens E-Mail"]["spend_mean"] == 29.99
+    assert p["by_treatment"]["Mens E-Mail"]["visit_rate"] == 1.0
+    assert p["missing"]["recency"] == 0
+    assert p["numeric_range"]["recency"] == {"min": 1, "max": 12}
+    assert p["categories"]["zip_code"] == ["Rural", "Surburban", "Urban"]
+    assert p["binary_rate"]["womens"] == round(2 / 3, 4)
+    assert p["dtypes"]["customers"]["recency"] == "int64"
+
+
+def test_tables_markdown_lists_every_table(raw):
+    md = tables_markdown(build_tables(raw), head=2)
+    for name in ["customers", "treatments", "assignments", "outcomes"]:
+        assert f"## {name}" in md

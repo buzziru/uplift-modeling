@@ -43,10 +43,13 @@ def sha256(path: Path) -> str:
 def main() -> None:
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     if not CSV_PATH.exists():
-        urllib.request.urlretrieve(URL, CSV_PATH)
+        part = CSV_PATH.with_suffix(".part")
+        urllib.request.urlretrieve(URL, part)
+        part.replace(CSV_PATH)
 
     digest = sha256(CSV_PATH)
     if digest != SHA256:
+        CSV_PATH.unlink()
         sys.exit(f"체크섬 불일치: {digest} != {SHA256}")
 
     df = pd.read_csv(CSV_PATH, encoding="utf-8")

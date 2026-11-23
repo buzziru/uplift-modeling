@@ -37,9 +37,18 @@ packages = ["src/uplift"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+# 외부에서 복사한 스킬 예시 코드는 검사하지 않는다
+extend-exclude = [".claude"]
+
+[tool.ruff.lint.per-file-ignores]
+# marimo 셀 형식: 셀 끝 return, 화면에 보일 마지막 식
+"analyses/*.py" = ["PLR1711", "B018"]
 
 [tool.pyright]
 include = ["src", "scripts", "tests"]
 pythonVersion = "3.12"
 venvPath = "."
 venv = ".venv"
+
+[tool.marimo.runtime]
+default_sql_output = "pandas"
