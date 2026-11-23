@@ -32,10 +32,7 @@
 정본: `docs/MODELING.md`
 
 - 기준선: 무작위 타기팅, 전체 발송, 반응 모델(메일을 받았을 때 방문할 확률로 대상을 고르는 모델).
-- meta-learner: S-, T-, X-, DR-learner. 부품 모델은 LightGBM이다.
-- 변환 방법: class transformation, transformed outcome.
-- 비교 순서(방법론 먼저, 부품 모델 다음)와 결합 후보: `docs/MODELING.md`. 이론 배경은 `docs/THEORY.md`.
-- 트리 계열: uplift random forest(`causalml`).
+- 방법론 후보, 부품 모델(기본 LightGBM)과 비교 순서, 결합 후보: `docs/MODELING.md`. 이론 배경은 `docs/THEORY.md`.
 - 다중 처치: 처치별 효과를 추정한 뒤 고객마다 효과가 가장 큰 행동을 고른다.
 - GPU 없이 로컬 CPU에서 시작한다. 필요해지면 Colab이나 Kaggle을 검토한다.
 
@@ -167,7 +164,7 @@
 
 | 항목 | 내용 | 닫을 시점 |
 | --- | --- | --- |
-| 이진 처치 방법의 비교 정의 | class transformation과 transformed outcome은 이진 처치 방법인데 기본 처치는 다중 처치다(2절). 어느 이진 정의(여성용 대 미발송, 메일 전체 대 미발송)로 비교할지, 다중 처치 정책으로 어떻게 넘길지 정한다. 메일 전체 대 미발송은 처치 확률이 2/3라 class transformation에 재가중이 필요하다(`docs/THEORY.md` "Hillstrom 데이터 구조" 절). | M2 승인 지점 |
+| 이진 처치를 전제하는 방법의 비교 정의 | class transformation과 transformed outcome은 이진 처치를 전제하는데 기본 처치는 다중 처치다(2절). 어느 이진 정의(여성용 대 미발송, 메일 전체 대 미발송)로 비교할지, 다중 처치 정책으로 어떻게 넘길지 정한다. 메일 전체 대 미발송은 처치 확률이 2/3라 class transformation에 재가중이 필요하다(`docs/THEORY.md` "Hillstrom 데이터 구조" 절). | M2 승인 지점 |
 | 금전 가치 변환 방식 | 주 결과는 `visit`인데, 이익 최대화형 정책과 모델 선택 기준(증분 이익)은 금액이 필요하다. 후보: (a) `spend` uplift를 따로 추정한다, (b) 방문 1회의 가치를 가정한다, (c) 순위는 `visit` 점수로 매기고 이익은 실제 `spend`의 IPW 추정으로만 평가한다. | M1 승인 지점 |
 
 ## 15. 하네스가 검사할 기준

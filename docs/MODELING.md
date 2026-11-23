@@ -15,12 +15,13 @@
 ## 방법론을 먼저 같은 부품 모델로 비교해 정하고, 그다음 부품 모델 알고리즘을 비교한다
 
 - 결정:
-  - 방법론 후보는 S-learner, T-learner, X-learner, DR-learner, class transformation, transformed outcome, uplift random forest(`causalml`)다. 각 방법은 `docs/THEORY.md` "대표 방법" 절을 출발점으로 삼는다. DR-learner와 uplift random forest는 이론 문서에 아직 없어 이 작업에서 더한다.
+  - 방법론 후보는 S-learner, T-learner, X-learner, DR-learner, class transformation, transformed outcome, uplift random forest(`causalml`)다. 각 방법의 정의는 `docs/THEORY.md` "대표 방법" 절을 출발점으로 삼는다. DR-learner와 uplift random forest는 아직 그 절에 없어 M2 모델링 전에 더한다.
+  - class transformation과 transformed outcome은 이진 처치를 전제한다. 어느 이진 정의로 비교할지는 SPEC.md 14절 미결 사항이고 M2 승인 지점에서 닫는다.
   - 1단계: 부품 모델을 LightGBM으로 고정하고 방법론끼리 비교해 방법론을 정한다. uplift random forest는 자체 트리를 쓰므로 부품 모델이 없다.
   - 2단계: 정한 방법론 안에서 부품 모델 알고리즘을 비교한다.
-  - 결합 후보: 같은 방법론에서 서로 다른 알고리즘을 결합, 서로 다른 방법론을 결합, 검증 데이터의 Qini나 AUUC로 결합 가중치를 정한다. 후보이며 채택은 2단계 결과를 보고 정한다.
-  - 검증 데이터는 학습 세트 안 5-fold CV의 OOF 예측이다(`docs/DATA.md` 분할 결정이 정해지면 그 절을 따른다). 가중치를 정할 때도 시험 세트는 쓰지 않는다.
-  - 모델 선택 기준은 SPEC.md 5절(CV 정책 가치 1순위)을 그대로 따르고, 최종 선택은 SPEC.md 11절의 승인 지점이다.
+  - 결합 후보는 세 가지다. 같은 방법론에서 서로 다른 알고리즘을 결합하거나, 서로 다른 방법론을 결합한다. 결합 가중치는 OOF 예측의 Qini나 AUUC로 정한다. 채택 여부는 2단계 결과를 보고 정한다.
+  - 결합 모델도 단일 모델과 같은 후보로 보고, 모델 선택은 SPEC.md 5절 기준(CV 정책 가치 1순위)으로 한다. Qini·AUUC는 결합 안의 가중치에만 쓴다. 최종 선택은 SPEC.md 11절의 승인 지점이다.
+  - OOF 예측은 학습 세트 안 5-fold CV에서 나온다. 가중치를 정할 때도 시험 세트는 쓰지 않는다.
 - 근거: 사용자 지시(2026-11-23). 아직 결과 수치는 없다.
-- 기각한 대안: 없음(사용자 지시로 정함).
+- 기각한 대안: 방법론과 부품 모델 알고리즘의 모든 조합을 한 번에 비교하는 안. 사용자가 순서를 나눠 정했고, 조합 수가 방법론 수와 알고리즘 수의 곱으로 늘어 CV 실행이 그만큼 많아진다.
 - 승인: 2026-11-23
