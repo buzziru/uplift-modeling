@@ -55,8 +55,9 @@
   artifacts/           산출물. 코드와 나누고 폴더 이름은 ID만 씀
     EXP-001/           metrics.json, summary.md, figures/ 커밋. 예측 파일 커밋 안 함
     ANA-001/           figures/, tables/ 커밋. marimo HTML export 커밋 안 함
+    data/              데이터 명세 요약(profile.json). 커밋함
   data/                커밋 안 함. raw/*.parquet, uplift.duckdb
-  scripts/             데이터 받기, 체크섬
+  scripts/             데이터 받기와 체크섬(fetch_data.py), DuckDB 적재(build_db.py)
   tests/
     baseline/          채택한 실행의 기준값 파일과 예측. 커밋함
   ```
