@@ -157,6 +157,7 @@ def branch() -> int:
         ["git", "rev-parse", "--verify", "--quiet", "origin/main"],
         cwd=ROOT,
         capture_output=True,
+        check=False,
     )
     if base.returncode != 0:
         print("origin/main이 없어 문서 정합 검사를 건너뛴다(git fetch 뒤 다시 돌린다).")
