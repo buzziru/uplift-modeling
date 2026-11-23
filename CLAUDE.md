@@ -14,7 +14,7 @@
 - 정본(SPEC.md, 분야 문서)의 내용을 하네스 파일에 옮겨 적지 않고 절 위치로 가리킨다.
 - 규칙을 새로 쓰거나 바꾸기 전에 같은 대상을 정하는 정본과 하네스 파일(범위는 아래 변경 이력 줄)을 먼저 읽는다. 용어나 규칙 표현을 바꾸면 바뀌기 전 표현을 저장소에서 검색해 남은 곳을 같은 커밋에서 고친다.
 - 이미 정의된 용어를 새 문장에 쓰면 정의를 가리킨다. 괄호로 다시 나열하거나 다른 말로 바꾸지 않는다.
-- 하네스 파일(이 절, `.claude/skills/`, `.claude/rules/`, `.claude/agents/`, `.claude/rubrics/`, 거부 규칙, `.claude/harness/config.json`)을 바꾸면 `.claude/harness/CHANGELOG.md`에 행을 더한다. 같은 브랜치에서 이미 더한 행을 고칠 때는 solo-harness `docs/formats.md` 4절을 따른다.
+- 하네스 파일(이 절, `.claude/skills/`, `.claude/rules/`, `.claude/agents/`, `.claude/rubrics/`, 거부 규칙, `.claude/harness/config.json`)을 바꾸면 `.claude/harness/CHANGELOG.md`에 행을 더한다. 같은 브랜치에서 이미 행을 더했으면 solo-harness `docs/formats.md` 4절을 따른다.
 
 ### 승인 지점
 
