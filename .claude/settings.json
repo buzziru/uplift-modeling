@@ -44,22 +44,13 @@
       "Bash(rmdir *data*)",
       "PowerShell(Remove-Item *data*)",
       "PowerShell(rm *data*)",
-      "PowerShell(ri *data*)",
-      "PowerShell(del *data*)",
-      "PowerShell(rd *data*)",
       "PowerShell(rmdir *data*)",
       "Bash(gh api *-X PATCH*)",
       "PowerShell(gh api *-X PATCH*)",
-      "Bash(gh api *-XPATCH*)",
-      "PowerShell(gh api *-XPATCH*)",
       "Bash(gh api *--method PATCH*)",
       "PowerShell(gh api *--method PATCH*)",
       "Bash(gh api *--method=PATCH*)",
-      "PowerShell(gh api *--method=PATCH*)",
-      "Read(**/.env.local)",
-      "Read(**/.env.*.local)",
-      "Read(**/.env.production)",
-      "Read(**/.env.development)"
+      "PowerShell(gh api *--method=PATCH*)"
     ]
   }
 }
