@@ -23,7 +23,7 @@
 정본: `docs/DATA.md`
 
 - 원본은 저장소에 커밋하지 않는다. 받는 스크립트와 체크섬으로 관리한다.
-- 저장 형식은 Parquet이다. 탐색용 집계 쿼리는 DuckDB로 Parquet 파일을 직접 읽는다. DB 서버는 두지 않는다. 64,000행 정적 데이터라서 동시 쓰기나 트랜잭션을 쓸 일이 없다.
+- 원본 저장 형식은 Parquet이다. 분석 테이블과 실험 기록은 DuckDB 파일에 둔다(`docs/ENGINEERING.md` DuckDB 절, 테이블 구성은 `docs/DATA.md`).
 - 무작위 배정 점검: 처치 그룹 간 공변량 균형을 확인한다.
 - 분할: 처치 그룹과 `visit` 조합으로 층화해 학습 70%, 시험 30%로 나눈다. 학습 세트 안에서 5-fold CV로 모델과 하이퍼파라미터를 고른다. 시험 세트는 마지막에 한 번만 쓰고, 신뢰구간은 부트스트랩으로 구한다.
 
@@ -33,6 +33,8 @@
 
 - 기준선: 무작위 타기팅, 전체 발송, 반응 모델(메일을 받았을 때 방문할 확률로 대상을 고르는 모델).
 - meta-learner: S-, T-, X-, DR-learner. 부품 모델은 LightGBM이다.
+- 변환 방법: class transformation, transformed outcome.
+- 비교 순서(방법론 먼저, 부품 모델 다음)와 결합 후보: `docs/MODELING.md`. 이론 배경은 `docs/THEORY.md`.
 - 트리 계열: uplift random forest(`causalml`).
 - 다중 처치: 처치별 효과를 추정한 뒤 고객마다 효과가 가장 큰 행동을 고른다.
 - GPU 없이 로컬 CPU에서 시작한다. 필요해지면 Colab이나 Kaggle을 검토한다.
@@ -91,7 +93,7 @@
 
 정본: `docs/ENGINEERING.md`
 
-- 환경: Python 3.12, uv. 주요 라이브러리는 `scikit-uplift`(데이터 로더, 평가 지표)와 `causalml`(meta-learner, uplift random forest)이다.
+- 환경: Python 3.12, uv. 주요 라이브러리는 `scikit-uplift`(데이터 로더, 평가 지표)와 `causalml`(meta-learner, uplift random forest)이다. 분석 노트북(marimo)과 시각화(seaborn)는 `docs/ENGINEERING.md`.
 - 품질 도구: ruff(lint, 포맷), pyright(정적 타입 검사), pydantic(설정과 입출력의 런타임 검증), pytest.
 - 테스트 도입 순서:
 
@@ -102,10 +104,10 @@
   | 첫 기준선 모델을 채택한 뒤 | regression test(기준값 파일과 허용 오차로 비교) |
   | 대시보드가 나온 뒤 | e2e test(Playwright) |
 
-- 실험 기록: 추적 서버(MLflow 등)는 두지 않는다. 실행마다 설정(pydantic 모델)과 지표를 `results/<run_id>/` 아래 JSON으로 저장하고, 채택한 실행의 지표를 기준값 파일로 고정한다.
+- 실험 기록: 추적 서버(MLflow 등)는 두지 않는다. 정본은 DuckDB이고, 채택한 실행의 지표를 기준값 파일로 고정한다(`docs/ENGINEERING.md` DuckDB 절).
 - 재현: 모든 난수 시드를 설정 파일에서 고정한다. 처음부터 다시 실행했을 때 지표가 같아야 한다. 허용 오차는 M2에서 정해 ENGINEERING.md에 적는다.
 - CI: GitHub Actions에서 PR마다 ruff, pyright, pytest를 돌린다. 모델 학습은 CI에서 빼고, 회귀 테스트는 저장된 예측 결과로 지표만 다시 계산해 기준값과 비교한다.
-- 저장소: `buzziru/uplift-modeling` 공개 저장소. 분석 코드, 실행 스크립트, 대시보드를 한 저장소에 둔다. 폴더 구조는 M0에서 정해 ENGINEERING.md에 적는다.
+- 저장소: `buzziru/uplift-modeling` 공개 저장소. 분석 코드, 실행 스크립트, 대시보드를 한 저장소에 둔다. 폴더 구조는 `docs/ENGINEERING.md`.
 
 ## 10. 문서 체계
 
@@ -121,6 +123,9 @@
 | `docs/DASHBOARD.md` | 화면 구성, 지표 선택 | 데모 |
 | `docs/ENGINEERING.md` | 저장 형식, 폴더 구조, 테스트, 품질 도구, CI, 배포 | 재현 |
 | `docs/NARRATIVE.md` | 사이트 항목 초안, 성과 문장, 한계, 배운 점 | 사이트와 deck |
+| `docs/THEORY.md` | 결정 없음. 이론 배경 | 방법론 설명, 기술 면접 대비 |
+
+`docs/THEORY.md`는 결정이 아닌 이론 배경(uplift 정의, 대표 방법, 평가 지표, Hillstrom 데이터 구조)을 담고, 분야 문서가 절 위치로 가리킨다.
 
 프로젝트 내부 용어는 `docs/glossary.md`에 한국어 이름, 정의, 처음 쓴 곳을 적는다. 새 용어를 문서에 처음 쓸 때 함께 적는다.
 
@@ -162,6 +167,7 @@
 
 | 항목 | 내용 | 닫을 시점 |
 | --- | --- | --- |
+| 이진 처치 방법의 비교 정의 | class transformation과 transformed outcome은 이진 처치 방법인데 기본 처치는 다중 처치다(2절). 어느 이진 정의(여성용 대 미발송, 메일 전체 대 미발송)로 비교할지, 다중 처치 정책으로 어떻게 넘길지 정한다. 메일 전체 대 미발송은 처치 확률이 2/3라 class transformation에 재가중이 필요하다(`docs/THEORY.md` "Hillstrom 데이터 구조" 절). | M2 승인 지점 |
 | 금전 가치 변환 방식 | 주 결과는 `visit`인데, 이익 최대화형 정책과 모델 선택 기준(증분 이익)은 금액이 필요하다. 후보: (a) `spend` uplift를 따로 추정한다, (b) 방문 1회의 가치를 가정한다, (c) 순위는 `visit` 점수로 매기고 이익은 실제 `spend`의 IPW 추정으로만 평가한다. | M1 승인 지점 |
 
 ## 15. 하네스가 검사할 기준
@@ -169,7 +175,7 @@
 M0에서 `solo-harness:build`로 하네스를 세울 때 아래 기준을 거부 규칙, 검사 스크립트, 평가 루브릭으로 옮긴다.
 
 - 문서와 사이트 초안의 모든 수치는 스크립트가 만든 결과 파일에서 인용하고, 결과 파일 경로를 근거로 단다.
-- 분석과 학습은 노트북이 아니라 `src/` 모듈과 실행 스크립트로 재현한다.
+- 분석과 학습의 계산은 `src/` 모듈과 실행 스크립트로 재현한다. marimo 노트북은 그 함수를 불러 보이기만 한다(`docs/ENGINEERING.md`).
 - 시험 세트는 모델 선택이 끝난 뒤 한 번만 쓴다.
 - 분야 문서의 결정 절은 "결정 / 근거 / 기각한 대안"을 갖춘다.
 - 새 내부 용어는 `docs/glossary.md`에 있다.
