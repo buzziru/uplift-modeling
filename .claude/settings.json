@@ -52,5 +52,18 @@
       "Bash(gh api *--method=PATCH*)",
       "PowerShell(gh api *--method=PATCH*)"
     ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && PYTHONUTF8=1 uv run --quiet python .claude/harness/check_docs.py --hook"
+          }
+        ]
+      }
+    ]
   }
 }
