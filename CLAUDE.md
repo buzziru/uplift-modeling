@@ -7,13 +7,14 @@
 - 나눌 일이 worker보다 많으면 고정으로 나누지 않고, 끝난 worker가 다음 일을 가져간다.
 - 같은 지시를 두 번 받으면 스킬이나 규칙 후보로 기록한다.
 - 사용자가 고쳐 준 것은 그 자리에서 세션 맥락에 안내된 `record.mjs observe --source conversation`으로 남긴다.
+- 새 종류의 산출물은 앞부분을 먼저 보이고 피드백을 받은 뒤 나머지를 만든다.
 - 산출물을 바꾼 작업은 평가를, 모든 작업은 PR 전 검토(`pr-reviewer`)를 `run-evaluation` 스킬대로 받는다.
 - 되돌리기 어려운 대상은 명령을 막는 대신 대상 쪽(보호 설정, 복구 수단, 보관 위치)에서 지킨다. main은 GitHub branch protection, 프로덕션 배포는 Vercel Git 연동(main 병합 때만), 원본 데이터는 받는 스크립트와 체크섬, 비밀 값은 저장소 밖에 둔다.
 - 거부 규칙은 흔한 명령 꼴만 막는 첫 방어선이다. 같은 동작의 다른 명령 꼴을 찾아 규칙을 더하지 않는다.
 - 정본(SPEC.md, 분야 문서)의 내용을 하네스 파일에 옮겨 적지 않고 절 위치로 가리킨다.
 - 규칙을 새로 쓰거나 바꾸기 전에 같은 대상을 정하는 정본과 하네스 파일(범위는 아래 변경 이력 줄)을 먼저 읽는다. 용어나 규칙 표현을 바꾸면 바뀌기 전 표현을 저장소에서 검색해 남은 곳을 같은 커밋에서 고친다.
 - 이미 정의된 용어를 새 문장에 쓰면 정의를 가리킨다. 괄호로 다시 나열하거나 다른 말로 바꾸지 않는다.
-- 하네스 파일(이 절, `.claude/skills/`, `.claude/rules/`, `.claude/agents/`, `.claude/rubrics/`, 거부 규칙, `.claude/harness/config.json`)을 바꾸면 `.claude/harness/CHANGELOG.md`에 행을 더한다.
+- 하네스 파일(이 절, `.claude/skills/`, `.claude/rules/`, `.claude/agents/`, `.claude/rubrics/`, 거부 규칙, `.claude/harness/config.json`)을 바꾸면 `.claude/harness/CHANGELOG.md`에 행을 더한다. 아직 병합되지 않은 행은 새로 더하지 않고 고쳐 맞춘다.
 
 ### 승인 지점
 
