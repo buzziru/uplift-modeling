@@ -52,17 +52,18 @@
       run.py           src 호출, DuckDB 기록, artifacts 내보내기만 함
   analyses/            marimo 분석. 한 번 보고 판단하는 일(EDA, 결정에 쓰는 분석)
     ANA-001-<주제>.py
-  artifacts/           산출물. 코드와 나누고 폴더 이름은 ID만 씀
+  artifacts/           산출물. 코드와 나누고 폴더 이름은 실험·분석 ID만 씀(data/ 예외)
     EXP-001/           metrics.json, summary.md, figures/ 커밋. 예측 파일 커밋 안 함
     ANA-001/           figures/, tables/ 커밋. marimo HTML export 커밋 안 함
-    data/              데이터 명세 요약(profile.json). 커밋함
+    data/              적재 때 만든 명세 요약(profile.json)과 테이블 미리보기(tables.md). 커밋함
   data/                커밋 안 함. raw/*.parquet, uplift.duckdb
   scripts/             데이터 받기와 체크섬(fetch_data.py), DuckDB 적재(build_db.py)
   tests/
     baseline/          채택한 실행의 기준값 파일과 예측. 커밋함
   ```
 
-  - 실험 폴더 이름은 ID와 짧은 주제(`EXP-001-meta-learner-compare`)이고, 산출물 폴더 이름은 ID(`EXP-001`)만 쓴다.
+  - 실험 폴더 이름은 ID와 짧은 주제(`EXP-001-meta-learner-compare`)이고, 산출물 폴더 이름은 ID(`EXP-001`)만 쓴다. 실험·분석이 아닌 데이터 적재의 산출물은 `artifacts/data/`에 둔다.
+  - DuckDB 파일은 텍스트 편집기에서 열리지 않으므로 두 가지로 본다. 적재 때 만드는 `artifacts/data/tables.md`를 열거나, `uv run marimo edit analyses/ANA-000-data-browse.py`로 테이블을 둘러보고 SQL을 돌린다.
   - 나중에 참고할 분석 결과(그림, 표, 지표 요약)는 `artifacts/<ID>/`에 저장해 커밋한다. marimo는 실행 결과를 파일에 남기지 않기 때문이다. marimo HTML export와 예측 파일처럼 크고 다시 만들 수 있는 것은 커밋하지 않는다.
   - `experiment.md`는 실험 하나의 기록이다. 결정의 정본은 분야 문서이고, 결정 절의 근거가 실험 ID와 `artifacts/<ID>/` 파일을 가리킨다.
 - 근거: 사용자 지시(2026-11-23). SPEC.md 9절이 폴더 구조를 이 문서에 둔다.

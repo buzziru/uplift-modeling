@@ -16,4 +16,4 @@
 | OOF 예측 | 학습 세트 안 CV에서 각 고객을 그 고객이 빠진 fold로 학습한 모델로 예측한 값. 결합 가중치와 모델 비교에 쓰고 시험 세트는 쓰지 않는다. | `docs/MODELING.md` |
 | 실험(EXP) | `experiments/EXP-<번호>-<주제>/`에 설정과 실행 스크립트를 두고 다시 돌려 비교하는 모델 작업. | `docs/ENGINEERING.md` |
 | 분석(ANA) | `analyses/ANA-<번호>-<주제>.py` marimo 노트북에서 한 번 보고 판단하는 작업. | `docs/ENGINEERING.md` |
-| 산출물 폴더 | 실험과 분석의 결과 파일을 ID별로 두는 `artifacts/<ID>/`. 문서가 인용하는 수치의 근거 파일이 여기 있다. | `docs/ENGINEERING.md` |
+| 산출물 폴더 | 실험과 분석의 결과 파일을 ID별로 두는 `artifacts/<ID>/`와 데이터 적재 산출물을 두는 `artifacts/data/`. 문서가 인용하는 수치의 근거 파일이 여기 있다. | `docs/ENGINEERING.md` |
