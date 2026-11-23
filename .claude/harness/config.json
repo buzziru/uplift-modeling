@@ -4,7 +4,8 @@
     "uv run ruff format --check .",
     "uv run pyright",
     "uv run pytest",
-    "uv run marimo check analyses"
+    "uv run marimo check analyses",
+    "uv run python .claude/harness/check_docs.py"
   ],
   "axes": {
     "독자": [
