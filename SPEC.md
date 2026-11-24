@@ -34,7 +34,7 @@
 - 기준선: 무작위 타기팅, 전체 발송, 반응 모델(메일을 받았을 때 방문할 확률로 대상을 고르는 모델).
 - 방법론 후보, 부품 모델(기본 LightGBM)과 비교 순서, 결합 후보: `docs/MODELING.md`. 이론 배경은 `docs/THEORY.md`.
 - 다중 처치: 처치별 효과를 추정한 뒤 고객마다 효과가 가장 큰 행동을 고른다.
-- GPU 없이 로컬 CPU에서 시작한다. 필요해지면 Colab이나 Kaggle을 검토한다.
+- 실행 환경: `docs/ENGINEERING.md` "본학습, HPO, GPU 실행은 Kaggle kernel에서 하고 나머지는 로컬에서 한다" 절.
 
 ## 5. 평가
 
@@ -98,6 +98,7 @@
   | --- | --- |
   | 처음부터 | unit test, 지표 함수의 property-based test(`hypothesis`) |
   | 첫 파이프라인이 돌 때 | integration test |
+  | 첫 uplift 추정량을 만들 때 | 효과를 미리 심은 합성 데이터에서 추정량이 그 효과를 되찾는지 보는 test |
   | 첫 기준선 모델을 채택한 뒤 | regression test(기준값 파일과 허용 오차로 비교) |
   | 대시보드가 나온 뒤 | e2e test(Playwright) |
 
@@ -118,7 +119,7 @@
 | `docs/EVALUATION.md` | Qini, AUUC, 정책 가치, 검증 전략, 신뢰구간 | 성능 화면 |
 | `docs/POLICY.md` | 타기팅 정책, 비용 가정, 민감도, 세그먼트 규칙 | 핵심 성과 문장 |
 | `docs/DASHBOARD.md` | 화면 구성, 지표 선택 | 데모 |
-| `docs/ENGINEERING.md` | 저장 형식, 폴더 구조, 테스트, 품질 도구, CI, 배포 | 재현 |
+| `docs/ENGINEERING.md` | 저장 형식, 폴더 구조, 실험 기록 양식, 실행 환경, 테스트, 품질 도구, CI, 배포 | 재현 |
 | `docs/NARRATIVE.md` | 사이트 항목 초안, 성과 문장, 한계, 배운 점 | 사이트와 deck |
 | `docs/THEORY.md` | 결정 없음. 이론 배경 | 방법론 설명, 기술 면접 대비 |
 
