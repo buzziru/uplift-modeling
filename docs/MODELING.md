@@ -8,7 +8,8 @@
 ## 2026-11-23 방법론을 먼저 같은 부품 모델로 비교해 정하고, 그다음 부품 모델 알고리즘을 비교한다
 
 - 결정:
-  - 방법론 후보는 S-learner, T-learner, X-learner, DR-learner, class transformation, transformed outcome, uplift random forest(`causalml`)다. 각 방법의 정의는 `docs/THEORY.md` "대표 방법" 절을 출발점으로 삼는다.  - class transformation과 transformed outcome은 이진 처치를 전제한다. 어느 이진 정의로 비교할지는 SPEC.md 14절 미결 사항이고 M2 승인 지점에서 닫는다.
+  - 방법론 후보는 S-learner, T-learner, X-learner, DR-learner, class transformation, transformed outcome, uplift random forest(`causalml`)다. 각 방법의 정의는 `docs/THEORY.md` "대표 방법" 절을 출발점으로 삼는다.
+  - class transformation과 transformed outcome은 이진 처치를 전제한다. 어느 이진 정의로 비교할지는 SPEC.md 14절 미결 사항이고 M2 승인 지점에서 닫는다.
   - 1단계: 부품 모델을 LightGBM으로 고정하고 방법론끼리 비교해 방법론을 정한다. uplift random forest는 자체 트리를 쓰므로 부품 모델이 없다.
   - 2단계: 정한 방법론 안에서 부품 모델 알고리즘을 비교한다.
   - 1단계의 방법론 결정과 2단계의 최종 선택은 모두 SPEC.md 11절 "모델 선택" 승인 지점이다. 비교 결과를 붙여 승인을 받는다. 선택 기준은 `docs/EVALUATION.md` "모델은 학습 세트 OOF 예측의 visit 정책 가치로 고르고 seed 세 개의 변동으로 흔들림을 본다" 절이다.

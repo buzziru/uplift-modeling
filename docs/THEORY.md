@@ -159,7 +159,7 @@ Uplift random forest는 <mark>처치군과 대조군의 결과 분포 차이가 
 
 Uplift tree의 분기 기준은 일반 결정 트리와 다르다. 일반 트리는 자식 노드 안의 결과가 고르게 되도록 나누지만, uplift tree는 자식 노드에서 처치군과 대조군의 결과 분포가 서로 달라지도록 나눈다 (Rzepakowski & Jaroszewicz, 2012). 분포 차이는 KL divergence, 제곱 유클리드 거리, 카이제곱 divergence로 재고, 나누기 전보다 차이가 얼마나 커졌는지를 이득으로 쓴다. 잎의 uplift는 그 잎 안 처치군 응답률에서 대조군 응답률을 뺀 값이다. 원 논문은 처치가 여럿인 경우로 넓혀, 각 처치와 대조군의 차이와 처치끼리의 차이를 가중합한 분포 차이를 쓴다(5절).
 
-Forest는 트리마다 학습 데이터의 일부를 뽑고, 분기마다 특성 일부만 후보로 두어 트리들이 서로 달라지게 한다 (Guelman et al., 2014). 같은 저자들은 일반 random forest의 bootstrap 대신 비복원으로 일부를 뽑았다. 이 프로젝트가 쓰는 `causalml`의 `UpliftRandomForestClassifier`는 처치 군을 여럿 받아 처치마다 uplift를 내고, 분기 기준으로 KL, ED, Chi 등을 고른다 (causalml 문서).
+Forest는 트리마다 학습 데이터의 일부를 뽑고, 분기마다 특성 일부만 후보로 두어 트리들이 서로 달라지게 한다 (Guelman et al., 2014). 같은 저자들은 일반 random forest의 bootstrap 대신 비복원으로 일부를 뽑았다. 이 프로젝트가 쓰는 `causalml`의 `UpliftRandomForestClassifier`는 처치 군을 여럿 받아 처치마다 uplift를 내고, 분기 기준으로 KL, ED, Chi 등을 고른다 (causalml, 2026).
 
 ### 비교
 
@@ -170,10 +170,10 @@ Forest는 트리마다 학습 데이터의 일부를 뽑고, 분기마다 특성
 | X-learner            | 없음(무작위 실험)        | 군 크기가 불균형해도 강함           | 모델 넷과 가중치 $g$를 정해야 함 | 한 군이 다른 군보다 훨씬 클 때         |
 | Class transformation | 이진 결과, 처치 확률 1/2 | 분류기 하나로 바로 학습             | 가정이 깨지면 재가중 필요        | 균형 잡힌 이진 결과 실험               |
 | Transformed outcome  | 처치 확률 $p$를 앎       | 불균형과 연속 결과에도 사용         | 변환한 결과의 분산이 큼          | 불균형 실험, 연속 결과                 |
-| DR-learner           | 처치 확률을 앎(무작위 실험) | transformed outcome보다 분산이 작음 | 표본을 나눠 모델 셋을 학습해야 함 | 처치 확률을 아는 실험에서 분산을 줄일 때 |
+| DR-learner           | 처치 확률을 앎(무작위 실험) | transformed outcome보다 분산이 작음 | 표본을 나눠 결과 모델 둘과 최종 회귀를 학습해야 함 | 처치 확률을 아는 실험에서 분산을 줄일 때 |
 | Uplift random forest | 없음(무작위 실험)        | 부품 모델 없이 여러 처치를 직접 다룸 | 잎마다 두 군이 있어야 해 데이터가 많이 듦 | 처치가 여럿인 실험                     |
 
-표: 대표 방법 비교 (Künzel et al., 2019; Gutierrez & Gérardy, 2017; Jaśkowski & Jaroszewicz, 2012; Athey & Imbens, 2016; Kennedy, 2023; Rzepakowski & Jaroszewicz, 2012). 마지막 행의 분산은 $Y^*$가 $1/p$, $1/(1 - p)$배로 커지는 데서 온 판단이다.
+표: 대표 방법 비교 (Künzel et al., 2019; Gutierrez & Gérardy, 2017; Jaśkowski & Jaroszewicz, 2012; Athey & Imbens, 2016; Kennedy, 2023; Rzepakowski & Jaroszewicz, 2012). 마지막 행의 분산은 $Y^*$가 $1/p$, $1/(1 - p)$배로 커지는 데서 온 판단이다. Uplift random forest 행의 약점은 잎마다 처치군과 대조군의 응답률을 따로 구하는 데서 온 판단이다.
 
 ## 평가
 
@@ -241,6 +241,7 @@ S·T·X-learner, DR-learner와 Qini curve는 처치 확률이 1/2이라는 가�
 ## 참고문헌
 
 - Athey, S., & Imbens, G. W. (2016). Recursive partitioning for heterogeneous causal effects. Proceedings of the National Academy of Sciences, 113(27), 7353-7360. https://doi.org/10.1073/pnas.1510489113
+- causalml. (2026). UpliftRandomForestClassifier, causalml 0.18.0 documentation. Retrieved 2026-11-24, from https://causalml.readthedocs.io/en/stable/causalml.html
 - Devriendt, F., Van Belle, J., Guns, T., & Verbeke, W. (2022). Learning to rank for uplift modeling. IEEE Transactions on Knowledge and Data Engineering, 34(10), 4888-4904. https://doi.org/10.1109/TKDE.2020.3048510
 - Gutierrez, P., & Gérardy, J.-Y. (2017). Causal inference and uplift modelling: A review of the literature. Proceedings of Machine Learning Research, 67, 1-13. https://proceedings.mlr.press/v67/gutierrez17a.html
 - Hillstrom, K. (2008, March 20). The MineThatData e-mail analytics and data mining challenge. MineThatData. https://blog.minethatdata.com/2008/03/minethatdata-e-mail-analytics-and-data.html
