@@ -1,26 +1,3 @@
-"""문서와 하네스 파일의 정합 검사.
-
-- 없는 절 가리키기(오류): `경로` "제목" 절, SPEC.md N절이 실제 제목을 가리키는지 본다.
-- 사본 문장(알림): 새로 쓴 문장이 다른 문장과 거의 같은지 본다.
-- 지운 표현이 남은 곳(알림): 지운 따옴표·백틱 표현이 다른 파일에 남았는지 본다.
-- 이미 쓰는 낱말의 새 정의(알림): "X은/는 ...이다" 꼴의 X가 이미 다른 곳에 쓰이는지 본다.
-- 기록 문서 인용(오류): `docs/` 밖의 파일이 기록 문서의 절이나 항목을 가리키는지 본다(SPEC.md 10절).
-- SPEC.md의 위치 줄(오류): 10절 밖에서 "정본:", "기록:" 줄이나 파일 경로를 쓰는지 본다(SPEC.md 머리말, 예외는 10절 끝 문단).
-- SPEC.md 변경(알림): 브랜치가 SPEC.md를 바꿨는지 알린다. 그 작업의 승인 요청이나 보고에 함께 적는다(CLAUDE.md 프로젝트 절).
-- 바뀐 이력 비율(알림): `docs/` 문서에서 바뀐 이력 줄이 전체 줄의 20%를 넘는지 본다(CLAUDE.md 프로젝트 절).
-- 위치 참조(알림): "첫 절", "마지막 행", "위 절"처럼 순서로 가리키는지 본다. 순서가 바뀌면 다른 곳을 가리킨다.
-- 마크다운 구조(알림): 목록 두 항목이 한 줄에 붙었는지, 빈 줄이 둘 이상 이어지는지 본다.
-- 문체와 항목 형식(알림): "~한 것은" 꼴의 분열문, 기록 문서의 "기각한 대안: 없음"을 본다.
-- 참고문헌 대조(오류): `docs/THEORY.md` 본문의 (저자, 연도) 인용이 참고문헌 절에 있는지 본다.
-- 참조 자동 수정(--fix): 브랜치에서 이름만 바뀐 절 제목을 가리키는 `경로` "제목" 절 참조를 검사 범위(SCOPE, INBOUND) 파일에서 고친다.
-- SPEC.md 절 번호 변경(알림): 브랜치에서 SPEC.md 절 번호가 밀렸으면 옛 번호와 새 번호를 알린다. 번호 참조는 사람이 고친다.
-
-실행:
-  uv run python .claude/harness/check_docs.py           브랜치 변경(origin/main...HEAD) 검사, 오류면 exit 1
-  uv run python .claude/harness/check_docs.py --hook    PostToolUse hook. stdin의 Edit/Write/MultiEdit 입력만 검사
-  uv run python .claude/harness/check_docs.py --fix     이름만 바뀐 절 제목의 참조를 고친다. 평가·검토 전에 돌린다
-"""
-
 import json
 import re
 import subprocess
@@ -185,7 +162,6 @@ def check_refs(text: str) -> list[str]:
 
 
 def check_copies(new_text: str, path: str) -> list[str]:
-    """새 문장이 다른 파일의 문장과 거의 같거나, 같은 파일 안에 두 번 이상 있으면 알린다."""
     warnings = []
     for f in scope_files():
         same_file = rel(f) == path
@@ -377,10 +353,6 @@ def git_text(*args: str) -> str:
 
 
 def heading_renames(diff: str) -> list[tuple[str, str, str]]:
-    """제목 줄 하나만 바뀐 hunk를 (경로, 옛 제목, 새 제목)으로 본다.
-
-    다른 줄이 함께 바뀐 hunk는 이름 바꿈으로 보지 않는다.
-    """
     renames = []
     for chunk in re.split(r"^diff --git ", diff, flags=re.MULTILINE)[1:]:
         m = re.search(r"^\+\+\+ b/(.+)$", chunk, re.MULTILINE)
