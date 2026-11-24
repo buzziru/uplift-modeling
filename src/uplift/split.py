@@ -1,6 +1,6 @@
 """학습·시험 분할과 학습 세트의 seed별 CV fold.
 
-결정은 docs/DATA.md "처치 x 깔때기 단계로 층화해 학습 70%, 시험 30%로 한 번 나누고, 학습 세트에 seed 세 개로 5-fold를 매긴다" 절.
+결정은 docs/DATA.md "처치 x 깔때기 단계로 층화해 학습 70%, 시험 30%로 한 번 나누고, 학습 세트에서 5-fold CV를 seed 42, 154, 1592로 세 번 반복한다" 절.
 """
 
 from pathlib import Path
