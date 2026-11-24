@@ -1,0 +1,50 @@
+import importlib.util
+from pathlib import Path
+
+import pytest
+
+SPEC = importlib.util.spec_from_file_location(
+    "check_docs", Path(__file__).resolve().parents[1] / ".claude" / "harness" / "check_docs.py"
+)
+assert SPEC and SPEC.loader
+check_docs = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(check_docs)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        '`docs/DATA.md` "처치 x 깔때기 단계로 층화한다" 절',
+        "`docs/ENGINEERING.md` DuckDB 절",
+        "규칙은 docs/DATA.md 적재 절.",
+        "`docs/EVALUATION.md`의 모델 선택 항목",
+    ],
+)
+def test_check_inbound_flags_record_citations(text):
+    assert check_docs.check_inbound(text, "x.md")
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "| `docs/PROBLEM.md` | 비즈니스 질문, 성공 기준 | 사이트 항목의 문제 문장 |",
+        '`docs/THEORY.md` "Hillstrom 데이터 구조" 절',
+        "`docs/glossary.md`의 기록 문서 항목",
+        "기록: `docs/DASHBOARD.md`(화면)",
+    ],
+)
+def test_check_inbound_allows_non_citations(text):
+    assert check_docs.check_inbound(text, "x.md") == []
+
+
+def test_history_ratio_counts_history_block_lines():
+    text = (
+        "## 2026-11-24 제목\n- 결정: a\n- 근거: b\n- 바뀐 이력:\n"
+        "  - 2026-11-24: c\n  - 2026-11-25: d\n\n"
+        "## 2026-11-25 다른 제목\n- 결정: e\n  - 하위 줄"
+    )
+    assert check_docs.history_ratio(text) == pytest.approx(3 / 9)
+
+
+def test_history_ratio_is_zero_without_history():
+    assert check_docs.history_ratio("## 제목\n- 결정: a\n") == 0.0

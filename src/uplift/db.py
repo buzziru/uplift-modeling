@@ -1,7 +1,4 @@
-"""원본 Hillstrom 데이터를 분석 테이블로 나누고 DuckDB에 적재한다.
-
-테이블 구성은 docs/DATA.md "분석 데이터는 데이터 구조와 분석 목적에 따라 테이블로 나눈다" 절을 따른다.
-"""
+"""원본 Hillstrom 데이터를 분석 테이블로 나누고 DuckDB에 적재한다."""
 
 from pathlib import Path
 
@@ -76,10 +73,7 @@ def category_fix_counts(raw: pd.DataFrame) -> dict:
 
 
 def check_tables(tables: dict[str, pd.DataFrame]) -> list[str]:
-    """키, 허용값과 범위, 깔때기 규칙을 확인하고 위반을 돌려준다.
-
-    규칙은 docs/DATA.md "적재 때 키, 허용값과 범위, 깔때기, 분할 규칙을 확인하고 어긋나면 적재를 멈춘다" 절.
-    """
+    """키, 허용값과 범위, 깔때기 규칙을 확인하고 위반을 돌려준다."""
     customers, outcomes = tables["customers"], tables["outcomes"]
     errors = []
     ids = customers["customer_id"]

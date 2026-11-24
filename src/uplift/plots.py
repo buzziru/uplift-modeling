@@ -1,4 +1,4 @@
-"""분석 그림. 스타일 결정은 docs/ENGINEERING.md 시각화 절."""
+"""분석 그림(seaborn)."""
 
 import matplotlib.pyplot as plt
 import pandas as pd

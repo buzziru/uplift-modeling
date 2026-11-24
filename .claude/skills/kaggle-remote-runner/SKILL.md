@@ -5,11 +5,18 @@ description: 로컬에서 개발한 실험의 본학습, HPO, GPU 실행을 Kagg
 
 # Kaggle 원격 실행
 
-로컬이 개발 환경이고 Kaggle은 실행기다. 무엇을 어디서 돌리는지는 `docs/ENGINEERING.md` "본학습, HPO, GPU 실행은 Kaggle kernel에서 하고 나머지는 로컬에서 한다" 절이 정본이다. Kaggle 실행도 실험 하나의 실행이므로 `experiments/TEMPLATE.md` 양식을 그대로 따른다.
+로컬이 개발 환경이고 Kaggle은 실행기다. Kaggle 실행도 실험 하나의 실행이므로 `experiments/TEMPLATE.md` 양식을 그대로 따른다.
+
+## 어디서 돌리나
+
+- 로컬: 작은 실험과 디버깅, EDA, 데이터 검증, feature engineering, 모델 평가와 분석. 시험 세트 평가도 로컬에서 한다.
+- Kaggle: 모델의 본학습과 HPO는 모두 Kaggle kernel에서 돌린다. 기본은 CPU kernel이고, LightGBM이 여기에 든다. XGBoost, CatBoost처럼 GPU로 학습 시간이 줄어드는 모델만 GPU kernel을 쓴다.
+- Kaggle에는 학습 세트와 `folds`만 비공개 dataset으로 올리고 시험 세트는 올리지 않는다. 원격 HPO가 시험 세트를 읽을 수 없게 하기 위해서다.
+- kernel은 GitHub에 푸시한 커밋을 받아 `uv.lock`대로 환경을 만들어 돈다. Kaggle에는 DuckDB 파일이 없으므로 `run.py`가 DuckDB 대신 출력 폴더에 쓰고, 받아 온 출력을 로컬 스크립트가 DuckDB에 실행으로 적는다.
 
 ## 지키는 것
 
-올리는 데이터와 돌리는 커밋의 범위는 위 ENGINEERING.md 절을 따른다. 그 결정에서 나오는 실행 규칙은 다음과 같다.
+올리는 데이터와 돌리는 커밋의 범위는 위 절을 따른다. 거기서 나오는 실행 규칙은 다음과 같다.
 
 - kernel을 push하기 전에, GitHub에 푸시한 커밋에 `experiment.md`의 질문과 설계 절이 있는지 본다. 없으면 kernel을 push하지 않는다. kernel이 푸시한 커밋에서만 돌므로, 이 확인 하나로 설계 절이 결과보다 먼저 커밋된다.
 - dataset 폴더에 시험 세트 파일이 있으면 올리지 않는다.
@@ -18,7 +25,7 @@ description: 로컬에서 개발한 실험의 본학습, HPO, GPU 실행을 Kagg
 
 ## kernel 종류
 
-어느 모델을 어느 kernel에서 돌릴지는 위 ENGINEERING.md 절이 정한다. 종류에 따라 다른 것은 셋이다.
+어느 모델을 어느 kernel에서 돌릴지는 "어디서 돌리나" 절이 정한다. 종류에 따라 다른 것은 셋이다.
 
 | | CPU kernel | GPU kernel |
 | --- | --- | --- |
@@ -41,7 +48,7 @@ GPU kernel은 `uv.lock`에 든 라이브러리 휠의 GPU 지원에 기댄다. �
 
 작업 폴더는 `data/kaggle/dataset/`다(`data/`는 커밋하지 않는다).
 
-1. 처음: `K datasets init -p data/kaggle/dataset`로 `dataset-metadata.json`을 만들고 `id`를 `<KAGGLE_USERNAME>/uplift-hillstrom-train`으로, `title`을 기본값에서 `uplift-hillstrom-train`으로 고친다. DuckDB에서 `splits`가 학습인 고객의 분석용 행(특성, 처치, 결과)과 `folds` 테이블(`docs/DATA.md` 테이블 절)을 Parquet로 내보내 같은 폴더에 둔다. 시험 세트 고객은 넣지 않는다. 내보낼 열은 첫 Kaggle 실험(M2)에서 정한다.
+1. 처음: `K datasets init -p data/kaggle/dataset`로 `dataset-metadata.json`을 만들고 `id`를 `<KAGGLE_USERNAME>/uplift-hillstrom-train`으로, `title`을 기본값에서 `uplift-hillstrom-train`으로 고친다. DuckDB에서 `splits`가 학습인 고객의 분석용 행(특성, 처치, 결과)과 `folds` 테이블(`src/uplift/split.py`)을 Parquet로 내보내 같은 폴더에 둔다. 시험 세트 고객은 넣지 않는다. 내보낼 열은 첫 Kaggle 실험(M2)에서 정한다.
 2. 올리기: `K datasets create -p data/kaggle/dataset -t -q`. `-t`는 Parquet를 CSV로 바꾸지 않게 한다. `-u`를 붙이지 않는다.
 3. 분할이나 fold가 바뀌면 `K datasets version -p data/kaggle/dataset -t -q -m "<분할 시드, 행 수, 커밋>"`.
 4. `K datasets status <id>`가 ready인지 본 뒤 kernel을 push한다.
@@ -87,7 +94,7 @@ sh(f"git clone -q https://github.com/buzziru/uplift-modeling.git /tmp/repo && gi
 sh(f"cd /tmp/repo && uv run --frozen python experiments/{EXP}/run.py --data {DATA} --out /kaggle/working")
 ```
 
-`run.py`가 `--data`, `--out`을 받아 설정, 지표, 예측을 출력 폴더에 쓰는 형식과, 받아 온 출력을 DuckDB에 실행으로 적는 스크립트는 첫 Kaggle 실험(M2)에서 만들고 `docs/ENGINEERING.md`에 적는다.
+`run.py`가 `--data`, `--out`을 받아 설정, 지표, 예측을 출력 폴더에 쓰는 형식과, 받아 온 출력을 DuckDB에 실행으로 적는 스크립트는 첫 Kaggle 실험(M2)에서 만들고 이 스킬과 `scripts/CLAUDE.md`에 적는다.
 
 순서:
 
@@ -96,4 +103,4 @@ sh(f"cd /tmp/repo && uv run --frozen python experiments/{EXP}/run.py --data {DAT
 3. `K kernels push -p data/kaggle/<EXP-ID> -t <초>`에 kernel 종류 절의 push 옵션을 붙인다. 출력에 찍힌 kernel 버전을 적어 둔다.
 4. `K kernels status <id>`를 몇 분 간격으로 본다. 로그는 `K kernels logs <id>`로 보고, 계속 볼 때는 `--follow --interval 30` 이상으로 둔다.
 5. 끝나면 `K kernels output <id>/<버전> -p data/kaggle/<EXP-ID>/output/v<버전>`로 받는다.
-6. 받은 출력을 `docs/ENGINEERING.md`의 "본학습, HPO, GPU 실행은 Kaggle kernel에서 하고 나머지는 로컬에서 한다" 절과 "분석 데이터와 실험 기록은 DuckDB 파일 하나에 두고 이것을 정본으로 한다" 절대로 기록한다.
+6. 받은 출력을 "어디서 돌리나" 절과 `scripts/CLAUDE.md`대로 DuckDB에 실행으로 기록한다.
