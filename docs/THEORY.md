@@ -65,7 +65,7 @@ $$
 
 ## 대표 방법
 
-대표 방법은 두 갈래다. 하나는 기존 회귀·분류 모델을 조합해 $\tau(x)$를 추정하는 메타러너(meta-learner)로, S-learner, T-learner, X-learner가 여기에 든다 (Künzel et al., 2019). 메타러너에는 처치 확률로 보정한 대리 결과를 학습하는 DR-learner도 든다 (Kennedy, 2023). 다른 하나는 레이블을 바꿔 분류기 하나로 uplift를 학습하는 class transformation이다 (Jaśkowski & Jaroszewicz, 2012). 이 밖에 트리의 분기 기준을 바꿔 uplift를 직접 학습하는 uplift random forest가 있다 (Rzepakowski & Jaroszewicz, 2012; Guelman et al., 2015). Künzel et al. (2019)의 시뮬레이션에서 어느 메타러너도 모든 경우에 가장 좋지는 않았으므로, 방법은 데이터의 조건에 맞춰 고른다. 절 끝의 비교 표에 조건을 모았다.
+대표 방법은 세 갈래다. 첫째는 기존 회귀·분류 모델을 조합해 $\tau(x)$를 추정하는 메타러너(meta-learner)로, S-learner, T-learner, X-learner가 여기에 든다 (Künzel et al., 2019). 메타러너에는 처치 확률로 보정한 대리 결과를 학습하는 DR-learner도 든다 (Kennedy, 2023). 둘째는 레이블을 바꿔 분류기 하나로 uplift를 학습하는 class transformation이다 (Jaśkowski & Jaroszewicz, 2012). 셋째는 트리의 분기 기준을 바꿔 uplift를 직접 학습하는 uplift random forest다 (Rzepakowski & Jaroszewicz, 2012; Guelman et al., 2015). Künzel et al. (2019)의 시뮬레이션에서 어느 메타러너도 모든 경우에 가장 좋지는 않았으므로, 방법은 데이터의 조건에 맞춰 고른다. 절 끝의 비교 표에 조건을 모았다.
 
 ### S-learner
 
@@ -145,9 +145,9 @@ $$
 
 앞 두 항은 T-learner의 추정이고, 뒤 두 항은 그 추정이 관측 결과와 어긋난 만큼을 처치 확률로 나눠 되돌리는 보정이다. 무작위 실험에서 $\hat\pi = \pi$이면 $E[\varphi \mid X] = \tau(X)$이고, 이는 결과 모델이 틀려도 성립한다. 단계는 셋이다.
 
-1. 셋째 항: $W = 1$일 확률이 $\pi(X)$이고 그때만 항이 0이 아니므로 $E\left[\frac{W(Y - \hat\mu_1(X))}{\pi(X)} \,\middle|\, X\right] = \pi(X) \cdot \frac{E[Y \mid X, W = 1] - \hat\mu_1(X)}{\pi(X)} = \mu_1(X) - \hat\mu_1(X)$다.
+1. 셋째 항: $W = 1$일 확률이 $\pi(X)$이고 그때만 항이 0이 아니다. 무작위 배정이면 $E[Y \mid X, W = 1] = \mu_1(X)$이므로 $E\left[\frac{W(Y - \hat\mu_1(X))}{\pi(X)} \,\middle|\, X\right] = \pi(X) \cdot \frac{E[Y \mid X, W = 1] - \hat\mu_1(X)}{\pi(X)} = \mu_1(X) - \hat\mu_1(X)$다.
 2. 넷째 항: 같은 방법으로 $W = 0$일 확률 $1 - \pi(X)$를 곱하면 $\mu_0(X) - \hat\mu_0(X)$다.
-3. 세 값을 더한다: $\hat\mu_1 - \hat\mu_0 + (\mu_1 - \hat\mu_1) - (\mu_0 - \hat\mu_0) = \mu_1(X) - \mu_0(X)$이고, 무작위 배정이면 이것이 $\tau(X)$다(앞 절의 transformed outcome과 같은 이유).
+3. 세 값을 더한다: $\hat\mu_1 - \hat\mu_0 + (\mu_1 - \hat\mu_1) - (\mu_0 - \hat\mu_0) = \mu_1(X) - \mu_0(X) = \tau(X)$다.
 
 결과 모델을 0으로 두면 $\varphi$는 앞 절의 transformed outcome $Y^*$와 같다. 결과 모델이 $Y$를 잘 맞힐수록 $Y - \hat\mu$가 작아져 처치 확률로 나누는 항의 분산이 줄어든다. 그래서 DR-learner는 transformed outcome의 큰 분산을 결과 모델로 줄인 방법으로 읽을 수 있다.
 
@@ -243,16 +243,16 @@ S·T·X-learner, DR-learner와 Qini curve는 처치 확률이 1/2이라는 가�
 - Athey, S., & Imbens, G. W. (2016). Recursive partitioning for heterogeneous causal effects. Proceedings of the National Academy of Sciences, 113(27), 7353-7360. https://doi.org/10.1073/pnas.1510489113
 - causalml. (2026). UpliftRandomForestClassifier, causalml 0.18.0 documentation. Retrieved 2026-11-24, from https://causalml.readthedocs.io/en/stable/causalml.html
 - Devriendt, F., Van Belle, J., Guns, T., & Verbeke, W. (2022). Learning to rank for uplift modeling. IEEE Transactions on Knowledge and Data Engineering, 34(10), 4888-4904. https://doi.org/10.1109/TKDE.2020.3048510
-- Gutierrez, P., & Gérardy, J.-Y. (2017). Causal inference and uplift modelling: A review of the literature. Proceedings of Machine Learning Research, 67, 1-13. https://proceedings.mlr.press/v67/gutierrez17a.html
-- Hillstrom, K. (2008, March 20). The MineThatData e-mail analytics and data mining challenge. MineThatData. https://blog.minethatdata.com/2008/03/minethatdata-e-mail-analytics-and-data.html
 - Guelman, L., Guillén, M., & Pérez-Marín, A. M. (2014). Optimal personalized treatment rules for marketing interventions: A review of methods, a new proposal, and an insurance case study (UB Riskcenter Working Paper 2014/06). University of Barcelona. http://www.ub.edu/rfa/research/WP/UBriskcenterWP201406.pdf
 - Guelman, L., Guillén, M., & Pérez-Marín, A. M. (2015). Uplift random forests. Cybernetics and Systems, 46(3-4), 230-248. https://doi.org/10.1080/01969722.2015.1012892
+- Gutierrez, P., & Gérardy, J.-Y. (2017). Causal inference and uplift modelling: A review of the literature. Proceedings of Machine Learning Research, 67, 1-13. https://proceedings.mlr.press/v67/gutierrez17a.html
+- Hillstrom, K. (2008, March 20). The MineThatData e-mail analytics and data mining challenge. MineThatData. https://blog.minethatdata.com/2008/03/minethatdata-e-mail-analytics-and-data.html
 - Holland, P. W. (1986). Statistics and causal inference. Journal of the American Statistical Association, 81(396), 945-960. https://doi.org/10.1080/01621459.1986.10478354
 - Jaśkowski, M., & Jaroszewicz, S. (2012). Uplift modeling for clinical trial data. ICML 2012 Workshop on Machine Learning for Clinical Data Analysis. https://people.cs.pitt.edu/~milos/icml_clinicaldata_2012/Papers/Oral_Jaroszewitz_ICML_Clinical_2012.pdf
 - Kennedy, E. H. (2023). Towards optimal doubly robust estimation of heterogeneous causal effects. Electronic Journal of Statistics, 17(2), 3008-3049. https://doi.org/10.1214/23-EJS2157
 - Künzel, S. R., Sekhon, J. S., Bickel, P. J., & Yu, B. (2019). Metalearners for estimating heterogeneous treatment effects using machine learning. Proceedings of the National Academy of Sciences, 116(10), 4156-4165. https://doi.org/10.1073/pnas.1804597116
 - Radcliffe, N. J. (2007). Generating incremental sales: Maximizing the incremental impact of cross-selling, up-selling and deep-selling through uplift modelling [White paper]. Stochastic Solutions. https://stochasticsolutions.com/pdf/CrossSell.pdf
 - Radcliffe, N. J., & Surry, P. D. (2011). Real-world uplift modelling with significance-based uplift trees (Portrait Technical Report TR-2011-1). Stochastic Solutions. https://stochasticsolutions.com/pdf/sig-based-up-trees.pdf
-- Rzepakowski, P., & Jaroszewicz, S. (2012). Decision trees for uplift modeling with single and multiple treatments. Knowledge and Information Systems, 32(2), 303-327. https://doi.org/10.1007/s10115-011-0434-0
 - Rubin, D. B. (1974). Estimating causal effects of treatments in randomized and nonrandomized studies. Journal of Educational Psychology, 66(5), 688-701. https://doi.org/10.1037/h0037350
+- Rzepakowski, P., & Jaroszewicz, S. (2012). Decision trees for uplift modeling with single and multiple treatments. Knowledge and Information Systems, 32(2), 303-327. https://doi.org/10.1007/s10115-011-0434-0
 - Surry, P. D., & Radcliffe, N. J. (2011). Quality measures for uplift models. KDD 2011. https://stochasticsolutions.com/pdf/kdd2011late.pdf
