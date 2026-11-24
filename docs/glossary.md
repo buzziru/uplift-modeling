@@ -20,3 +20,5 @@
 | 설계 절 | `experiment.md`에서 질문을 무엇으로 재고 결과를 어떻게 판단할지 결과를 보기 전에 적어 커밋하는 절. 항목은 `experiments/TEMPLATE.md` 설계 절. | `experiments/TEMPLATE.md` |
 | 판정 규칙 | 결과를 보기 전에 정하는, 어떤 결과면 무엇을 할지의 규칙. 쓰는 법은 `experiments/TEMPLATE.md` 설계 절. | `experiments/TEMPLATE.md` |
 | 이미 본 것 | 판정 규칙을 정하기 전에 본 데이터와 결과. 결과를 본 뒤 정한 규칙을 미리 정한 규칙과 구분하게 한다. | `experiments/TEMPLATE.md` |
+| 깔때기 단계 | 고객의 결과를 방문 안 함, 방문만, 구매의 세 단계로 나눈 값. 구매하면 늘 방문했으므로 `visit`과 `conversion`을 한 변수로 센다. 분할의 층화에 쓴다. | `docs/DATA.md` |
+| 판정 기준의 비용 | 판정 규칙 때문에 잃는 것. 구간으로 판정하면 구간 반폭보다 작은 실제 개선을 "크다"로 판정하지 못한다. | `docs/PROBLEM.md` |

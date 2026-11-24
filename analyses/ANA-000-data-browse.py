@@ -57,22 +57,5 @@ def _(con, mo, table_name):
     return
 
 
-@app.cell
-def _(con, mo):
-    mo.sql(
-        """
-        SELECT t.name, count(*) AS n, avg(o.visit) AS visit_rate,
-               avg(o.conversion) AS conversion_rate, avg(o.spend) AS spend_mean
-        FROM assignments a
-        JOIN outcomes o USING (customer_id)
-        JOIN treatments t USING (treatment_id)
-        GROUP BY t.name
-        ORDER BY t.name
-        """,
-        engine=con,
-    )
-    return
-
-
 if __name__ == "__main__":
     app.run()

@@ -12,6 +12,9 @@ __pycache__/
 artifacts/**/*.parquet
 artifacts/**/*.html
 
+# marimo 실행 캐시
+__marimo__/
+
 # 기타
 .env
 .env.*
