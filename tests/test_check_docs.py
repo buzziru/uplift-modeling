@@ -61,11 +61,13 @@ def test_check_spec_flags_location_lines_outside_section_10():
         "## 3. 데이터\n\n기록: `docs/DATA.md`\n"
         "- 분할: `scripts/splits.yaml`, `src/uplift/split.py`.\n"
         "## 10. 문서 체계\n\n실험 양식은 `experiments/TEMPLATE.md`가 정본이다.\n"
-        "## 14. 미결 사항\n\n(`docs/THEORY.md` 절)\n"
+        "## 14. 미결 사항\n\n(`docs/THEORY.md` 절)\n정본: `src/uplift/policy.py`\n"
     )
     assert check_docs.check_spec(text) == [
         "SPEC.md 3줄: 위치를 가리키는 줄",
         "SPEC.md 3줄: 경로 docs/DATA.md",
         "SPEC.md 4줄: 경로 scripts/splits.yaml",
         "SPEC.md 4줄: 경로 src/uplift/split.py",
+        "SPEC.md 11줄: 위치를 가리키는 줄",
+        "SPEC.md 11줄: 경로 src/uplift/policy.py",
     ]
