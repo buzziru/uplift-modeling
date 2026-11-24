@@ -1,0 +1,4 @@
+test_size: 0.3
+test_seed: 42
+cv_seeds: [42, 154, 1592]
+n_folds: 5

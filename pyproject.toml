@@ -17,6 +17,7 @@ dependencies = [
     "marimo",
     "seaborn",
     "matplotlib",
+    "scipy>=1.18.1",
 ]
 
 [dependency-groups]

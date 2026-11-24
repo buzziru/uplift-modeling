@@ -1,0 +1,55 @@
+covariate,level,smd,balanced,comparison
+recency,,0.006831532454259954,True,Mens vs None
+history_segment,1) $0 - $100,0.010916720554376393,True,Mens vs None
+history_segment,2) $100 - $200,-0.016359543173779502,True,Mens vs None
+history_segment,3) $200 - $350,0.005470713585408414,True,Mens vs None
+history_segment,4) $350 - $500,-0.004257423463175294,True,Mens vs None
+history_segment,5) $500 - $750,-0.009740129383845251,True,Mens vs None
+history_segment,"6) $750 - $1,000",0.006073217597584176,True,Mens vs None
+history_segment,"7) $1,000 +",0.015834592826810663,True,Mens vs None
+history,,0.00761286832154239,True,Mens vs None
+mens,,-0.0045823256374879625,True,Mens vs None
+womens,,0.007588929691887142,True,Mens vs None
+zip_code,Rural,0.01365900039927897,True,Mens vs None
+zip_code,Suburban,-0.01174335672606268,True,Mens vs None
+zip_code,Urban,0.0019722315768513645,True,Mens vs None
+newbie,,-0.0008918953696535328,True,Mens vs None
+channel,Multichannel,-0.004181536419632754,True,Mens vs None
+channel,Phone,-0.008275992307117473,True,Mens vs None
+channel,Web,0.011013588354428299,True,Mens vs None
+recency,,0.005180013205688683,True,Womens vs None
+history_segment,1) $0 - $100,-0.0006771130829583109,True,Womens vs None
+history_segment,2) $100 - $200,-0.014286147854542706,True,Womens vs None
+history_segment,3) $200 - $350,0.011350888687263824,True,Womens vs None
+history_segment,4) $350 - $500,0.008677899940116288,True,Womens vs None
+history_segment,5) $500 - $750,0.0006499424018974358,True,Womens vs None
+history_segment,"6) $750 - $1,000",-0.008819306801837288,True,Womens vs None
+history_segment,"7) $1,000 +",0.0034993920645670033,True,Womens vs None
+history,,0.006510722458553667,True,Womens vs None
+mens,,-0.008630731202832915,True,Womens vs None
+womens,,0.004946313992582152,True,Womens vs None
+zip_code,Rural,0.00395850560137286,True,Womens vs None
+zip_code,Suburban,-0.0010891197386245202,True,Womens vs None
+zip_code,Urban,-0.0017628666291550237,True,Womens vs None
+newbie,,0.0025567009140795606,True,Womens vs None
+channel,Multichannel,-0.00528289712504171,True,Womens vs None
+channel,Phone,0.008622833281250204,True,Womens vs None
+channel,Web,-0.005147863897421752,True,Womens vs None
+recency,,0.006004340077750869,True,Mail vs None
+history_segment,1) $0 - $100,0.005113845225621662,True,Mail vs None
+history_segment,2) $100 - $200,-0.01532062835726887,True,Mail vs None
+history_segment,3) $200 - $350,0.008419718257787302,True,Mail vs None
+history_segment,4) $350 - $500,0.0022502265039492475,True,Mail vs None
+history_segment,5) $500 - $750,-0.004513940054671172,True,Mail vs None
+history_segment,"6) $750 - $1,000",-0.0013093486329745518,True,Mail vs None
+history_segment,"7) $1,000 +",0.009720693382307985,True,Mail vs None
+history,,0.0070634545705258595,True,Mail vs None
+mens,,-0.006610559041797893,True,Mail vs None
+womens,,0.00626509090065978,True,Mail vs None
+zip_code,Rural,0.008811238997617949,True,Mail vs None
+zip_code,Suburban,-0.006404781560239178,True,Mail vs None
+zip_code,Urban,0.0001015359873930745,True,Mail vs None
+newbie,,0.0008356308969718988,True,Mail vs None
+channel,Multichannel,-0.004733100092978112,True,Mail vs None
+channel,Phone,0.00019372228355604056,True,Mail vs None
+channel,Web,0.0029215455929629186,True,Mail vs None

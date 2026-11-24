@@ -6,9 +6,9 @@
 
 | customer_id (int64) | recency (int64) | history_segment (str) | history (float64) | mens (int64) | womens (int64) | zip_code (str) | newbie (int64) | channel (str) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 0 | 10 | 2) $100 - $200 | 142.44 | 1 | 0 | Surburban | 0 | Phone |
+| 0 | 10 | 2) $100 - $200 | 142.44 | 1 | 0 | Suburban | 0 | Phone |
 | 1 | 6 | 3) $200 - $350 | 329.08 | 1 | 1 | Rural | 1 | Web |
-| 2 | 7 | 2) $100 - $200 | 180.65 | 0 | 1 | Surburban | 1 | Web |
+| 2 | 7 | 2) $100 - $200 | 180.65 | 0 | 1 | Suburban | 1 | Web |
 | 3 | 9 | 5) $500 - $750 | 675.83 | 1 | 0 | Rural | 1 | Web |
 | 4 | 2 | 1) $0 - $100 | 45.34 | 1 | 0 | Urban | 0 | Web |
 
@@ -39,3 +39,23 @@
 | 2 | 0 | 0 | 0.0 |
 | 3 | 0 | 0 | 0.0 |
 | 4 | 0 | 0 | 0.0 |
+
+## splits (64,000행)
+
+| customer_id (int64) | split (str) |
+| --- | --- |
+| 0 | test |
+| 1 | train |
+| 2 | train |
+| 3 | train |
+| 4 | test |
+
+## folds (134,400행)
+
+| customer_id (int64) | seed (int64) | fold (int64) |
+| --- | --- | --- |
+| 1 | 42 | 4 |
+| 2 | 42 | 0 |
+| 3 | 42 | 1 |
+| 5 | 42 | 2 |
+| 7 | 42 | 3 |

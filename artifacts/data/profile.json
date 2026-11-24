@@ -3,7 +3,41 @@
     "customers": 64000,
     "treatments": 3,
     "assignments": 64000,
-    "outcomes": 64000
+    "outcomes": 64000,
+    "splits": 64000,
+    "folds": 134400
+  },
+  "splits": {
+    "test/Mens E-Mail": {
+      "n": 6392,
+      "visit": 1168,
+      "conversion": 80
+    },
+    "test/No E-Mail": {
+      "n": 6391,
+      "visit": 678,
+      "conversion": 36
+    },
+    "test/Womens E-Mail": {
+      "n": 6417,
+      "visit": 972,
+      "conversion": 57
+    },
+    "train/Mens E-Mail": {
+      "n": 14915,
+      "visit": 2726,
+      "conversion": 187
+    },
+    "train/No E-Mail": {
+      "n": 14915,
+      "visit": 1584,
+      "conversion": 86
+    },
+    "train/Womens E-Mail": {
+      "n": 14970,
+      "visit": 2266,
+      "conversion": 132
+    }
   },
   "dtypes": {
     "customers": {
@@ -30,6 +64,15 @@
       "visit": "int64",
       "conversion": "int64",
       "spend": "float64"
+    },
+    "splits": {
+      "customer_id": "int64",
+      "split": "str"
+    },
+    "folds": {
+      "customer_id": "int64",
+      "seed": "int64",
+      "fold": "int64"
     }
   },
   "missing": {
@@ -64,7 +107,7 @@
     ],
     "zip_code": [
       "Rural",
-      "Surburban",
+      "Suburban",
       "Urban"
     ],
     "channel": [
@@ -77,6 +120,20 @@
     "mens": 0.551,
     "womens": 0.5497,
     "newbie": 0.5022
+  },
+  "boundary_counts": {
+    "history_min": {
+      "value": 29.99,
+      "count": 7947
+    },
+    "spend_positive_min": {
+      "value": 29.99,
+      "count": 136
+    },
+    "spend_max": {
+      "value": 499.0,
+      "count": 12
+    }
   },
   "by_treatment": {
     "Mens E-Mail": {
@@ -96,6 +153,11 @@
       "visit_rate": 0.1514,
       "conversion_rate": 0.0088,
       "spend_mean": 1.0772
+    }
+  },
+  "category_fixes": {
+    "zip_code": {
+      "Surburban": 28776
     }
   }
 }
