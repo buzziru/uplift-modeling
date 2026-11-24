@@ -67,8 +67,19 @@ def build_tables(raw: pd.DataFrame) -> dict[str, pd.DataFrame]:
     return tables
 
 
+def category_fix_counts(raw: pd.DataFrame) -> dict:
+    """CATEGORY_FIXES로 바뀌는 원본 값마다 행 수."""
+    return {
+        col: {old: int(pd.Series(raw[col] == old).sum()) for old in fixes}
+        for col, fixes in CATEGORY_FIXES.items()
+    }
+
+
 def check_tables(tables: dict[str, pd.DataFrame]) -> list[str]:
-    """docs/DATA.md "데이터 품질" 절의 키, 허용값과 범위, 깔때기 규칙을 확인하고 위반을 돌려준다."""
+    """키, 허용값과 범위, 깔때기 규칙을 확인하고 위반을 돌려준다.
+
+    규칙은 docs/DATA.md "적재 때 키, 허용값과 범위, 깔때기, 분할 규칙을 확인하고 어긋나면 적재를 멈춘다" 절.
+    """
     customers, outcomes = tables["customers"], tables["outcomes"]
     errors = []
     ids = customers["customer_id"]

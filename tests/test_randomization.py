@@ -2,7 +2,15 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from uplift.randomization import ate_diff, smd_table, srm_test
+from uplift.randomization import (
+    Z80,
+    Z95,
+    ate_diff,
+    funnel_ratios,
+    precision_at_test_size,
+    smd_table,
+    srm_test,
+)
 
 
 def test_srm_test_passes_design_ratio_and_flags_mismatch():
@@ -41,3 +49,25 @@ def test_ate_diff_effect_and_interval():
     se = np.sqrt(pd.Series([1, 1, 0, 1]).var() / 4 + pd.Series([0, 0, 1, 1]).var() / 4)
     assert row["se"] == pytest.approx(se)
     assert row["ci_low"] < row["effect"] < row["ci_high"]
+
+
+def test_precision_at_test_size_scales_with_test_size():
+    y = pd.Series([0.0, 1.0] * 50 + [0.0, 0.0, 1.0, 1.0] * 25)
+    t = pd.Series([0] * 100 + [1] * 100)
+    row = precision_at_test_size(y, t, pd.Series({0: 25, 1: 25})).iloc[0]
+    se = np.sqrt(y[t == 1].var() / 25 + y[t == 0].var() / 25)
+    assert row["se_test"] == pytest.approx(se)
+    assert row["ci_half_width"] == pytest.approx(Z95 * se)
+    assert row["mde_80"] == pytest.approx((Z95 + Z80) * se)
+
+
+def test_funnel_ratios_adds_control_baseline():
+    effect = pd.DataFrame(
+        {"visit": [0.1], "conversion": [0.01], "spend": [1.0]}, index=["Mens vs None"]
+    )
+    control = pd.DataFrame(
+        {"visit": [1, 1, 0, 0], "conversion": [1, 0, 0, 0], "spend": [50.0, 0, 0, 0]}
+    )
+    out = funnel_ratios(effect, control)
+    assert out.loc["Mens vs None"].tolist() == pytest.approx([0.1, 100.0])
+    assert out.loc["Control baseline"].tolist() == pytest.approx([0.5, 50.0])

@@ -86,6 +86,6 @@
   - 로컬: 작은 실험과 디버깅, EDA, 데이터 검증, feature engineering, 모델 평가와 분석. 시험 세트 평가도 로컬에서 한다.
   - Kaggle: 모델의 본학습과 HPO는 모두 Kaggle kernel에서 돌린다. 기본은 CPU kernel이고, LightGBM이 여기에 든다. XGBoost, CatBoost처럼 GPU로 학습 시간이 줄어드는 모델만 GPU kernel을 쓴다. 절차는 `.claude/skills/kaggle-remote-runner/SKILL.md`.
   - Kaggle에는 학습 세트와 `folds`만 비공개 dataset으로 올리고 시험 세트는 올리지 않는다. 원격 HPO가 시험 세트를 읽을 수 없게 하기 위해서다.
-  - kernel은 GitHub에 푸시한 커밋을 받아 `uv.lock`대로 환경을 만들어 돈다. Kaggle 출력을 DuckDB에 기록하는 형식과 스크립트는 첫 Kaggle 실험(M2)에서 정해 이 절을 나눈다.
+  - kernel은 GitHub에 푸시한 커밋을 받아 `uv.lock`대로 환경을 만들어 돈다. Kaggle에는 DuckDB 파일이 없으므로 `run.py`가 DuckDB 대신 출력 폴더에 쓰고, 받아 온 출력을 로컬 스크립트가 DuckDB에 실행으로 적는다. 출력 형식과 그 스크립트는 첫 Kaggle 실험(M2)에서 정해 이 절을 나눈다.
 - 근거: 사용자 지시(2026-11-24). 로컬의 메모리와 CPU가 학습과 HPO를 감당하기에 부족하다. LightGBM은 GPU로 얻는 시간 이득이 작다.
 - 기각한 대안: Colab. 실행을 명령줄에서 올리고 상태와 출력을 받는 공식 CLI를 확인하지 못해, 로컬 스크립트로 실행을 묶기 어렵다. Kaggle CLI는 kernel push, status, logs, output을 제공한다. 로컬 실행 시간(30분)으로 로컬과 Kaggle을 가르는 안. 로컬 자원이 부족해 짧은 학습도 다른 작업을 막는다.

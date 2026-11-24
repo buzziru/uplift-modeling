@@ -2,7 +2,15 @@ import duckdb
 import pandas as pd
 import pytest
 
-from uplift.db import build_tables, check_tables, load_frame, profile, tables_markdown, write_db
+from uplift.db import (
+    build_tables,
+    category_fix_counts,
+    check_tables,
+    load_frame,
+    profile,
+    tables_markdown,
+    write_db,
+)
 
 
 @pytest.fixture
@@ -83,6 +91,7 @@ def test_tables_markdown_lists_every_table(raw):
 
 
 def test_build_tables_fixes_zip_code_typo(raw):
+    assert category_fix_counts(raw) == {"zip_code": {"Surburban": 1}}
     assert set(build_tables(raw)["customers"]["zip_code"]) == {"Urban", "Rural", "Suburban"}
 
 

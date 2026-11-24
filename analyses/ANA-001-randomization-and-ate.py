@@ -15,7 +15,14 @@ def _():
 
     from uplift.db import CUSTOMER_COLUMNS, load_frame
     from uplift.plots import smd_plot
-    from uplift.randomization import SMD_THRESHOLD, Z95, ate_diff, smd_table, srm_test
+    from uplift.randomization import (
+        SMD_THRESHOLD,
+        ate_diff,
+        funnel_ratios,
+        precision_at_test_size,
+        smd_table,
+        srm_test,
+    )
 
     root = Path(__file__).resolve().parents[1]
     out = root / "artifacts" / "ANA-001"
@@ -40,9 +47,9 @@ def _():
     return (
         CUSTOMER_COLUMNS,
         SMD_THRESHOLD,
-        Z95,
         ate_diff,
         df,
+        funnel_ratios,
         json,
         mo,
         names,
@@ -52,6 +59,7 @@ def _():
         smd_table,
         srm_test,
         test_counts,
+        precision_at_test_size,
     )
 
 
@@ -121,7 +129,7 @@ def _(CUSTOMER_COLUMNS, SMD_THRESHOLD, df, mo, out, pd, smd_plot, smd_table):
     mo.md(f"""
     ## 공변량 균형
 
-    세 비교 x 공변량·범주 {len(smd)}개 모두 |SMD| < {SMD_THRESHOLD}. 가장 큰 값은 {worst["comparison"]}의 {worst["covariate"]}{"" if pd.isna(worst["level"]) else " = " + str(worst["level"])}에서 {worst["smd"]:.4f}다. 규칙에 따라 평균 차이를 ATE로 쓴다.
+    공변량·범주 {smd["covariate"].str.cat(smd["level"].astype(str)).nunique()}개를 세 비교로 본 SMD {len(smd)}개 모두 |SMD| < {SMD_THRESHOLD}. 가장 큰 값은 {worst["comparison"]}의 {worst["covariate"]}{"" if pd.isna(worst["level"]) else " = " + str(worst["level"])}에서 {worst["smd"]:.4f}다. 규칙에 따라 평균 차이를 ATE로 쓴다.
     """)
     return
 
@@ -149,26 +157,18 @@ def _(ate_diff, df, mo, out, pd):
 
 
 @app.cell
-def _(ate, df, mo, out, pd):
-    control = df[df["treatment_id"] == 0]
-    effect = ate.pivot(index="comparison", columns="outcome", values="effect")
-    funnel = pd.DataFrame(
-        {
-            "conversion_per_visit": effect["conversion"] / effect["visit"],
-            "spend_per_conversion": effect["spend"] / effect["conversion"],
-        }
+def _(ate, df, funnel_ratios, mo, out):
+    funnel = funnel_ratios(
+        ate.pivot(index="comparison", columns="outcome", values="effect"),
+        df[df["treatment_id"] == 0],
     )
-    funnel.loc["Control baseline"] = [
-        control["conversion"].sum() / control["visit"].sum(),
-        control["spend"].sum() / control["conversion"].sum(),
-    ]
     funnel.to_csv(out / "tables" / "funnel.csv")
     mo.vstack(
         [
             mo.md("""
     ## 깔때기: 추가로 생긴 방문의 구매율
 
-    처치 행은 효과의 비(구매 증가 / 방문 증가, 매출 증가 / 구매 증가)이고, 대조군 행은 대조군의 비율이다. 처치 행이 대조군 행과 다르면 방문 1회의 가치를 하나로 가정할 수 없다(SPEC.md 14절 후보 (b)).
+    처치 행은 효과의 비(구매 증가 / 방문 증가, 매출 증가 / 구매 증가)이고, 대조군 행은 대조군의 비율이다. 처치 행이 대조군 행과 다르면 방문 1회의 가치를 하나로 가정할 수 없다(`docs/PROBLEM.md` 결과 변수 절의 기각한 대안).
     """),
             mo.ui.table(funnel.round(4).reset_index(names="comparison")),
         ]
@@ -177,22 +177,16 @@ def _(ate, df, mo, out, pd):
 
 
 @app.cell
-def _(Z95, df, mo, names, out, pd, test_counts):
-    rows = []
-    for _y in ["visit", "conversion", "spend"]:
-        _var = df.groupby("treatment_id")[_y].var()
-        for _t in [1, 2]:
-            _se = (_var[_t] / test_counts[_t] + _var[0] / test_counts[0]) ** 0.5
-            rows.append(
-                {
-                    "outcome": _y,
-                    "comparison": f"{names[_t]} vs No E-Mail",
-                    "se_test": _se,
-                    "ci_half_width": Z95 * _se,
-                    "mde_80": (Z95 + 0.8416) * _se,
-                }
-            )
-    precision = pd.DataFrame(rows)
+def _(df, mo, names, out, pd, test_counts, precision_at_test_size):
+    precision = pd.concat(
+        [
+            precision_at_test_size(df[_y], df["treatment_id"], test_counts).assign(outcome=_y)
+            for _y in ["visit", "conversion", "spend"]
+        ],
+        ignore_index=True,
+    )
+    precision["comparison"] = precision["treatment"].map(names) + " vs No E-Mail"
+    precision = precision.drop(columns="treatment")
     precision.to_csv(out / "tables" / "precision.csv", index=False)
     mo.vstack(
         [

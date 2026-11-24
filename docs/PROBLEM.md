@@ -16,7 +16,7 @@
 
 - 결정:
   - 주 결과는 `visit`이다. 고객별 uplift 순위와 모델 선택(`docs/EVALUATION.md` "모델은 학습 세트 OOF 예측의 visit 정책 가치로 고르고 seed 세 개의 변동으로 흔들림을 본다" 절)은 `visit`으로 한다.
-  - 정책의 증분 이익은 실제 `spend`의 IPW 정책 가치로 잰다(증분 매출 x 마진 − 발송 비용, `docs/glossary.md` 증분 이익). 시험 세트 판정과 보고에 쓴다. `conversion`도 보고한다.
+  - 정책의 증분 이익(`docs/glossary.md`)은 실제 `spend`의 IPW 정책 가치로 잰다. 시험 세트 판정과 보고에 쓴다. `conversion`도 보고한다.
   - 방문 1회의 가치를 하나로 가정하는 변환은 민감도 분석의 비교점으로만 쓴다.
 - 근거: `analyses/ANA-001-randomization-and-ate.py`.
   - 신호 크기: 남성용 메일의 효과는 `visit` 0.0766(95% 구간 0.0700\~0.0832), `conversion` 0.0068(0.0050\~0.0086)이다(`artifacts/ANA-001/tables/ate.csv`). 방문이 구매보다 효과가 열 배 넘게 커서 고객별 차이를 배우기 쉽다.

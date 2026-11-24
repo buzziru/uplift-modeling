@@ -154,5 +154,10 @@
       "conversion_rate": 0.0088,
       "spend_mean": 1.0772
     }
+  },
+  "category_fixes": {
+    "zip_code": {
+      "Surburban": 28776
+    }
   }
 }
