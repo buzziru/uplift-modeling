@@ -25,7 +25,7 @@
 
 - 근거: 사용자 지시(2026-11-23). 변수 정의는 `docs/THEORY.md` "Hillstrom 데이터 구조" 절.
 - 기각한 대안: 원본 한 테이블에 예측과 지표 열을 덧붙이는 안. 실행이 늘 때마다 열이 늘고 실행 간 비교 쿼리가 어려워진다.
-- 정본: `src/uplift/db.py`, `scripts/build_db.py`. 실험 기록 테이블은 M2 첫 실험에서 만든다.
+- 정본: `src/uplift/db.py`, `scripts/build_db.py`. 실험 기록 테이블 다섯 개(`experiments`부터 `metrics`까지)의 열은 초안이고, M2 첫 실험에서 만들며 확정한다.
 - 승인: 2026-11-23
 
 ## 2026-11-23 원본은 MineThatData 원 출처 CSV를 받고 받을 때만 SHA-256으로 확인한다
@@ -81,7 +81,7 @@
   - 결과: SRM과 균형 모두 통과해 평균 차이를 ATE로 쓴다.
 - 근거: `analyses/ANA-001-randomization-and-ate.py`. SRM은 χ² = 0.203, p = 0.904(`artifacts/ANA-001/tables/srm.json`). SMD는 공변량·범주 18개를 세 비교로 본 54개 값의 |SMD| 최댓값이 0.0164(Mens vs None, `history_segment = 2) $100 - $200`)다(`artifacts/ANA-001/tables/smd.csv`, 그림 `artifacts/ANA-001/figures/smd.png`). 0.1은 실무에서 통용되는 경험칙이다(Austin, 2009).
 - 기각한 대안: 공변량마다 t검정 p값으로 균형을 보는 안. 군마다 2만 명이면 아주 작은 차이도 유의하게 나와, 차이가 결론을 흔들 만큼 큰지를 답하지 못한다.
-- 정본: `src/uplift/randomization.py`의 `SRM_ALPHA`, `SMD_THRESHOLD`
+- 정본: `src/uplift/randomization.py`의 `SRM_ALPHA`, `SMD_THRESHOLD`. 공변량 보정 회귀는 균형을 통과해 구현하지 않았다.
 - 승인: 2026-11-24
 
 ## 2026-11-24 처치 x 깔때기 단계로 층화해 학습 70%, 시험 30%로 한 번 나누고, 학습 세트에서 5-fold CV를 seed 42, 154, 1592로 세 번 반복한다

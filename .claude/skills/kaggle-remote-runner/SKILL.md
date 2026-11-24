@@ -94,7 +94,7 @@ sh(f"git clone -q https://github.com/buzziru/uplift-modeling.git /tmp/repo && gi
 sh(f"cd /tmp/repo && uv run --frozen python experiments/{EXP}/run.py --data {DATA} --out /kaggle/working")
 ```
 
-`run.py`가 `--data`, `--out`을 받아 설정, 지표, 예측을 출력 폴더에 쓰는 형식과, 받아 온 출력을 DuckDB에 실행으로 적는 스크립트는 첫 Kaggle 실험(M2)에서 만들고 이 스킬과 `scripts/CLAUDE.md`에 적는다.
+`run.py`가 `--data`, `--out`을 받아 설정, 지표, 예측을 출력 폴더에 쓰는 형식과, 받아 온 출력을 DuckDB에 실행으로 적는 스크립트는 첫 Kaggle 실험(M2)에서 만들고 이 스킬과 `experiments/CLAUDE.md`에 적는다.
 
 순서:
 
@@ -103,4 +103,4 @@ sh(f"cd /tmp/repo && uv run --frozen python experiments/{EXP}/run.py --data {DAT
 3. `K kernels push -p data/kaggle/<EXP-ID> -t <초>`에 kernel 종류 절의 push 옵션을 붙인다. 출력에 찍힌 kernel 버전을 적어 둔다.
 4. `K kernels status <id>`를 몇 분 간격으로 본다. 로그는 `K kernels logs <id>`로 보고, 계속 볼 때는 `--follow --interval 30` 이상으로 둔다.
 5. 끝나면 `K kernels output <id>/<버전> -p data/kaggle/<EXP-ID>/output/v<버전>`로 받는다.
-6. 받은 출력을 "어디서 돌리나" 절과 `scripts/CLAUDE.md`대로 DuckDB에 실행으로 기록한다.
+6. 받은 출력을 "어디서 돌리나" 절과 `experiments/CLAUDE.md`대로 DuckDB에 실행으로 기록한다.

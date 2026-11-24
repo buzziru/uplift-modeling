@@ -32,7 +32,7 @@
   - 문서와 사이트가 인용하는 수치는 실행 스크립트가 DuckDB에서 `artifacts/<ID>/`로 내보낸 파일(`metrics.json` 등)이나 적재 때 만든 `artifacts/data/` 파일을 근거로 단다. 내보낸 파일은 한 방향 사본이라 손으로 고치지 않는다. 평가 에이전트는 DuckDB를 읽지 못하고 이 파일은 읽을 수 있다.
 - 근거: 사용자 지시(2026-11-23). 데이터는 고객 약 64,000명의 정적 데이터라(SPEC.md 2절) 동시 쓰기나 트랜잭션이 필요 없다.
 - 기각한 대안: 실행마다 `results/<run_id>/` JSON을 정본으로 두고 DuckDB는 읽어 들이기만 하는 안. 같은 값이 파일과 테이블 두 곳에 생긴다.
-- 정본: `scripts/CLAUDE.md`
+- 정본: `scripts/CLAUDE.md`, `experiments/CLAUDE.md`
 - 승인: 2026-11-23
 
 ## 2026-11-23 계산 코드, 실험, 분석, 산출물을 폴더로 나누고 ID로 잇는다
@@ -46,7 +46,7 @@
     EXP-001-<주제>/
       experiment.md    질문, 설계, 계획, 결과 해석
       config.yaml      pydantic으로 검증
-      run.py           src 호출, DuckDB 기록, artifacts 내보내기만 함(Kaggle 실행은 Kaggle 절의 예외)
+      run.py           src 호출, DuckDB 기록, artifacts 내보내기만 함(Kaggle 실행은 kaggle-remote-runner 스킬의 예외)
   analyses/            marimo 분석. 한 번 보고 판단하는 일(EDA, 결정에 쓰는 분석)
     ANA-001-<주제>.py
   artifacts/           산출물. 코드와 나누고 폴더 이름은 실험·분석 ID만 씀(data/ 예외)
@@ -63,7 +63,7 @@
   - DuckDB 파일은 텍스트 편집기에서 열리지 않으므로 두 가지로 본다. 적재 때 만드는 `artifacts/data/tables.md`를 열거나, `uv run marimo edit analyses/ANA-000-data-browse.py`로 테이블을 둘러보고 SQL을 돌린다.
   - 나중에 참고할 분석 결과(그림, 표, 지표 요약)는 `artifacts/<ID>/`에 저장해 커밋한다. marimo는 실행 결과를 파일에 남기지 않기 때문이다. marimo HTML export와 예측 파일처럼 크고 다시 만들 수 있는 것은 커밋하지 않는다.
   - `experiment.md`는 실험 하나의 기록이다. 결정의 정본은 코드와 설정이고, 기록 문서 항목의 근거가 실험 ID와 `artifacts/<ID>/` 파일을 가리킨다.
-- 근거: 사용자 지시(2026-11-23). SPEC.md 9절이 폴더 구조를 이 문서에 둔다.
+- 근거: 사용자 지시(2026-11-23).
 - 기각한 대안: 산출물을 실험 폴더 안(`experiments/EXP-001/results/`)에 두는 안. 코드와 산출물이 섞이고 무시 규칙을 폴더마다 둬야 한다.
 - 정본: `CLAUDE.md` 프로젝트 절
 - 승인: 2026-11-23
@@ -86,7 +86,7 @@
   - 로컬: 작은 실험과 디버깅, EDA, 데이터 검증, feature engineering, 모델 평가와 분석. 시험 세트 평가도 로컬에서 한다.
   - Kaggle: 모델의 본학습과 HPO는 모두 Kaggle kernel에서 돌린다. 기본은 CPU kernel이고, LightGBM이 여기에 든다. XGBoost, CatBoost처럼 GPU로 학습 시간이 줄어드는 모델만 GPU kernel을 쓴다. 절차는 `.claude/skills/kaggle-remote-runner/SKILL.md`.
   - Kaggle에는 학습 세트와 `folds`만 비공개 dataset으로 올리고 시험 세트는 올리지 않는다. 원격 HPO가 시험 세트를 읽을 수 없게 하기 위해서다.
-  - kernel은 GitHub에 푸시한 커밋을 받아 `uv.lock`대로 환경을 만들어 돈다. Kaggle에는 DuckDB 파일이 없으므로 `run.py`가 DuckDB 대신 출력 폴더에 쓰고, 받아 온 출력을 로컬 스크립트가 DuckDB에 실행으로 적는다. 출력 형식과 그 스크립트는 첫 Kaggle 실험(M2)에서 정해 이 절을 나눈다.
+  - kernel은 GitHub에 푸시한 커밋을 받아 `uv.lock`대로 환경을 만들어 돈다. Kaggle에는 DuckDB 파일이 없으므로 `run.py`가 DuckDB 대신 출력 폴더에 쓰고, 받아 온 출력을 로컬 스크립트가 DuckDB에 실행으로 적는다. 출력 형식과 그 스크립트는 첫 Kaggle 실험(M2)에서 정해 kaggle-remote-runner 스킬과 `experiments/CLAUDE.md`에 적는다.
 - 근거: 사용자 지시(2026-11-24). 로컬의 메모리와 CPU가 학습과 HPO를 감당하기에 부족하다. LightGBM은 GPU로 얻는 시간 이득이 작다.
 - 기각한 대안: Colab. 실행을 명령줄에서 올리고 상태와 출력을 받는 공식 CLI를 확인하지 못해, 로컬 스크립트로 실행을 묶기 어렵다. Kaggle CLI는 kernel push, status, logs, output을 제공한다. 로컬 실행 시간(30분)으로 로컬과 Kaggle을 가르는 안. 로컬 자원이 부족해 짧은 학습도 다른 작업을 막는다.
 - 정본: `.claude/skills/kaggle-remote-runner/SKILL.md`
