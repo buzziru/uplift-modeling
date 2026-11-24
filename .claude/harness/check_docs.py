@@ -198,6 +198,7 @@ def branch() -> int:
 
 
 if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8")
     if "--hook" in sys.argv:
         hook()
     else:
