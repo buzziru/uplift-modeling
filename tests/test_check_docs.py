@@ -18,6 +18,7 @@ SPEC.loader.exec_module(check_docs)
         "`docs/ENGINEERING.md` DuckDB 절",
         "규칙은 docs/DATA.md 적재 절.",
         "`docs/EVALUATION.md`의 모델 선택 항목",
+        "`docs/DATA.md#분할`",
     ],
 )
 def test_check_inbound_flags_record_citations(text):
@@ -31,6 +32,10 @@ def test_check_inbound_flags_record_citations(text):
         '`docs/THEORY.md` "Hillstrom 데이터 구조" 절',
         "`docs/glossary.md`의 기록 문서 항목",
         "기록: `docs/DASHBOARD.md`(화면)",
+        "`docs/ENGINEERING.md` 절차를 따른다",
+        "`docs/DATA.md`(SPEC.md 3절)",
+        "`docs/POLICY.md`에 항목을 남긴다",
+        "NARRATIVE.md는 마일스톤별 성과 자료라 8절의 형식을 따른다",
     ],
 )
 def test_check_inbound_allows_non_citations(text):
@@ -43,7 +48,7 @@ def test_history_ratio_counts_history_block_lines():
         "  - 2026-11-24: c\n  - 2026-11-25: d\n\n"
         "## 2026-11-25 다른 제목\n- 결정: e\n  - 하위 줄"
     )
-    assert check_docs.history_ratio(text) == pytest.approx(3 / 9)
+    assert check_docs.history_ratio(text) == pytest.approx(3 / 10)
 
 
 def test_history_ratio_is_zero_without_history():

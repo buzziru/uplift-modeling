@@ -48,7 +48,7 @@ GPU kernel은 `uv.lock`에 든 라이브러리 휠의 GPU 지원에 기댄다. �
 
 작업 폴더는 `data/kaggle/dataset/`다(`data/`는 커밋하지 않는다).
 
-1. 처음: `K datasets init -p data/kaggle/dataset`로 `dataset-metadata.json`을 만들고 `id`를 `<KAGGLE_USERNAME>/uplift-hillstrom-train`으로, `title`을 기본값에서 `uplift-hillstrom-train`으로 고친다. DuckDB에서 `splits`가 학습인 고객의 분석용 행(특성, 처치, 결과)과 `folds` 테이블(`src/uplift/split.py`)을 Parquet로 내보내 같은 폴더에 둔다. 시험 세트 고객은 넣지 않는다. 내보낼 열은 첫 Kaggle 실험(M2)에서 정한다.
+1. 처음: `K datasets init -p data/kaggle/dataset`로 `dataset-metadata.json`을 만들고 `id`를 `<KAGGLE_USERNAME>/uplift-hillstrom-train`으로, `title`을 기본값에서 `uplift-hillstrom-train`으로 고친다. DuckDB에서 `splits`가 학습인 고객의 분석용 행(`customers`, `assignments`, `outcomes`)과 `folds` 테이블(`src/uplift/split.py`)을 Parquet로 내보내 같은 폴더에 둔다. 시험 세트 고객은 넣지 않는다. 내보낼 열은 첫 Kaggle 실험(M2)에서 정한다.
 2. 올리기: `K datasets create -p data/kaggle/dataset -t -q`. `-t`는 Parquet를 CSV로 바꾸지 않게 한다. `-u`를 붙이지 않는다.
 3. 분할이나 fold가 바뀌면 `K datasets version -p data/kaggle/dataset -t -q -m "<분할 시드, 행 수, 커밋>"`.
 4. `K datasets status <id>`가 ready인지 본 뒤 kernel을 push한다.

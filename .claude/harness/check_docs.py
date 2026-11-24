@@ -5,11 +5,11 @@
 - 지운 표현이 남은 곳(알림): 지운 따옴표·백틱 표현이 다른 파일에 남았는지 본다.
 - 이미 쓰는 낱말의 새 정의(알림): "X은/는 ...이다" 꼴의 X가 이미 다른 곳에 쓰이는지 본다.
 - 기록 문서 인용(오류): `docs/` 밖의 파일이 기록 문서의 절이나 항목을 가리키는지 본다(SPEC.md 10절).
-- 바뀐 이력 비율(알림): 기록 문서에서 바뀐 이력 줄이 전체 줄의 20%를 넘는지 본다(CLAUDE.md 프로젝트 절).
+- 바뀐 이력 비율(알림): `docs/` 문서에서 바뀐 이력 줄이 전체 줄의 20%를 넘는지 본다(CLAUDE.md 프로젝트 절).
 
 실행:
   uv run python .claude/harness/check_docs.py           브랜치 변경(origin/main...HEAD) 검사, 오류면 exit 1
-  uv run python .claude/harness/check_docs.py --hook    PostToolUse hook. stdin의 Edit/Write 입력만 검사
+  uv run python .claude/harness/check_docs.py --hook    PostToolUse hook. stdin의 Edit/Write/MultiEdit 입력만 검사
 """
 
 import json
@@ -26,6 +26,10 @@ SCOPE = [
     ".claude/agents/*.md",
     ".claude/rubrics/*.md",
     ".claude/skills/run-evaluation/SKILL.md",
+    ".claude/skills/kaggle-remote-runner/SKILL.md",
+    "PENDING-DECISIONS.md",
+    "*/CLAUDE.md",
+    "experiments/TEMPLATE.md",
 ]
 SIMILAR = 0.7
 MIN_LEN = 25
@@ -46,7 +50,8 @@ INBOUND = [
     ".claude/skills/**/*.md",
 ]
 RECORD_REF = re.compile(
-    r"docs/(?:" + "|".join(RECORDS) + r")\.md`?(?:\s*\"[^\"\n]+\")?[^|\n]{0,20}?(?:절|항목)"
+    r"docs/(?:" + "|".join(RECORDS) + r")\.md"
+    r"(?:#[^\s)`]+|`?(?!에 )(?:\s*\"[^\"\n]+\")?[^|\n`]{0,20}?(?<!\d)(?:절(?!차)|항목))"
 )
 HISTORY_LIMIT = 0.2
 
@@ -60,7 +65,7 @@ def inbound_files() -> list[Path]:
 
 
 def record_files() -> list[Path]:
-    return [ROOT / "docs" / f"{name}.md" for name in RECORDS if (ROOT / "docs" / f"{name}.md").exists()]
+    return sorted((ROOT / "docs").glob("*.md"))
 
 
 def check_inbound(text: str, path: str) -> list[str]:
@@ -68,7 +73,7 @@ def check_inbound(text: str, path: str) -> list[str]:
 
 
 def history_ratio(text: str) -> float:
-    lines = [line for line in text.splitlines() if line.strip()]
+    lines = text.splitlines()
     count, inside = 0, False
     for line in lines:
         if line.startswith("- 바뀐 이력:"):
@@ -222,7 +227,7 @@ def branch() -> int:
         return 0
     diff = subprocess.run(
         ["git", "-c", "core.quotepath=false", "diff", "-U0", "origin/main...HEAD", "--"]
-        + [rel(f) for f in scope_files()],
+        + [f":(glob){p}" for p in SCOPE],
         cwd=ROOT,
         capture_output=True,
         text=True,
