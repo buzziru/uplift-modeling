@@ -8,10 +8,16 @@
 - SPEC.md의 위치 줄(오류): 10절 밖에서 "정본:", "기록:" 줄이나 파일 경로를 쓰는지 본다(SPEC.md 머리말, 예외는 10절 끝 문단).
 - SPEC.md 변경(알림): 브랜치가 SPEC.md를 바꿨는지 알린다. 그 작업의 승인 요청이나 보고에 함께 적는다(CLAUDE.md 프로젝트 절).
 - 바뀐 이력 비율(알림): `docs/` 문서에서 바뀐 이력 줄이 전체 줄의 20%를 넘는지 본다(CLAUDE.md 프로젝트 절).
+- 위치 참조(알림): "첫 절", "마지막 행", "위 절"처럼 순서로 가리키는지 본다. 순서가 바뀌면 다른 곳을 가리킨다.
+- 마크다운 구조(알림): 목록 두 항목이 한 줄에 붙었는지, 빈 줄이 둘 이상 이어지는지 본다.
+- 문체와 항목 형식(알림): "~한 것은" 꼴의 분열문, 기록 문서의 "기각한 대안: 없음"을 본다.
+- 참고문헌 대조(오류): `docs/THEORY.md` 본문의 (저자, 연도) 인용이 참고문헌 절에 있는지 본다.
+- 참조 자동 수정(--fix): 브랜치에서 바뀐 절 제목과 밀린 SPEC.md 절 번호의 참조를 저장소 전체에서 고친다.
 
 실행:
   uv run python .claude/harness/check_docs.py           브랜치 변경(origin/main...HEAD) 검사, 오류면 exit 1
   uv run python .claude/harness/check_docs.py --hook    PostToolUse hook. stdin의 Edit/Write/MultiEdit 입력만 검사
+  uv run python .claude/harness/check_docs.py --fix     바뀐 절 제목과 SPEC.md 절 번호의 참조를 고친다. 평가·검토 전에 돌린다
 """
 
 import json
@@ -35,7 +41,16 @@ SCOPE = [
 ]
 SIMILAR = 0.7
 MIN_LEN = 25
-RECORDS = ("PROBLEM", "DATA", "MODELING", "EVALUATION", "POLICY", "DASHBOARD", "ENGINEERING", "NARRATIVE")
+RECORDS = (
+    "PROBLEM",
+    "DATA",
+    "MODELING",
+    "EVALUATION",
+    "POLICY",
+    "DASHBOARD",
+    "ENGINEERING",
+    "NARRATIVE",
+)
 INBOUND = [
     "SPEC.md",
     "docs/glossary.md",
@@ -59,6 +74,17 @@ RECORD_REF = re.compile(
 HISTORY_LIMIT = 0.2
 SPEC_PATH = re.compile(r"`([^`\s]+\.(?:md|py|yaml|json))`")
 SPEC_ALLOWED = {"docs/THEORY.md", "docs/glossary.md"}
+TITLE_REF = re.compile(r"`([^`]+\.md)` [\"']([^\"'\n]+)[\"'] 절")
+POSITION_REF = re.compile(
+    r"(?<![가-힣])(?:첫|마지막|앞|위|아래|다음) (?:절|행|문단)(?![가-힣]{2}|차)"
+)
+MERGED_ITEM = re.compile(r"\S {2,}- \S")
+CLEFT = re.compile(r"[가-힣]+[한된던운은는] 것은 [^.\n]{0,60}?(?:이다|였다|이었다)\.")
+NO_ALTERNATIVE = re.compile(r"^- 기각한 대안: 없음", re.MULTILINE)
+CITE_GROUP = re.compile(r"\(([^()]*\d{4}[^()]*)\)")
+CITE_PART = re.compile(r"^([^\W\d_][^\s,]*)\D*?(\d{4})")
+CITE_INLINE = re.compile(r"([^\W\d_][\w'-]+)(?: et al\.| & [^\W\d_][\w'-]+)? \((\d{4})")
+REFERENCE = re.compile(r"^- ([^\s,]+?)[,.] .*?\((\d{4})", re.MULTILINE)
 
 
 def scope_files() -> list[Path]:
@@ -100,9 +126,7 @@ def check_spec(text: str) -> list[str]:
         if line.startswith(("정본:", "기록:")):
             errors.append(f"SPEC.md {n}줄: 위치를 가리키는 줄")
         errors += [
-            f"SPEC.md {n}줄: 경로 {p}"
-            for p in SPEC_PATH.findall(line)
-            if p not in SPEC_ALLOWED
+            f"SPEC.md {n}줄: 경로 {p}" for p in SPEC_PATH.findall(line) if p not in SPEC_ALLOWED
         ]
     return errors
 
@@ -142,7 +166,7 @@ def similarity(a: str, b: str) -> float:
 
 def check_refs(text: str) -> list[str]:
     errors = []
-    for path, title in re.findall(r"`([^`]+\.md)` \"([^\"]+)\" 절", text):
+    for path, title in TITLE_REF.findall(text):
         target = ROOT / path
         if not target.exists():
             errors.append(f"없는 파일: `{path}`")
@@ -167,9 +191,7 @@ def check_copies(new_text: str, path: str) -> list[str]:
             matches = [o for o in olds if similarity(s, o) >= SIMILAR]
             if len(matches) > (1 if same_file else 0):
                 other = s if same_file else matches[0]
-                warnings.append(
-                    f'사본 의심: {path} "{s[:40]}…" ≈ {rel(f)} "{other[:40]}…"'
-                )
+                warnings.append(f'사본 의심: {path} "{s[:40]}…" ≈ {rel(f)} "{other[:40]}…"')
     return warnings
 
 
@@ -179,17 +201,13 @@ def check_removed(old_text: str, new_text: str) -> list[str]:
     warnings = []
     for f in scope_files():
         body = f.read_text(encoding="utf-8")
-        warnings += [
-            f'지운 표현이 남음: "{p}" in {rel(f)}' for p in removed if p in body
-        ]
+        warnings += [f'지운 표현이 남음: "{p}" in {rel(f)}' for p in removed if p in body]
     return warnings
 
 
 def check_redefine(new_text: str, path: str) -> list[str]:
     warnings = []
-    others = "\n".join(
-        f.read_text(encoding="utf-8") for f in scope_files() if rel(f) != path
-    )
+    others = "\n".join(f.read_text(encoding="utf-8") for f in scope_files() if rel(f) != path)
     for term in re.findall(
         r"^\s*(?:- )?([가-힣A-Za-z ]{2,12}?)(?:은|는) [^\n]*?이다[.:]",
         new_text,
@@ -200,11 +218,49 @@ def check_redefine(new_text: str, path: str) -> list[str]:
     return warnings
 
 
+def check_style(new_text: str, path: str) -> list[str]:
+    warnings = [f'위치 참조: {path} "{m.group(0)}"' for m in POSITION_REF.finditer(new_text)]
+    warnings += [
+        f'목록 두 항목이 한 줄에 붙음: {path} "{m.group(0)}"'
+        for m in MERGED_ITEM.finditer(new_text)
+    ]
+    warnings += [f'분열문: {path} "{m.group(0)}"' for m in CLEFT.finditer(new_text)]
+    if path.startswith("docs/"):
+        warnings += [f"기각한 대안이 없음: {path}" for _ in NO_ALTERNATIVE.finditer(new_text)]
+    return warnings
+
+
+def check_blank_runs(text: str, path: str) -> list[str]:
+    outside = re.sub(r"```.*?```", "```", text, flags=re.DOTALL)
+    return [f"빈 줄이 둘 이상 이어짐: {path}"] if re.search(r"\n[ \t]*\n[ \t]*\n", outside) else []
+
+
+def check_citations(text: str) -> list[str]:
+    body, _, refs = text.partition("## 참고문헌")
+    known = {(name.lower(), year) for name, year in REFERENCE.findall(refs)}
+    cited = set()
+    for group in CITE_GROUP.findall(body):
+        for part in group.split(";"):
+            if m := CITE_PART.match(part.strip()):
+                cited.add((m.group(1).lower(), m.group(2)))
+    cited |= {(name.lower(), year) for name, year in CITE_INLINE.findall(body)}
+    return [f"참고문헌에 없는 인용: {name} {year}" for name, year in sorted(cited - known)]
+
+
 def run(old_text: str, new_text: str, path: str) -> tuple[list[str], list[str]]:
     errors = check_refs(new_text)
     warnings = check_copies(new_text, path) + check_removed(old_text, new_text)
-    warnings += check_redefine(new_text, path)
+    warnings += check_redefine(new_text, path) + check_style(new_text, path)
     return errors, warnings
+
+
+def check_file(path: str) -> tuple[list[str], list[str]]:
+    target = ROOT / path
+    if not path.endswith(".md") or not target.exists():
+        return [], []
+    text = target.read_text(encoding="utf-8")
+    errors = check_citations(text) if path == "docs/THEORY.md" else []
+    return errors, check_blank_runs(text, path)
 
 
 def in_scope(path: str) -> bool:
@@ -222,6 +278,10 @@ def hook() -> None:
     old = "\n".join(e.get("old_string", "") for e in edits)
     new = "\n".join(e.get("new_string") or e.get("content", "") for e in edits)
     errors, warnings = run(old, new, path) if in_scope(path) else ([], [])
+    if in_scope(path):
+        e, w = check_file(path)
+        errors += e
+        warnings += w
     if file_path in inbound_files():
         errors += check_inbound(new, path)
     if file_path in record_files():
@@ -277,8 +337,14 @@ def branch() -> int:
         e, w = run(removed, added, path)
         errors += e
         warnings += w
+        e, w = check_file(path)
+        errors += e
+        warnings += w
     for f in inbound_files():
-        errors += check_inbound(f.read_text(encoding="utf-8"), rel(f))
+        text = f.read_text(encoding="utf-8")
+        errors += check_inbound(text, rel(f))
+        if f.suffix == ".py":
+            errors += [f"{rel(f)}: {e}" for e in check_refs(text)]
     warnings += check_history()
     errors += check_spec((ROOT / "SPEC.md").read_text(encoding="utf-8"))
     if "+++ b/SPEC.md" in diff:
@@ -290,8 +356,73 @@ def branch() -> int:
     return 1 if errors else 0
 
 
+def git_text(*args: str) -> str:
+    return subprocess.run(
+        ["git", "-c", "core.quotepath=false", *args],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    ).stdout
+
+
+def heading_renames(diff: str) -> list[tuple[str, str]]:
+    """hunk 하나에서 제목 줄이 하나 지워지고 하나 생겼으면 (옛 제목, 새 제목)으로 본다."""
+    pairs = []
+    for hunk in re.split(r"^@@.*$", diff, flags=re.MULTILINE)[1:]:
+        old = re.findall(r"^-#+\s+(.+)$", hunk, re.MULTILINE)
+        new = re.findall(r"^\+#+\s+(.+)$", hunk, re.MULTILINE)
+        if len(old) == 1 and len(new) == 1 and old[0].strip() != new[0].strip():
+            pairs.append((old[0].strip(), new[0].strip()))
+    return pairs
+
+
+def spec_renumbers(old_spec: str, new_spec: str) -> dict[str, str]:
+    def numbers(text: str) -> dict[str, str]:
+        return {
+            m.group(2).strip(): m.group(1)
+            for m in re.finditer(r"^## (\d+)\.\s+(.+)$", text, re.MULTILINE)
+        }
+
+    old, new = numbers(old_spec), numbers(new_spec)
+    return {old[t]: new[t] for t in old if t in new and old[t] != new[t]}
+
+
+def replace_refs(text: str, renames: list[tuple[str, str]], numbers: dict[str, str]) -> str:
+    for old, new in renames:
+        for q in "\"'":
+            text = text.replace(f"{q}{old}{q} 절", f"{q}{new}{q} 절")
+    return re.sub(
+        r"SPEC\.md (\d+)절", lambda m: f"SPEC.md {numbers.get(m.group(1), m.group(1))}절", text
+    )
+
+
+def fix() -> int:
+    renames = heading_renames(git_text("diff", "-U0", "origin/main...HEAD", "--", "*.md"))
+    numbers = spec_renumbers(
+        git_text("show", "origin/main:SPEC.md"), (ROOT / "SPEC.md").read_text(encoding="utf-8")
+    )
+    changed = []
+    for f in sorted(set(scope_files()) | set(inbound_files())):
+        text = f.read_text(encoding="utf-8")
+        new = replace_refs(text, renames, numbers)
+        if new != text:
+            f.write_text(new, encoding="utf-8")
+            changed.append(rel(f))
+    for old, new in renames:
+        print(f'제목: "{old}" -> "{new}"')
+    for old, new in numbers.items():
+        print(f"SPEC.md {old}절 -> {new}절")
+    for path in changed:
+        print(f"고침: {path}")
+    return 0
+
+
 if __name__ == "__main__":
     if "--hook" in sys.argv:
         hook()
+    elif "--fix" in sys.argv:
+        sys.exit(fix())
     else:
         sys.exit(branch())

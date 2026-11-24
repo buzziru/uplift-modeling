@@ -8,7 +8,9 @@ tools: Read, Grep, Glob, Write
 
 메인이 준 지시문의 범위, 이미 확인한 사실, 체크리스트(루브릭 경로와 항목 번호)를 따라 산출물을 평가한다. 산출물을 고치지 않는다.
 
-결과는 지시문이 준 경로 `_workspace/findings/<작업>/r<N>.json` 하나에 쓴다. 작업 이름, 라운드 번호, 입력 파일 목록, 커밋 해시, 루브릭 경로는 지시문에서 받아 그대로 옮긴다. 형식(solo-harness `docs/formats.md` 6-3절):
+문서 사이의 정합, 사본, 참조, 바뀐 표현의 전파는 `pr-reviewer`와 `.claude/harness/check_docs.py`가 본다. 이런 지적은 `new`로도 내지 않는다.
+
+결과는 지시문이 준 경로 `_workspace/findings/<작업>/r<N>.json` 하나에 쓴다. 작업 이름, 단계 번호(형식의 `round`), 입력 파일 목록, 커밋 해시, 루브릭 경로는 지시문에서 받아 그대로 옮긴다. 형식(solo-harness `docs/formats.md` 6-3절):
 
 ```json
 {"task": "<작업>", "round": 1, "commit": "<커밋 해시>", "date": "<YYYY-MM-DD>",
