@@ -5,6 +5,8 @@
 - 지운 표현이 남은 곳(알림): 지운 따옴표·백틱 표현이 다른 파일에 남았는지 본다.
 - 이미 쓰는 낱말의 새 정의(알림): "X은/는 ...이다" 꼴의 X가 이미 다른 곳에 쓰이는지 본다.
 - 기록 문서 인용(오류): `docs/` 밖의 파일이 기록 문서의 절이나 항목을 가리키는지 본다(SPEC.md 10절).
+- SPEC.md의 위치 줄(오류): 10절 밖에서 "정본:", "기록:" 줄이나 파일 경로(`docs/THEORY.md`, `docs/glossary.md` 제외)를 쓰는지 본다(SPEC.md 머리말).
+- SPEC.md 변경(알림): 브랜치가 SPEC.md를 바꿨는지 알린다. 그 작업의 승인 요청이나 보고에 함께 적는다(CLAUDE.md 프로젝트 절).
 - 바뀐 이력 비율(알림): `docs/` 문서에서 바뀐 이력 줄이 전체 줄의 20%를 넘는지 본다(CLAUDE.md 프로젝트 절).
 
 실행:
@@ -55,6 +57,8 @@ RECORD_REF = re.compile(
     r"(?:#[^\s)`]+|`?(?!에 항목)(?:\s*\"[^\"\n]+\")?[^|\n`]{0,20}?(?<!\d)(?:절(?!차)|항목))"
 )
 HISTORY_LIMIT = 0.2
+SPEC_PATH = re.compile(r"`([^`\s]+\.(?:md|py|yaml|json))`")
+SPEC_ALLOWED = {"docs/THEORY.md", "docs/glossary.md"}
 
 
 def scope_files() -> list[Path]:
@@ -84,6 +88,23 @@ def history_ratio(text: str) -> float:
             continue
         count += 1
     return count / len(lines) if lines else 0.0
+
+
+def check_spec(text: str) -> list[str]:
+    errors, section = [], ""
+    for n, line in enumerate(text.splitlines(), 1):
+        if m := re.match(r"## (\d+)\.", line):
+            section = m.group(1)
+        if section == "10":
+            continue
+        if line.startswith(("정본:", "기록:")):
+            errors.append(f"SPEC.md {n}줄: 위치를 가리키는 줄")
+        errors += [
+            f"SPEC.md {n}줄: 경로 {p}"
+            for p in SPEC_PATH.findall(line)
+            if p not in SPEC_ALLOWED
+        ]
+    return errors
 
 
 def check_history() -> list[str]:
@@ -205,6 +226,8 @@ def hook() -> None:
         errors += check_inbound(new, path)
     if file_path in record_files():
         warnings += check_history()
+    if path == "SPEC.md":
+        errors += check_spec(file_path.read_text(encoding="utf-8"))
     lines = [f"오류: {e}" for e in errors] + [f"알림: {w}" for w in warnings]
     if not lines:
         return
@@ -257,6 +280,9 @@ def branch() -> int:
     for f in inbound_files():
         errors += check_inbound(f.read_text(encoding="utf-8"), rel(f))
     warnings += check_history()
+    errors += check_spec((ROOT / "SPEC.md").read_text(encoding="utf-8"))
+    if "+++ b/SPEC.md" in diff:
+        warnings.append("SPEC.md가 바뀌었다. 이 작업의 승인 요청이나 보고에 바꾼 줄을 함께 적는다")
     for w in warnings:
         print(f"알림: {w}")
     for e in errors:
