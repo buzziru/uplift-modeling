@@ -16,6 +16,18 @@ description: 로컬에서 개발한 실험의 본학습, HPO, GPU 실행을 Kagg
 - dataset과 kernel은 비공개로 둔다. 공개(`datasets create -u`, `"is_private": "false"`)는 공개 배포라 사용자에게 묻는다. `delete` 명령도 묻는다.
 - 실패한 실행을 같은 코드로 다시 push하지 않는다. 로그로 원인을 찾고 로컬에서 작은 표본으로 재현해 고친 뒤 push한다.
 
+## kernel 종류
+
+어느 모델을 어느 kernel에서 돌릴지는 위 ENGINEERING.md 절이 정한다. 종류에 따라 다른 것은 셋이다.
+
+| | CPU kernel | GPU kernel |
+| --- | --- | --- |
+| `kernel-metadata.json`의 `enable_gpu` | `"false"` | `"true"` |
+| push | `--accelerator` 없이 | `--accelerator NvidiaTeslaT4` |
+| push 전 확인 | 없음 | `K quota`의 GPU 남은 시간이 `--timeout`보다 큰지. `quota`는 GPU와 TPU의 주간 한도만 보인다 |
+
+GPU kernel은 `uv.lock`에 든 라이브러리 휠의 GPU 지원에 기댄다. 모델 라이브러리마다 첫 GPU 실행에서는 로그로 GPU가 실제로 쓰였는지(라이브러리가 장치를 잡았다는 출력, `nvidia-smi`) 확인하고, 안 쓰였으면 CPU kernel과 같은 시간을 GPU 한도로 쓰는 셈이라 멈추고 보고한다.
+
 ## 준비(한 번)
 
 1. CLI 설치: `uv tool install kaggle --with six`. Kaggle CLI 2.2.5는 `six` 의존성이 빠져 있어 함께 넣는다.
@@ -29,7 +41,7 @@ description: 로컬에서 개발한 실험의 본학습, HPO, GPU 실행을 Kagg
 
 작업 폴더는 `data/kaggle/dataset/`다(`data/`는 커밋하지 않는다).
 
-1. 처음: `K datasets init -p data/kaggle/dataset`로 `dataset-metadata.json`을 만들고 `id`를 `<KAGGLE_USERNAME>/uplift-hillstrom-train`으로, `title`을 기본값에서 `uplift-hillstrom-train`으로 고친다. DuckDB에서 학습 세트와 fold 배정을 Parquet로 내보내 같은 폴더에 둔다.
+1. 처음: `K datasets init -p data/kaggle/dataset`로 `dataset-metadata.json`을 만들고 `id`를 `<KAGGLE_USERNAME>/uplift-hillstrom-train`으로, `title`을 기본값에서 `uplift-hillstrom-train`으로 고친다. DuckDB에서 `splits`의 학습 세트 고객과 `folds` 테이블(seed, fold)을 Parquet로 내보내 같은 폴더에 둔다. 시험 세트 고객은 넣지 않는다.
 2. 올리기: `K datasets create -p data/kaggle/dataset -t -q`. `-t`는 Parquet를 CSV로 바꾸지 않게 한다. `-u`를 붙이지 않는다.
 3. 분할이나 fold가 바뀌면 `K datasets version -p data/kaggle/dataset -t -q -m "<분할 시드, 행 수, 커밋>"`.
 4. `K datasets status <id>`가 ready인지 본 뒤 kernel을 push한다.
@@ -48,7 +60,7 @@ description: 로컬에서 개발한 실험의 본학습, HPO, GPU 실행을 Kagg
   "language": "python",
   "kernel_type": "script",
   "is_private": "true",
-  "enable_gpu": "<GPU가 필요하면 true>",
+  "enable_gpu": "<kernel 종류 절의 값>",
   "enable_internet": "true",
   "dataset_sources": ["<KAGGLE_USERNAME>/uplift-hillstrom-train"]
 }
@@ -80,8 +92,8 @@ sh(f"cd /tmp/repo && uv run --frozen python experiments/{EXP}/run.py --data {DAT
 순서:
 
 1. 커밋을 푸시하고 `entry.py`의 `SHA`에 넣는다.
-2. GPU 실행이면 `K quota`로 남은 시간이 `--timeout`보다 큰지 본다. 모자라면 push하지 않고 보고한다.
-3. `K kernels push -p data/kaggle/<EXP-ID> -t <초> [--accelerator NvidiaTeslaT4]`. 출력에 찍힌 kernel 버전을 적어 둔다.
+2. kernel 종류 절의 push 전 확인을 한다. 모자라면 push하지 않고 보고한다.
+3. `K kernels push -p data/kaggle/<EXP-ID> -t <초>`에 kernel 종류 절의 push 옵션을 붙인다. 출력에 찍힌 kernel 버전을 적어 둔다.
 4. `K kernels status <id>`를 몇 분 간격으로 본다. 로그는 `K kernels logs <id>`로 보고, 계속 볼 때는 `--follow --interval 30` 이상으로 둔다.
 5. 끝나면 `K kernels output <id>/<버전> -p data/kaggle/<EXP-ID>/output/v<버전>`로 받는다.
-6. 받은 출력을 `docs/ENGINEERING.md`의 Kaggle 실행 절과 "분석 데이터와 실험 기록은 DuckDB 파일 하나에 두고 이것을 정본으로 한다" 절대로 기록한다.
+6. 받은 출력을 `docs/ENGINEERING.md`의 "본학습, HPO, GPU 실행은 Kaggle kernel에서 하고 나머지는 로컬에서 한다" 절과 "분석 데이터와 실험 기록은 DuckDB 파일 하나에 두고 이것을 정본으로 한다" 절대로 기록한다.
