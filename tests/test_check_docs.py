@@ -90,6 +90,9 @@ def test_title_ref_checks_single_quoted_titles(tmp_path, monkeypatch):
         ("아래 금액 모델 행", 0),
         ("위 행동을 고른다", 0),
         ("다음 절차를 따른다", 0),
+        ("다음 절에서 다룬다", 1),
+        ("마지막 행에는 합계가 있다", 1),
+        ("위 행렬을 곱한다", 0),
     ],
 )
 def test_check_style_flags_position_refs(text, expected):
@@ -121,16 +124,19 @@ def test_check_citations_matches_parenthetical_and_inline_cites():
         "- Radcliffe, N. J. (2007). Title.\n"
     )
     assert check_docs.check_citations(text) == ["참고문헌에 없는 인용: kennedy 2023"]
+    negative = "(표본 10000명) 고객 (2000명) (2026-11-24)\n## 참고문헌\n"
+    assert check_docs.check_citations(negative) == []
 
 
-def test_heading_renames_pairs_one_removed_and_one_added_heading_per_hunk():
+def test_heading_renames_keeps_only_title_only_hunks_with_path():
     diff = (
+        "diff --git a/docs/DATA.md b/docs/DATA.md\n--- a/docs/DATA.md\n+++ b/docs/DATA.md\n"
         "@@ -1 +1 @@\n-## 2026-11-24 깔때기 단계로 나눈다\n+## 2026-11-24 퍼널 단계로 나눈다\n"
         "@@ -9 +9 @@\n-본문\n+본문 고침\n"
-        "@@ -20,2 +20 @@\n-## 지운 절\n-## 또 지운 절\n+## 새 절\n"
+        "@@ -20,2 +20,2 @@\n-## 지운 절\n-본문\n+## 새 절\n+다른 본문\n"
     )
     assert check_docs.heading_renames(diff) == [
-        ("2026-11-24 깔때기 단계로 나눈다", "2026-11-24 퍼널 단계로 나눈다")
+        ("docs/DATA.md", "2026-11-24 깔때기 단계로 나눈다", "2026-11-24 퍼널 단계로 나눈다")
     ]
 
 
@@ -140,7 +146,9 @@ def test_spec_renumbers_maps_shifted_sections_by_title():
     assert check_docs.spec_renumbers(old, new) == {"2": "3", "3": "4"}
 
 
-def test_replace_refs_rewrites_titles_and_spec_numbers_in_one_pass():
-    text = "`a.md` \"옛 제목\" 절, '옛 제목' 절, SPEC.md 2절과 SPEC.md 3절, SPEC.md 1절"
-    out = check_docs.replace_refs(text, [("옛 제목", "새 제목")], {"2": "3", "3": "4"})
-    assert out == "`a.md` \"새 제목\" 절, '새 제목' 절, SPEC.md 3절과 SPEC.md 4절, SPEC.md 1절"
+def test_replace_refs_rewrites_only_refs_to_the_renamed_file_and_is_idempotent():
+    text = '`a.md` "옛 제목" 절, `a.md` \'옛 제목\' 절, `b.md` "옛 제목" 절, SPEC.md 2절'
+    renames = [("a.md", "옛 제목", "새 제목")]
+    once = check_docs.replace_refs(text, renames)
+    assert once == '`a.md` "새 제목" 절, `a.md` \'새 제목\' 절, `b.md` "옛 제목" 절, SPEC.md 2절'
+    assert check_docs.replace_refs(once, renames) == once

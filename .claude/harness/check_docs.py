@@ -12,12 +12,13 @@
 - 마크다운 구조(알림): 목록 두 항목이 한 줄에 붙었는지, 빈 줄이 둘 이상 이어지는지 본다.
 - 문체와 항목 형식(알림): "~한 것은" 꼴의 분열문, 기록 문서의 "기각한 대안: 없음"을 본다.
 - 참고문헌 대조(오류): `docs/THEORY.md` 본문의 (저자, 연도) 인용이 참고문헌 절에 있는지 본다.
-- 참조 자동 수정(--fix): 브랜치에서 바뀐 절 제목과 밀린 SPEC.md 절 번호의 참조를 저장소 전체에서 고친다.
+- 참조 자동 수정(--fix): 브랜치에서 이름만 바뀐 절 제목을 가리키는 `경로` "제목" 절 참조를 검사 범위(SCOPE, INBOUND) 파일에서 고친다.
+- SPEC.md 절 번호 변경(알림): 브랜치에서 SPEC.md 절 번호가 밀렸으면 옛 번호와 새 번호를 알린다. 번호 참조는 사람이 고친다.
 
 실행:
   uv run python .claude/harness/check_docs.py           브랜치 변경(origin/main...HEAD) 검사, 오류면 exit 1
   uv run python .claude/harness/check_docs.py --hook    PostToolUse hook. stdin의 Edit/Write/MultiEdit 입력만 검사
-  uv run python .claude/harness/check_docs.py --fix     바뀐 절 제목과 SPEC.md 절 번호의 참조를 고친다. 평가·검토 전에 돌린다
+  uv run python .claude/harness/check_docs.py --fix     이름만 바뀐 절 제목의 참조를 고친다. 평가·검토 전에 돌린다
 """
 
 import json
@@ -76,14 +77,16 @@ SPEC_PATH = re.compile(r"`([^`\s]+\.(?:md|py|yaml|json))`")
 SPEC_ALLOWED = {"docs/THEORY.md", "docs/glossary.md"}
 TITLE_REF = re.compile(r"`([^`]+\.md)` [\"']([^\"'\n]+)[\"'] 절")
 POSITION_REF = re.compile(
-    r"(?<![가-힣])(?:첫|마지막|앞|위|아래|다음) (?:절|행|문단)(?![가-힣]{2}|차)"
+    r"(?<![가-힣])(?:첫|마지막|앞|위|아래|다음) (?:절|행|문단)(?!동|렬|차|사)"
 )
 MERGED_ITEM = re.compile(r"\S {2,}- \S")
 CLEFT = re.compile(r"[가-힣]+[한된던운은는] 것은 [^.\n]{0,60}?(?:이다|였다|이었다)\.")
 NO_ALTERNATIVE = re.compile(r"^- 기각한 대안: 없음", re.MULTILINE)
 CITE_GROUP = re.compile(r"\(([^()]*\d{4}[^()]*)\)")
-CITE_PART = re.compile(r"^([^\W\d_][^\s,]*)\D*?(\d{4})")
-CITE_INLINE = re.compile(r"([^\W\d_][\w'-]+)(?: et al\.| & [^\W\d_][\w'-]+)? \((\d{4})")
+CITE_PART = re.compile(r"^([A-Za-zÀ-ž][^\s,]*)\D*?(\d{4})(?![\d가-힣])")
+CITE_INLINE = re.compile(
+    r"([A-Za-zÀ-ž][\w'-]+)(?: et al\.| & [A-Za-zÀ-ž][\w'-]+)? \((\d{4})(?![\d가-힣])"
+)
 REFERENCE = re.compile(r"^- ([^\s,]+?)[,.] .*?\((\d{4})", re.MULTILINE)
 
 
@@ -347,6 +350,12 @@ def branch() -> int:
             errors += [f"{rel(f)}: {e}" for e in check_refs(text)]
     warnings += check_history()
     errors += check_spec((ROOT / "SPEC.md").read_text(encoding="utf-8"))
+    old_spec = git_text("show", "origin/main:SPEC.md")
+    numbers = spec_renumbers(old_spec, (ROOT / "SPEC.md").read_text(encoding="utf-8"))
+    warnings += [
+        f"SPEC.md 절 번호가 바뀜: {old}절 -> {new}절. SPEC.md {old}절 참조를 확인한다"
+        for old, new in numbers.items()
+    ]
     if "+++ b/SPEC.md" in diff:
         warnings.append("SPEC.md가 바뀌었다. 이 작업의 승인 요청이나 보고에 바꾼 줄을 함께 적는다")
     for w in warnings:
@@ -367,53 +376,58 @@ def git_text(*args: str) -> str:
     ).stdout
 
 
-def heading_renames(diff: str) -> list[tuple[str, str]]:
-    """hunk 하나에서 제목 줄이 하나 지워지고 하나 생겼으면 (옛 제목, 새 제목)으로 본다."""
-    pairs = []
-    for hunk in re.split(r"^@@.*$", diff, flags=re.MULTILINE)[1:]:
-        old = re.findall(r"^-#+\s+(.+)$", hunk, re.MULTILINE)
-        new = re.findall(r"^\+#+\s+(.+)$", hunk, re.MULTILINE)
-        if len(old) == 1 and len(new) == 1 and old[0].strip() != new[0].strip():
-            pairs.append((old[0].strip(), new[0].strip()))
-    return pairs
+def heading_renames(diff: str) -> list[tuple[str, str, str]]:
+    """제목 줄 하나만 바뀐 hunk를 (경로, 옛 제목, 새 제목)으로 본다.
+
+    다른 줄이 함께 바뀐 hunk는 이름 바꿈으로 보지 않는다.
+    """
+    renames = []
+    for chunk in re.split(r"^diff --git ", diff, flags=re.MULTILINE)[1:]:
+        m = re.search(r"^\+\+\+ b/(.+)$", chunk, re.MULTILINE)
+        if not m:
+            continue
+        for hunk in re.split(r"^@@.*$", chunk, flags=re.MULTILINE)[1:]:
+            lines = [
+                x
+                for x in hunk.splitlines()
+                if x.startswith(("-", "+")) and not x.startswith(("---", "+++"))
+            ]
+            if len(lines) != 2:
+                continue
+            old = re.match(r"^-#+\s+(.+)$", lines[0])
+            new = re.match(r"^\+#+\s+(.+)$", lines[1])
+            if old and new and old.group(1).strip() != new.group(1).strip():
+                renames.append((m.group(1), old.group(1).strip(), new.group(1).strip()))
+    return renames
 
 
 def spec_renumbers(old_spec: str, new_spec: str) -> dict[str, str]:
     def numbers(text: str) -> dict[str, str]:
-        return {
-            m.group(2).strip(): m.group(1)
-            for m in re.finditer(r"^## (\d+)\.\s+(.+)$", text, re.MULTILINE)
-        }
+        found = re.finditer(r"^## (\d+)\.\s+(.+)$", text, re.MULTILINE)
+        return {m.group(2).strip(): m.group(1) for m in found}
 
     old, new = numbers(old_spec), numbers(new_spec)
     return {old[t]: new[t] for t in old if t in new and old[t] != new[t]}
 
 
-def replace_refs(text: str, renames: list[tuple[str, str]], numbers: dict[str, str]) -> str:
-    for old, new in renames:
+def replace_refs(text: str, renames: list[tuple[str, str, str]]) -> str:
+    for path, old, new in renames:
         for q in "\"'":
-            text = text.replace(f"{q}{old}{q} 절", f"{q}{new}{q} 절")
-    return re.sub(
-        r"SPEC\.md (\d+)절", lambda m: f"SPEC.md {numbers.get(m.group(1), m.group(1))}절", text
-    )
+            text = text.replace(f"`{path}` {q}{old}{q} 절", f"`{path}` {q}{new}{q} 절")
+    return text
 
 
 def fix() -> int:
     renames = heading_renames(git_text("diff", "-U0", "origin/main...HEAD", "--", "*.md"))
-    numbers = spec_renumbers(
-        git_text("show", "origin/main:SPEC.md"), (ROOT / "SPEC.md").read_text(encoding="utf-8")
-    )
     changed = []
     for f in sorted(set(scope_files()) | set(inbound_files())):
-        text = f.read_text(encoding="utf-8")
-        new = replace_refs(text, renames, numbers)
+        text = f.read_bytes().decode("utf-8")
+        new = replace_refs(text, renames)
         if new != text:
-            f.write_text(new, encoding="utf-8")
+            f.write_bytes(new.encode("utf-8"))
             changed.append(rel(f))
-    for old, new in renames:
-        print(f'제목: "{old}" -> "{new}"')
-    for old, new in numbers.items():
-        print(f"SPEC.md {old}절 -> {new}절")
+    for path, old, new in renames:
+        print(f'제목: {path} "{old}" -> "{new}"')
     for path in changed:
         print(f"고침: {path}")
     return 0
