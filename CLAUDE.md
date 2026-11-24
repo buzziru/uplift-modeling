@@ -28,7 +28,7 @@
 
 - 명세는 `SPEC.md`, 용어는 `docs/glossary.md`다. 결정의 정본과 기록 문서의 구분은 SPEC.md 10절이다.
 - 임시 결정 파일(`docs/glossary.md`)은 `PENDING-DECISIONS.md`다.
-- SPEC.md에는 결정이 반영된 위치와 잠정 결정을 적지 않는다(SPEC.md 머리말). SPEC.md를 바꾸는 작업은 따로 승인받지 않고, 그 작업의 승인 요청이나 보고에 바꾼 SPEC 줄을 함께 적는다.
+- SPEC.md에 적지 않는 것은 SPEC.md 머리말. SPEC.md를 바꾸는 작업은 따로 승인받지 않고, 그 작업의 승인 요청이나 보고에 바꾼 SPEC 줄을 함께 적는다.
 - `docs/` 문서에서 바뀐 이력 줄이 문서 전체 줄의 20%를 넘으면, 그 문서의 바뀐 이력을 `docs/history/<문서 이름>.md`로 옮기고 각 항목에는 옮긴 곳을 한 줄로 남긴다. `check_docs.py`가 비율을 재어 넘으면 알린다.
 - 폴더 규약은 `analyses/CLAUDE.md`, `experiments/CLAUDE.md`, `scripts/CLAUDE.md`, 실험 양식은 `experiments/TEMPLATE.md`, Kaggle 실행은 `.claude/skills/kaggle-remote-runner/SKILL.md`다.
 
