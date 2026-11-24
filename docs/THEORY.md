@@ -9,7 +9,7 @@ sections: [정의와 푸는 문제, 고객 네 유형, 대표 방법, 평가, Hi
 
 Uplift modeling은 마케팅 캠페인 같은 처치(treatment)가 고객의 행동을 얼마나 바꾸는지를 추정하는 기법이다 (Radcliffe & Surry, 2011; Gutierrez & Gérardy, 2017). 처치는 고객에게 하는 개입(이메일 발송, 쿠폰 지급 등)이다. <mark>예측 대상이 "살 확률"이 아니라 "처치 때문에 늘어나는 살 확률"이라는 점이 일반 분류 모델과 다르다.</mark>
 
-이 구분이 필요한 이유는 기존 응답 모델(response model)이 처치가 없어도 살 사람까지 고르기 때문이다. 응답 모델은 처치했을 때 고객이 살 확률을 추정한다. Radcliffe & Surry (2011)는 고객 전체에 캠페인을 보냈을 때는 캠페인을 보내지 않은 비교 집단(대조군)보다 이익이 났지만, 응답 모델이 고른 상위 30%에만 보냈을 때는 증분 매출이 거의 0이었던 사례를 든다. 응답 모델이 어차피 살 사람만 골랐기 때문이다. 그래서 <mark>같은 예산으로 매출을 늘리려면 응답 확률이 아니라 응답 확률의 증가분으로 고객을 줄 세워야 한다.</mark>
+이 구분이 필요한 이유는 기존 반응 모델(response model)이 처치가 없어도 살 사람까지 고르기 때문이다. 반응 모델은 처치했을 때 고객이 살 확률을 추정한다. Radcliffe & Surry (2011)는 고객 전체에 캠페인을 보냈을 때는 캠페인을 보내지 않은 비교 집단(대조군)보다 이익이 났지만, 반응 모델이 고른 상위 30%에만 보냈을 때는 증분 매출이 거의 0이었던 사례를 든다. 반응 모델이 어차피 살 사람만 골랐기 때문이다. 그래서 <mark>같은 예산으로 매출을 늘리려면 반응 확률이 아니라 반응 확률의 증가분으로 고객을 줄 세워야 한다.</mark>
 
 <mark>이진 결과(구매 1, 비구매 0)에서 uplift는 처치를 받았을 때의 구매 확률에서 받지 않았을 때의 구매 확률을 뺀 값이다</mark> (Radcliffe & Surry, 2011). 특성 벡터를 $x$, 처치 여부를 $W$(처치 1, 대조 0), 결과를 $Y$라 쓴다.
 
@@ -59,13 +59,13 @@ $$
 
 표: 두 잠재 결과의 조합으로 본 고객 유형 (Radcliffe, 2007).
 
-<mark>증분 매출을 최소 비용으로 늘리려면 Persuadables만 고르는 것이 이상적이다</mark> (Radcliffe, 2007). Sure Things와 Lost Causes에 쓴 비용은 매출을 바꾸지 못하고, Sleeping Dogs에 쓴 비용은 매출을 줄인다. <mark>응답 모델은 처치 후 살 확률이 높은 Persuadables와 Sure Things를 함께 고르므로, Sure Things에 예산이 샌다.</mark> 앞 절의 상위 30% 사례가 이 경우다.
+<mark>증분 매출을 최소 비용으로 늘리려면 Persuadables만 고르는 것이 이상적이다</mark> (Radcliffe, 2007). Sure Things와 Lost Causes에 쓴 비용은 매출을 바꾸지 못하고, Sleeping Dogs에 쓴 비용은 매출을 줄인다. <mark>반응 모델은 처치 후 살 확률이 높은 Persuadables와 Sure Things를 함께 고르므로, Sure Things에 예산이 샌다.</mark> 앞 절의 상위 30% 사례가 이 경우다.
 
 이 분류는 개념상의 것이어서, 한 고객이 어느 유형인지는 관측할 수 없다 (Radcliffe, 2007). 같은 고객을 동시에 처치하고 처치하지 않을 수 없기 때문이다. 그래서 <mark>uplift 모델은 유형을 맞히는 대신 $\tau(x)$를 추정해 Persuadables일 가능성이 높은 고객을 위로 올리는 순서를 만든다.</mark>
 
 ## 대표 방법
 
-대표 방법은 세 갈래다. 첫째는 기존 회귀·분류 모델을 조합해 $\tau(x)$를 추정하는 메타러너(meta-learner)로, S-learner, T-learner, X-learner가 여기에 든다 (Künzel et al., 2019). 메타러너에는 처치 확률로 보정한 대리 결과를 학습하는 DR-learner도 든다 (Kennedy, 2023). 둘째는 레이블을 바꿔 분류기 하나로 uplift를 학습하는 class transformation이다 (Jaśkowski & Jaroszewicz, 2012). 셋째는 트리의 분기 기준을 바꿔 uplift를 직접 학습하는 uplift random forest다 (Rzepakowski & Jaroszewicz, 2012; Guelman et al., 2015). Künzel et al. (2019)의 시뮬레이션에서 어느 메타러너도 모든 경우에 가장 좋지는 않았으므로, 방법은 데이터의 조건에 맞춰 고른다. 절 끝의 비교 표에 조건을 모았다.
+대표 방법은 세 갈래다. 첫째는 기존 회귀·분류 모델을 조합해 $\tau(x)$를 추정하는 메타러너(meta-learner)로, S-learner, T-learner, X-learner가 여기에 든다 (Künzel et al., 2019). 메타러너에는 처치 확률로 보정한 pseudo-outcome을 학습하는 DR-learner도 든다 (Kennedy, 2023). 둘째는 레이블을 바꿔 분류기 하나로 uplift를 학습하는 class transformation이다 (Jaśkowski & Jaroszewicz, 2012). 셋째는 트리의 분기 기준을 바꿔 uplift를 직접 학습하는 uplift random forest다 (Rzepakowski & Jaroszewicz, 2012; Guelman et al., 2015). Künzel et al. (2019)의 시뮬레이션에서 어느 메타러너도 모든 경우에 가장 좋지는 않았으므로, 방법은 데이터의 조건에 맞춰 고른다. 절 끝의 비교 표에 조건을 모았다.
 
 ### S-learner
 
@@ -137,7 +137,7 @@ $$
 
 ### DR-learner
 
-DR-learner는 <mark>결과 모델과 처치 확률을 함께 써서 고객마다 pseudo-outcome(대리 결과) $\varphi$를 만들고, 그 값을 $X$에 회귀해 $\tau(x)$를 추정한다</mark> (Kennedy, 2023). $\varphi$는 고객 한 명의 처치 효과를 대신하는 값이다. 처치 확률 $\pi(x) = P(W = 1 \mid X = x)$는 무작위 실험이면 설계로 정해진 값이다.
+DR-learner는 <mark>결과 모델과 처치 확률을 함께 써서 고객마다 pseudo-outcome $\varphi$를 만들고, 그 값을 $X$에 회귀해 $\tau(x)$를 추정한다</mark> (Kennedy, 2023). $\varphi$는 고객 한 명의 처치 효과를 대신하는 값이다. 처치 확률 $\pi(x) = P(W = 1 \mid X = x)$는 무작위 실험이면 설계로 정해진 값이다.
 
 $$
 \varphi = \hat\mu_1(X) - \hat\mu_0(X) + \frac{W\,(Y - \hat\mu_1(X))}{\hat\pi(X)} - \frac{(1 - W)\,(Y - \hat\mu_0(X))}{1 - \hat\pi(X)}
@@ -155,7 +155,7 @@ Kennedy (2023)는 결과 모델과 처치 확률을 한 표본에서 학습하�
 
 ### Uplift random forest
 
-Uplift random forest는 <mark>처치군과 대조군의 결과 분포 차이가 커지도록 나누는 uplift tree를 여러 개 만들어 예측을 평균한다</mark> (Guelman et al., 2014; Guelman et al., 2015). 부품 모델 없이 트리가 직접 uplift를 추정한다.
+Uplift random forest는 <mark>처치군과 대조군의 결과 분포 차이가 커지도록 나누는 uplift tree를 여러 개 만들어 예측을 평균한다</mark> (Guelman et al., 2014; Guelman et al., 2015). base learner 없이 트리가 직접 uplift를 추정한다.
 
 Uplift tree의 분기 기준은 일반 결정 트리와 다르다. 일반 트리는 자식 노드 안의 결과가 고르게 되도록 나누지만, uplift tree는 자식 노드에서 처치군과 대조군의 결과 분포가 서로 달라지도록 나눈다 (Rzepakowski & Jaroszewicz, 2012). 분포 차이는 KL divergence, 제곱 유클리드 거리, 카이제곱 divergence로 재고, 나누기 전보다 차이가 얼마나 커졌는지를 이득으로 쓴다. 잎의 uplift는 그 잎 안 처치군 응답률에서 대조군 응답률을 뺀 값이다. 원 논문은 처치가 여럿인 경우로 넓혀, 각 처치와 대조군의 차이와 처치끼리의 차이를 가중합한 분포 차이를 쓴다(5절).
 
@@ -171,7 +171,7 @@ Forest는 트리마다 학습 데이터의 일부를 뽑고, 분기마다 특성
 | Class transformation | 이진 결과, 처치 확률 1/2 | 분류기 하나로 바로 학습             | 가정이 깨지면 재가중 필요        | 균형 잡힌 이진 결과 실험               |
 | Transformed outcome  | 처치 확률 $p$를 앎       | 불균형과 연속 결과에도 사용         | 변환한 결과의 분산이 큼          | 불균형 실험, 연속 결과                 |
 | DR-learner           | 처치 확률을 앎(무작위 실험) | transformed outcome보다 분산이 작음 | 표본을 나눠 결과 모델 둘과 최종 회귀를 학습해야 함 | 처치 확률을 아는 실험에서 분산을 줄일 때 |
-| Uplift random forest | 없음(무작위 실험)        | 부품 모델 없이 여러 처치를 직접 다룸 | 잎마다 두 군이 있어야 해 데이터가 많이 듦 | 처치가 여럿인 실험                     |
+| Uplift random forest | 없음(무작위 실험)        | base learner 없이 여러 처치를 직접 다룸 | 잎마다 두 군이 있어야 해 데이터가 많이 듦 | 처치가 여럿인 실험                     |
 
 표: 대표 방법 비교 (Künzel et al., 2019; Gutierrez & Gérardy, 2017; Jaśkowski & Jaroszewicz, 2012; Athey & Imbens, 2016; Kennedy, 2023; Rzepakowski & Jaroszewicz, 2012). Transformed outcome 행의 분산은 $Y^*$가 $1/p$, $1/(1 - p)$배로 커지는 데서 온 판단이다. Uplift random forest 행의 약점은 잎마다 처치군과 대조군의 응답률을 따로 구하는 데서 온 판단이다.
 
