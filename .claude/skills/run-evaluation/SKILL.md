@@ -9,9 +9,9 @@ description: PR을 열기 전에 평가 에이전트와 PR 전 검토 에이전�
 
 순서: 평가 대상 파일을 바꾼 작업은 평가를 마친 뒤 PR 전 검토를 받는다. 평가 대상 파일을 바꾸지 않은 작업은 PR 전 검토만 받는다. 둘 다 저장소에 정해진 검사(`.claude/harness/config.json`의 `check`)를 돌린 뒤 부른다.
 
-평가 대상 파일은 루브릭이 판정하는 파일이다: `SPEC.md`, `docs/`, `src/`, `scripts/`, `analyses/`, `experiments/`, `artifacts/`, `tests/baseline/`(기준값 파일). 하네스 파일, CI 설정, 의존성 파일, 그 밖의 `tests/`, `.gitignore`는 평가 대상이 아니다.
+평가 대상 파일은 루브릭이 판정하는 파일이다: `SPEC.md`, `PENDING-DECISIONS.md`, `docs/`, `src/`, `scripts/`, `analyses/`, `experiments/`, `artifacts/`, `tests/baseline/`(기준값 파일). 하네스 파일, CI 설정, 의존성 파일, 그 밖의 `tests/`, `.gitignore`는 평가 대상이 아니다.
 
-플러그인의 PR 검사는 하네스 파일이 아닌 파일을 바꾼 PR에 평가 기록을 요구한다. 평가 대상 파일을 바꾸지 않았는데 이 검사에 막히면, 바꾼 파일을 입력으로 평가를 한 라운드 받는다.
+플러그인의 PR 검사는 하네스 파일이 아닌 파일을 바꾼 PR에 평가 기록을 요구한다. 평가 대상 파일을 바꾸지 않았는데 이 검사에 막히면, 바꾼 파일을 입력으로 평가를 한 라운드 받는다. 이때 입력 파일 목록은 아래 "평가 대상 파일 모두"의 예외로, 바꾼 파일 전체다.
 
 ## 평가 부르기
 

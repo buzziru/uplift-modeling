@@ -4,10 +4,12 @@
 - 사본 문장(알림): 새로 쓴 문장이 다른 문장과 거의 같은지 본다.
 - 지운 표현이 남은 곳(알림): 지운 따옴표·백틱 표현이 다른 파일에 남았는지 본다.
 - 이미 쓰는 낱말의 새 정의(알림): "X은/는 ...이다" 꼴의 X가 이미 다른 곳에 쓰이는지 본다.
+- 기록 문서 인용(오류): `docs/` 밖의 파일이 기록 문서의 절이나 항목을 가리키는지 본다(SPEC.md 10절).
+- 바뀐 이력 비율(알림): `docs/` 문서에서 바뀐 이력 줄이 전체 줄의 20%를 넘는지 본다(CLAUDE.md 프로젝트 절).
 
 실행:
   uv run python .claude/harness/check_docs.py           브랜치 변경(origin/main...HEAD) 검사, 오류면 exit 1
-  uv run python .claude/harness/check_docs.py --hook    PostToolUse hook. stdin의 Edit/Write 입력만 검사
+  uv run python .claude/harness/check_docs.py --hook    PostToolUse hook. stdin의 Edit/Write/MultiEdit 입력만 검사
 """
 
 import json
@@ -24,13 +26,72 @@ SCOPE = [
     ".claude/agents/*.md",
     ".claude/rubrics/*.md",
     ".claude/skills/run-evaluation/SKILL.md",
+    ".claude/skills/kaggle-remote-runner/SKILL.md",
+    "PENDING-DECISIONS.md",
+    "*/CLAUDE.md",
+    "experiments/TEMPLATE.md",
 ]
 SIMILAR = 0.7
 MIN_LEN = 25
+RECORDS = ("PROBLEM", "DATA", "MODELING", "EVALUATION", "POLICY", "DASHBOARD", "ENGINEERING", "NARRATIVE")
+INBOUND = [
+    "SPEC.md",
+    "CLAUDE.md",
+    "PENDING-DECISIONS.md",
+    "*/CLAUDE.md",
+    "src/**/*.py",
+    "scripts/**/*.py",
+    "analyses/**/*.py",
+    "experiments/**/*.md",
+    "experiments/**/*.py",
+    "artifacts/**/*.md",
+    ".claude/agents/*.md",
+    ".claude/rubrics/*.md",
+    ".claude/skills/**/*.md",
+]
+RECORD_REF = re.compile(
+    r"docs/(?:" + "|".join(RECORDS) + r")\.md"
+    r"(?:#[^\s)`]+|`?(?!에 )(?:\s*\"[^\"\n]+\")?[^|\n`]{0,20}?(?<!\d)(?:절(?!차)|항목))"
+)
+HISTORY_LIMIT = 0.2
 
 
 def scope_files() -> list[Path]:
     return sorted({p for pattern in SCOPE for p in ROOT.glob(pattern)})
+
+
+def inbound_files() -> list[Path]:
+    return sorted({p for pattern in INBOUND for p in ROOT.glob(pattern) if p.is_file()})
+
+
+def record_files() -> list[Path]:
+    return sorted((ROOT / "docs").glob("*.md"))
+
+
+def check_inbound(text: str, path: str) -> list[str]:
+    return [f'기록 문서 인용: {path} "{m.group(0)}"' for m in RECORD_REF.finditer(text)]
+
+
+def history_ratio(text: str) -> float:
+    lines = text.splitlines()
+    count, inside = 0, False
+    for line in lines:
+        if line.startswith("- 바뀐 이력:"):
+            inside = True
+        elif not (inside and line.startswith("  ")):
+            inside = False
+            continue
+        count += 1
+    return count / len(lines) if lines else 0.0
+
+
+def check_history() -> list[str]:
+    warnings = []
+    for f in record_files():
+        ratio = history_ratio(f.read_text(encoding="utf-8"))
+        if ratio > HISTORY_LIMIT:
+            warnings.append(f"바뀐 이력 비율 {ratio:.0%}: {rel(f)}를 docs/history/로 나눈다")
+    return warnings
 
 
 def rel(p: Path) -> str:
@@ -135,12 +196,14 @@ def hook() -> None:
     if not file_path.is_absolute() or ROOT not in file_path.parents:
         return
     path = rel(file_path)
-    if not in_scope(path):
-        return
     edits = tool_input.get("edits") or [tool_input]
     old = "\n".join(e.get("old_string", "") for e in edits)
     new = "\n".join(e.get("new_string") or e.get("content", "") for e in edits)
-    errors, warnings = run(old, new, path)
+    errors, warnings = run(old, new, path) if in_scope(path) else ([], [])
+    if file_path in inbound_files():
+        errors += check_inbound(new, path)
+    if file_path in record_files():
+        warnings += check_history()
     lines = [f"오류: {e}" for e in errors] + [f"알림: {w}" for w in warnings]
     if not lines:
         return
@@ -164,7 +227,7 @@ def branch() -> int:
         return 0
     diff = subprocess.run(
         ["git", "-c", "core.quotepath=false", "diff", "-U0", "origin/main...HEAD", "--"]
-        + [rel(f) for f in scope_files()],
+        + [f":(glob){p}" for p in SCOPE],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -190,6 +253,9 @@ def branch() -> int:
         e, w = run(removed, added, path)
         errors += e
         warnings += w
+    for f in inbound_files():
+        errors += check_inbound(f.read_text(encoding="utf-8"), rel(f))
+    warnings += check_history()
     for w in warnings:
         print(f"알림: {w}")
     for e in errors:

@@ -1,7 +1,4 @@
-"""무작위 배정 점검(SRM, SMD)과 처치별 평균 차이(ATE).
-
-판정 기준은 docs/DATA.md "무작위 배정은 SRM과 SMD로 점검하고 불균형이면 공변량 보정 회귀로 ATE를 구한다" 절.
-"""
+"""무작위 배정 점검(SRM, SMD)과 처치별 평균 차이(ATE)."""
 
 import numpy as np
 import pandas as pd

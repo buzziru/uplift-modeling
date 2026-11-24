@@ -1,6 +1,6 @@
 ---
 name: analysis-evaluator
-description: 분석·모델링 코드, 결과, 분야 문서의 산출물을 작성 맥락 없이 평가해 findings 파일로 남긴다. 메인이 평가 단계에서 부른다.
+description: 분석·모델링 코드, 결과, 기록 문서의 산출물을 작성 맥락 없이 평가해 findings 파일로 남긴다. 메인이 평가 단계에서 부른다.
 tools: Read, Grep, Glob, Write
 ---
 
