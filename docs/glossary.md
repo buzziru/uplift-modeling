@@ -17,3 +17,6 @@
 | 실험(EXP) | `experiments/EXP-<번호>-<주제>/`에 설정과 실행 스크립트를 두고 다시 돌려 비교하는 모델 작업. | `docs/ENGINEERING.md` |
 | 분석(ANA) | `analyses/ANA-<번호>-<주제>.py` marimo 노트북에서 한 번 보고 판단하는 작업. | `docs/ENGINEERING.md` |
 | 산출물 폴더 | 실험과 분석의 결과 파일을 ID별로 두는 `artifacts/<ID>/`와 데이터 적재 산출물을 두는 `artifacts/data/`. 문서가 인용하는 수치의 근거 파일이 여기 있다. | `docs/ENGINEERING.md` |
+| 설계 절 | `experiment.md`에서 결과를 보기 전에 판정 기준을 정해 두는 절. 항목은 `experiments/TEMPLATE.md`. | `experiments/TEMPLATE.md` |
+| 판정 규칙 | 결과를 보기 전에 정하는, 어떤 결과면 무엇을 할지의 규칙. 막연한 기준은 숫자로 쓴다. | `experiments/TEMPLATE.md` |
+| 이미 본 것 | 판정 규칙을 정하기 전에 본 데이터와 결과. 결과를 본 뒤 정한 규칙을 미리 정한 규칙과 구분하게 한다. | `experiments/TEMPLATE.md` |

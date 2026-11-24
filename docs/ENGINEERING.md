@@ -46,8 +46,9 @@
   ```
   src/uplift/          계산 코드 전부(데이터, DB, 학습기, 지표, 정책, 그림)
   experiments/         모델 실험. 설정을 바꿔 다시 돌려 비교하는 일
+    TEMPLATE.md        experiment.md 양식과 쓰는 법
     EXP-001-<주제>/
-      experiment.md    질문, 가설, 결과 해석
+      experiment.md    질문, 설계, 계획, 결과 해석
       config.yaml      pydantic으로 검증
       run.py           src 호출, DuckDB 기록, artifacts 내보내기만 함
   analyses/            marimo 분석. 한 번 보고 판단하는 일(EDA, 결정에 쓰는 분석)
@@ -65,7 +66,18 @@
   - 실험 폴더 이름은 ID와 짧은 주제(`EXP-001-meta-learner-compare`)이고, 산출물 폴더 이름은 ID(`EXP-001`)만 쓴다. 실험·분석이 아닌 데이터 적재의 산출물은 `artifacts/data/`에 둔다.
   - DuckDB 파일은 텍스트 편집기에서 열리지 않으므로 두 가지로 본다. 적재 때 만드는 `artifacts/data/tables.md`를 열거나, `uv run marimo edit analyses/ANA-000-data-browse.py`로 테이블을 둘러보고 SQL을 돌린다.
   - 나중에 참고할 분석 결과(그림, 표, 지표 요약)는 `artifacts/<ID>/`에 저장해 커밋한다. marimo는 실행 결과를 파일에 남기지 않기 때문이다. marimo HTML export와 예측 파일처럼 크고 다시 만들 수 있는 것은 커밋하지 않는다.
-  - `experiment.md`는 실험 하나의 기록이다. 결정의 정본은 분야 문서이고, 결정 절의 근거가 실험 ID와 `artifacts/<ID>/` 파일을 가리킨다.
-- 근거: 사용자 지시(2026-11-23). SPEC.md 9절이 폴더 구조를 이 문서에 둔다.
-- 기각한 대안: 산출물을 실험 폴더 안(`experiments/EXP-001/results/`)에 두는 안. 코드와 산출물이 섞이고 무시 규칙을 폴더마다 둬야 한다.
-- 승인: 2026-11-23
+  - `experiment.md`는 실험 하나의 기록이고 양식은 `experiments/TEMPLATE.md`다. 결정의 정본은 분야 문서이고, 결정 절의 근거가 실험 ID와 `artifacts/<ID>/` 파일을 가리킨다.
+  - 결정에 쓰는 ANA 노트북은 첫 마크다운 셀에 그 양식의 질문 절과 "이미 본 것"을 둔다. 결과를 아직 보지 않았으면 판정 규칙도 둔다.
+- 근거: 사용자 지시(2026-11-23). SPEC.md 9절이 폴더 구조를 이 문서에 둔다. `experiment.md` 양식은 사용자 지시(2026-11-24).
+- 기각한 대안: 산출물을 실험 폴더 안(`experiments/EXP-001/results/`)에 두는 안. 코드와 산출물이 섞이고 무시 규칙을 폴더마다 둬야 한다. 작업마다 별도 폴더에 intent, spec, plan 문서를 두는 안. 채택한 결정이 그 문서와 분야 문서 두 곳에 남는다.
+- 승인: 2026-11-23, 2026-11-24(`experiment.md` 양식)
+
+## 본학습, HPO, GPU 실행은 Kaggle kernel에서 하고 나머지는 로컬에서 한다
+
+- 결정:
+  - 로컬: 작은 실험과 디버깅, EDA, 데이터 검증, feature engineering, 모델 평가와 분석. 시험 세트 평가도 로컬에서 한다.
+  - Kaggle: 본학습, HPO, GPU가 필요한 실행. Kaggle CLI로 kernel을 올려 돌리고 출력을 받아 온다. 절차는 `.claude/skills/kaggle-remote-runner/SKILL.md`.
+  - Kaggle에는 학습 세트만 비공개 dataset으로 올린다. 시험 세트는 로컬 밖으로 내보내지 않는다(SPEC.md 3절).
+  - kernel은 GitHub에 푸시한 커밋을 받아 `uv.lock`대로 환경을 만들어 돈다. 받아 온 출력은 로컬 DuckDB에 실행으로 기록하고 kernel 버전, 커밋, dataset 버전을 함께 남긴다.
+- 근거: 사용자 지시(2026-11-24).
+- 기각한 대안: Colab. SPEC.md 4절의 후보였는데 사용자가 Kaggle CLI를 골랐다. 모든 실행을 로컬에서 하는 안. HPO와 GPU 실행을 로컬 CPU 시간 안에 끝낼 수 없을 때 대안이 없다.
