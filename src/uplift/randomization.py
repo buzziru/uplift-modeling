@@ -79,13 +79,20 @@ def ate_diff(outcome: pd.Series, treatment: pd.Series, control: int = 0) -> pd.D
 def precision_at_test_size(
     outcome: pd.Series, treatment: pd.Series, test_counts: pd.Series, control: int = 0
 ) -> pd.DataFrame:
-    """시험 세트 크기에서 처치군 대 대조군 차이의 표준오차, 95% 구간 반폭, 검정력 80% 최소 효과."""
+    """시험 세트 크기에서 처치군 대 대조군 차이의 표준오차, 95% 구간 반폭, 검정력 80% 최소 효과와 두 군의 행 수."""
     var = pd.Series(outcome.groupby(treatment).var())
     rows = []
     for t in sorted(set(treatment) - {control}):
         se = np.sqrt(var[t] / test_counts[t] + var[control] / test_counts[control])
         rows.append(
-            {"treatment": t, "se_test": se, "ci_half_width": Z95 * se, "mde_80": (Z95 + Z80) * se}
+            {
+                "treatment": t,
+                "n_treatment": test_counts[t],
+                "n_control": test_counts[control],
+                "se_test": se,
+                "ci_half_width": Z95 * se,
+                "mde_80": (Z95 + Z80) * se,
+            }
         )
     return pd.DataFrame(rows)
 

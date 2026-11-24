@@ -21,7 +21,7 @@ def load_config(path: Path) -> SplitConfig:
 
 
 def funnel_strata(df: pd.DataFrame) -> pd.Series:
-    """처치 x 깔때기 단계(0 방문 안 함, 1 방문만, 2 구매)를 층 하나로 묶는다."""
+    """처치 x 퍼널 단계(0 방문 안 함, 1 방문만, 2 구매)를 층 하나로 묶는다."""
     return pd.Series(df["treatment_id"] * 3 + df["visit"] + df["conversion"])
 
 

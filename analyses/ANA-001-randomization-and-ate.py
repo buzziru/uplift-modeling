@@ -44,10 +44,12 @@ def _():
             .set_index("treatment_id")["n"]
         )
     names = dict(zip(TREATMENTS["treatment_id"], TREATMENTS["name"], strict=True))
+    comparisons = {1: "Mens vs None", 2: "Womens vs None"}
     return (
         CUSTOMER_COLUMNS,
         SMD_THRESHOLD,
         ate_diff,
+        comparisons,
         df,
         funnel_ratios,
         json,
@@ -75,7 +77,7 @@ def _(mo):
 
     ## 이미 본 것
 
-    - 분할 전 전체 데이터의 처치별 visit, conversion, spend 차이, 깔때기 구조, 세 군의 SRM, `history` 한 변수의 SMD. M1 준비 메모에서 설명용으로 계산했다. 이 노트북의 수치는 그 메모를 인용하지 않고 `src/` 함수로 다시 계산한다.
+    - 분할 전 전체 데이터의 처치별 visit, conversion, spend 차이, 퍼널 구조, 세 군의 SRM, `history` 한 변수의 SMD. M1 준비 메모에서 설명용으로 계산했다. 이 노트북의 수치는 그 메모를 인용하지 않고 `src/` 함수로 다시 계산한다.
     - 나머지 공변량의 SMD는 보지 않았다.
 
     ## 판정 규칙 (나머지 공변량을 보기 전에 정함)
@@ -106,12 +108,12 @@ def _(df, json, mo, names, out, pd, srm_test):
 
 
 @app.cell
-def _(CUSTOMER_COLUMNS, SMD_THRESHOLD, df, mo, out, pd, smd_plot, smd_table):
+def _(CUSTOMER_COLUMNS, SMD_THRESHOLD, comparisons, df, mo, out, pd, smd_plot, smd_table):
     covariates = df[CUSTOMER_COLUMNS]
     smd = pd.concat(
         [
             smd_table(covariates, df["treatment_id"]).assign(
-                comparison=lambda d: d["treatment"].map({1: "Mens vs None", 2: "Womens vs None"})
+                comparison=lambda d: d["treatment"].map(comparisons)
             ),
             smd_table(covariates, (df["treatment_id"] > 0).astype(int)).assign(
                 comparison="Mail vs None"
@@ -135,7 +137,7 @@ def _(CUSTOMER_COLUMNS, SMD_THRESHOLD, df, mo, out, pd, smd_plot, smd_table):
 
 
 @app.cell
-def _(ate_diff, df, mo, out, pd):
+def _(ate_diff, comparisons, df, mo, out, pd):
     ate = pd.concat(
         [
             ate_diff(df[y], definition).assign(outcome=y, comparison=label)
@@ -147,9 +149,7 @@ def _(ate_diff, df, mo, out, pd):
         ],
         ignore_index=True,
     )
-    ate["comparison"] = ate["comparison"].fillna(
-        ate["treatment"].map({1: "Mens vs None", 2: "Womens vs None"})
-    )
+    ate["comparison"] = ate["comparison"].fillna(ate["treatment"].map(comparisons))
     ate = ate.drop(columns="treatment")
     ate.to_csv(out / "tables" / "ate.csv", index=False)
     mo.vstack([mo.md("## 처치별 ATE (전체 데이터, 95% 신뢰구간)"), mo.ui.table(ate.round(5))])
@@ -166,7 +166,7 @@ def _(ate, df, funnel_ratios, mo, out):
     mo.vstack(
         [
             mo.md("""
-    ## 깔때기: 추가로 생긴 방문의 구매율
+    ## 퍼널: 추가로 생긴 방문의 구매율
 
     처치 행은 효과의 비(구매 증가 / 방문 증가, 매출 증가 / 구매 증가)이고, 대조군 행은 대조군의 비율이다. 처치 행이 대조군 행과 다르면 방문 1회의 가치를 하나로 가정할 수 없다.
     """),
@@ -177,7 +177,7 @@ def _(ate, df, funnel_ratios, mo, out):
 
 
 @app.cell
-def _(df, mo, names, out, pd, test_counts, precision_at_test_size):
+def _(comparisons, df, mo, out, pd, test_counts, precision_at_test_size):
     precision = pd.concat(
         [
             precision_at_test_size(df[_y], df["treatment_id"], test_counts).assign(outcome=_y)
@@ -185,15 +185,15 @@ def _(df, mo, names, out, pd, test_counts, precision_at_test_size):
         ],
         ignore_index=True,
     )
-    precision["comparison"] = precision["treatment"].map({1: "Mens vs None", 2: "Womens vs None"})
+    precision["comparison"] = precision["treatment"].map(comparisons)
     precision = precision.drop(columns="treatment")
     precision.to_csv(out / "tables" / "precision.csv", index=False)
     mo.vstack(
         [
-            mo.md(f"""
+            mo.md("""
     ## 판정 기준의 비용
 
-    시험 세트 크기(처치별 {dict(test_counts.rename(names))})에서 처치군 대 대조군 차이의 95% 구간 반폭과, 검정력 80%로 0이 아님을 가를 수 있는 최소 효과(MDE)다. 분산은 전체 데이터에서 구했다. 정책 간 비교는 같은 고객에 두 정책을 적용한 차이의 구간이라, 두 정책이 같은 처치를 추천한 고객의 몫만큼 이보다 좁다.
+    시험 세트의 두 군 행 수(`n_treatment`, `n_control`)에서 처치군 대 대조군 차이의 95% 구간 반폭과, 검정력 80%로 0이 아님을 가를 수 있는 최소 효과(MDE)다. 분산은 분할 전 전체 데이터에서 구했다.
     """),
             mo.ui.table(precision.round(5)),
         ]

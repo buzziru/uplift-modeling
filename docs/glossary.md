@@ -20,11 +20,11 @@
 | 설계 절 | `experiment.md`에서 질문을 무엇으로 재고 결과를 어떻게 판단할지 결과를 보기 전에 적어 커밋하는 절. 항목은 `experiments/TEMPLATE.md` 설계 절. | `experiments/TEMPLATE.md` |
 | 판정 규칙 | 결과를 보기 전에 정하는, 어떤 결과면 무엇을 할지의 규칙. 쓰는 법은 `experiments/TEMPLATE.md` 설계 절. | `experiments/TEMPLATE.md` |
 | 이미 본 것 | 판정 규칙을 정하기 전에 본 데이터와 결과. 결과를 본 뒤 정한 규칙을 미리 정한 규칙과 구분하게 한다. | `experiments/TEMPLATE.md` |
-| 깔때기 단계 | 고객의 결과를 방문 안 함, 방문만, 구매의 세 단계로 나눈 값. 구매하면 늘 방문했으므로 `visit`과 `conversion`을 한 변수로 센다. 분할의 층화에 쓴다. | `docs/DATA.md` |
+| 퍼널 단계 | 고객의 결과를 방문 안 함, 방문만, 구매의 세 단계로 나눈 값. 구매하면 늘 방문했으므로 `visit`과 `conversion`을 한 변수로 센다. 분할의 층화에 쓴다. | `docs/DATA.md` |
 | 고른 정책 | 모델 선택으로 고른 모델이 고객마다 보낼 메일을 정하는 정책. 완료 기준의 판정에 올린다. | SPEC.md 13절 |
 | 통계적 성공 | 완료 기준(SPEC.md 13절 2번)의 판정. 시험 세트에서 고른 정책이 기준선 정책보다 나은지 본다. | `docs/PROBLEM.md` |
 | 비즈니스 판단 | 정책이 기준선 정책보다 이익을 내는지를 금액으로 보이는 보고. 완료 기준과 따로 정책 제안에 쓴다. | `docs/PROBLEM.md` |
-| 깔때기 분해 | 고객별 증분 금액을 `visit` uplift, 처치별로 늘어난 방문 1회당 구매, 구매 시 금액의 곱으로 만드는 금액 모델. | `docs/MODELING.md` |
+| 퍼널 분해 | 고객별 증분 금액을 `visit` uplift, 처치별로 늘어난 방문 1회당 구매, 구매 시 금액의 곱으로 만드는 금액 모델. | `docs/MODELING.md` |
 | 기록 문서 | SPEC.md 10절 표의 `docs/` 문서(`docs/THEORY.md` 제외). 정본이 아닌 기여 기록이다. 쓰는 법은 SPEC.md 10절. | SPEC.md 10절 |
 | 임시 결정 파일 | 정했지만 아직 정본(SPEC.md 10절)에 반영하지 못한 결정을 두는 `PENDING-DECISIONS.md`. 반영하면 행을 지운다. | SPEC.md 10절 |
 | 판정 기준의 비용 | 판정 규칙 때문에 잃는 것. 구간으로 판정하면 구간 반폭보다 작은 실제 개선을 "크다"로 판정하지 못한다. | `docs/PROBLEM.md` |

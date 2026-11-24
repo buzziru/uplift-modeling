@@ -59,6 +59,7 @@ def test_precision_at_test_size_scales_with_test_size():
     assert row["se_test"] == pytest.approx(se)
     assert row["ci_half_width"] == pytest.approx(Z95 * se)
     assert row["mde_80"] == pytest.approx((Z95 + Z80) * se)
+    assert (row["n_treatment"], row["n_control"]) == (25, 25)
 
 
 def test_funnel_ratios_adds_control_baseline():

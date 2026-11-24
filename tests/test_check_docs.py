@@ -14,7 +14,7 @@ SPEC.loader.exec_module(check_docs)
 @pytest.mark.parametrize(
     "text",
     [
-        '`docs/DATA.md` "처치 x 깔때기 단계로 층화한다" 절',
+        '`docs/DATA.md` "처치 x 퍼널 단계로 층화한다" 절',
         "`docs/ENGINEERING.md` DuckDB 절",
         "규칙은 docs/DATA.md 적재 절.",
         "`docs/EVALUATION.md`의 모델 선택 항목",
