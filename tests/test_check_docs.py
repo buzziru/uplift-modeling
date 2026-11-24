@@ -19,6 +19,7 @@ SPEC.loader.exec_module(check_docs)
         "규칙은 docs/DATA.md 적재 절.",
         "`docs/EVALUATION.md`의 모델 선택 항목",
         "`docs/DATA.md#분할`",
+        "`docs/DATA.md`에 적은 분할 항목",
     ],
 )
 def test_check_inbound_flags_record_citations(text):
@@ -53,3 +54,20 @@ def test_history_ratio_counts_history_block_lines():
 
 def test_history_ratio_is_zero_without_history():
     assert check_docs.history_ratio("## 제목\n- 결정: a\n") == 0.0
+
+
+def test_check_spec_flags_location_lines_outside_section_10():
+    text = (
+        "## 3. 데이터\n\n기록: `docs/DATA.md`\n"
+        "- 분할: `scripts/splits.yaml`, `src/uplift/split.py`.\n"
+        "## 10. 문서 체계\n\n실험 양식은 `experiments/TEMPLATE.md`가 정본이다.\n"
+        "## 14. 미결 사항\n\n(`docs/THEORY.md` 절)\n정본: `src/uplift/policy.py`\n"
+    )
+    assert check_docs.check_spec(text) == [
+        "SPEC.md 3줄: 위치를 가리키는 줄",
+        "SPEC.md 3줄: 경로 docs/DATA.md",
+        "SPEC.md 4줄: 경로 scripts/splits.yaml",
+        "SPEC.md 4줄: 경로 src/uplift/split.py",
+        "SPEC.md 11줄: 위치를 가리키는 줄",
+        "SPEC.md 11줄: 경로 src/uplift/policy.py",
+    ]
