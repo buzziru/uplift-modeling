@@ -100,4 +100,4 @@
   - `docs/` 밖의 파일은 기록 문서의 절을 인용하지 않는다. `.claude/harness/check_docs.py`가 막는다.
 - 근거: 사용자 지시(2026-11-24). M1 브랜치(PR #9)에서 평가 지적 16건 중 9건이 문서 간 정합(루브릭 R8)이었다(`_workspace/findings/feat/m1-experiment-understanding/`). 분야 문서를 `SPEC.md`, `src/` docstring, 분석, 스킬 등 파일 11곳이 절 제목으로 인용해, 결정이 바뀔 때마다 인용한 곳이 어긋났다. 이전에 `docs/decisions/`를 폐기한 이유와 같은 일이 분야 문서에서 되풀이됐다.
 - 기각한 대안: 결정 절마다 고정 ID를 두고 ID로 인용하는 안. 제목이 바뀌어도 참조는 깨지지 않지만, 인용한 절의 내용이 바뀌면 인용한 쪽의 뜻이 여전히 어긋난다. 기록에서 옛 항목을 고치지 않고 덧쓰기만 하는 안. 인용을 막으면 제자리 수정이 다른 곳을 어긋나게 하지 않으므로 필요 없고, 문서만 길어진다.
-- 정본: `SPEC.md` 10절, `.claude/harness/check_docs.py`, `CLAUDE.md` 프로젝트 절
+- 정본: `SPEC.md` 10절, `.claude/harness/check_docs.py`, `docs/CLAUDE.md`
