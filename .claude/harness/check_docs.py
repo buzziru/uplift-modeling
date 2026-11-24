@@ -36,6 +36,7 @@ MIN_LEN = 25
 RECORDS = ("PROBLEM", "DATA", "MODELING", "EVALUATION", "POLICY", "DASHBOARD", "ENGINEERING", "NARRATIVE")
 INBOUND = [
     "SPEC.md",
+    "docs/glossary.md",
     "CLAUDE.md",
     "PENDING-DECISIONS.md",
     "*/CLAUDE.md",
@@ -51,7 +52,7 @@ INBOUND = [
 ]
 RECORD_REF = re.compile(
     r"docs/(?:" + "|".join(RECORDS) + r")\.md"
-    r"(?:#[^\s)`]+|`?(?!에 )(?:\s*\"[^\"\n]+\")?[^|\n`]{0,20}?(?<!\d)(?:절(?!차)|항목))"
+    r"(?:#[^\s)`]+|`?(?!에 항목)(?:\s*\"[^\"\n]+\")?[^|\n`]{0,20}?(?<!\d)(?:절(?!차)|항목))"
 )
 HISTORY_LIMIT = 0.2
 

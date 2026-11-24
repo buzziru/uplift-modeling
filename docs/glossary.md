@@ -11,7 +11,7 @@
 | sleeping dog | 메일을 받으면 반응이 오히려 줄어드는, 처치 효과가 음수인 고객군. | SPEC.md 6절 |
 | 기준값 파일 | 채택한 실행의 지표를 고정한 파일. 회귀 테스트가 새 결과를 이 값과 비교한다. | SPEC.md 9절 |
 | 승인 지점 | 작업을 멈추고 사용자 승인을 받는 결정. | SPEC.md 11절 |
-| 부품 모델 | uplift 방법 안에서 반응 함수나 처치 효과를 학습하는 일반 회귀·분류 모델(base learner). uplift random forest처럼 자체 트리를 쓰는 방법에는 없다. 무엇을 쓰는지는 `docs/MODELING.md`. | SPEC.md 4절 |
+| 부품 모델 | uplift 방법 안에서 반응 함수나 처치 효과를 학습하는 일반 회귀·분류 모델(base learner). uplift random forest처럼 자체 트리를 쓰는 방법에는 없다. | SPEC.md 4절 |
 | 실행 | 실험 하나를 한 설정으로 한 번 돌린 것. DuckDB에서 `run_id`로 구분한다. | `docs/DATA.md` |
 | OOF 예측 | 학습 세트 안 CV에서 각 고객을 그 고객이 빠진 fold로 학습한 모델로 예측한 값. 결합 가중치와 모델 비교에 쓰고 시험 세트는 쓰지 않는다. | `docs/MODELING.md` |
 | 실험(EXP) | `experiments/EXP-<번호>-<주제>/`에 설정과 실행 스크립트를 두고 다시 돌려 비교하는 모델 작업. | `docs/ENGINEERING.md` |
@@ -21,9 +21,10 @@
 | 판정 규칙 | 결과를 보기 전에 정하는, 어떤 결과면 무엇을 할지의 규칙. 쓰는 법은 `experiments/TEMPLATE.md` 설계 절. | `experiments/TEMPLATE.md` |
 | 이미 본 것 | 판정 규칙을 정하기 전에 본 데이터와 결과. 결과를 본 뒤 정한 규칙을 미리 정한 규칙과 구분하게 한다. | `experiments/TEMPLATE.md` |
 | 깔때기 단계 | 고객의 결과를 방문 안 함, 방문만, 구매의 세 단계로 나눈 값. 구매하면 늘 방문했으므로 `visit`과 `conversion`을 한 변수로 센다. 분할의 층화에 쓴다. | `docs/DATA.md` |
-| 통계적 성공 | 시험 세트에서 고른 정책의 `visit` 정책 가치가 기준선 정책보다 큰지의 판정. 완료 기준(SPEC.md 13절 2번)이다. 판정 방법은 `docs/PROBLEM.md` 성공 절. | `docs/PROBLEM.md` |
-| 비즈니스 판단 | 고른 정책이 기준선 정책보다 이익을 내는지를 `spend` 증분 이익 차이의 분포로 보이는 것. 정책 제안에 쓴다. 보이는 값은 `docs/PROBLEM.md` 성공 절. | `docs/PROBLEM.md` |
+| 고른 정책 | 모델 선택으로 고른 모델이 고객마다 보낼 메일을 정하는 정책. 완료 기준의 판정에 올린다. | `docs/PROBLEM.md` |
+| 통계적 성공 | 완료 기준(SPEC.md 13절 2번)의 판정. 시험 세트에서 고른 정책이 기준선 정책보다 나은지 본다. | `docs/PROBLEM.md` |
+| 비즈니스 판단 | 정책이 기준선 정책보다 이익을 내는지를 금액으로 보이는 보고. 완료 기준과 따로 정책 제안에 쓴다. | `docs/PROBLEM.md` |
 | 깔때기 분해 | 고객별 증분 금액을 `visit` uplift, 처치별로 늘어난 방문 1회당 구매, 구매 시 금액의 곱으로 만드는 금액 모델. | `docs/MODELING.md` |
-| 기록 문서 | SPEC.md 10절 표의 `docs/` 문서(`docs/THEORY.md` 제외). 결정한 시점의 결정, 근거, 기각한 대안, 정본 위치를 날짜와 함께 남기는 기여 기록이고 정본이 아니다. 쓰는 법은 SPEC.md 10절. | SPEC.md 10절 |
-| 임시 결정 파일 | 정했지만 아직 코드, 설정, 테스트에 반영하지 못한 결정을 두는 `PENDING-DECISIONS.md`. 반영하면 행을 지운다. | SPEC.md 10절 |
+| 기록 문서 | SPEC.md 10절 표의 `docs/` 문서(`docs/THEORY.md` 제외). 정본이 아닌 기여 기록이다. 쓰는 법은 SPEC.md 10절. | SPEC.md 10절 |
+| 임시 결정 파일 | 정했지만 아직 정본(SPEC.md 10절)에 반영하지 못한 결정을 두는 `PENDING-DECISIONS.md`. 반영하면 행을 지운다. | SPEC.md 10절 |
 | 판정 기준의 비용 | 판정 규칙 때문에 잃는 것. 구간으로 판정하면 구간 반폭보다 작은 실제 개선을 "크다"로 판정하지 못한다. | `docs/PROBLEM.md` |

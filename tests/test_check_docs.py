@@ -19,6 +19,7 @@ SPEC.loader.exec_module(check_docs)
         "규칙은 docs/DATA.md 적재 절.",
         "`docs/EVALUATION.md`의 모델 선택 항목",
         "`docs/DATA.md#분할`",
+        "`docs/DATA.md`에 적은 분할 항목",
     ],
 )
 def test_check_inbound_flags_record_citations(text):
