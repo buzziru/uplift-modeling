@@ -173,7 +173,7 @@ Forest는 트리마다 학습 데이터의 일부를 뽑고, 분기마다 특성
 | DR-learner           | 처치 확률을 앎(무작위 실험) | transformed outcome보다 분산이 작음 | 표본을 나눠 결과 모델 둘과 최종 회귀를 학습해야 함 | 처치 확률을 아는 실험에서 분산을 줄일 때 |
 | Uplift random forest | 없음(무작위 실험)        | 부품 모델 없이 여러 처치를 직접 다룸 | 잎마다 두 군이 있어야 해 데이터가 많이 듦 | 처치가 여럿인 실험                     |
 
-표: 대표 방법 비교 (Künzel et al., 2019; Gutierrez & Gérardy, 2017; Jaśkowski & Jaroszewicz, 2012; Athey & Imbens, 2016; Kennedy, 2023; Rzepakowski & Jaroszewicz, 2012). 마지막 행의 분산은 $Y^*$가 $1/p$, $1/(1 - p)$배로 커지는 데서 온 판단이다. Uplift random forest 행의 약점은 잎마다 처치군과 대조군의 응답률을 따로 구하는 데서 온 판단이다.
+표: 대표 방법 비교 (Künzel et al., 2019; Gutierrez & Gérardy, 2017; Jaśkowski & Jaroszewicz, 2012; Athey & Imbens, 2016; Kennedy, 2023; Rzepakowski & Jaroszewicz, 2012). Transformed outcome 행의 분산은 $Y^*$가 $1/p$, $1/(1 - p)$배로 커지는 데서 온 판단이다. Uplift random forest 행의 약점은 잎마다 처치군과 대조군의 응답률을 따로 구하는 데서 온 판단이다.
 
 ## 평가
 
