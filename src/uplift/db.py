@@ -162,9 +162,9 @@ def profile(tables: dict[str, pd.DataFrame]) -> dict:
         "categories": {c: sorted(set(customers[c].tolist())) for c in categorical},
         "binary_rate": {c: round(float(customers[c].mean()), 4) for c in binary},
         "boundary_counts": {
-            "history_min": _boundary(tables["customers"]["history"], "min"),
+            "history_min": _boundary(pd.Series(tables["customers"]["history"]), "min"),
             "spend_positive_min": _boundary(joined.loc[joined["spend"] > 0, "spend"], "min"),
-            "spend_max": _boundary(joined["spend"], "max"),
+            "spend_max": _boundary(pd.Series(joined["spend"]), "max"),
         },
         "by_treatment": by_treatment.to_dict(orient="index"),
     }
