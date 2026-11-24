@@ -13,7 +13,7 @@ def _():
     import marimo as mo
     import pandas as pd
 
-    from uplift.db import CUSTOMER_COLUMNS, load_frame
+    from uplift.db import CUSTOMER_COLUMNS, TREATMENTS, load_frame
     from uplift.plots import smd_plot
     from uplift.randomization import (
         SMD_THRESHOLD,
@@ -43,7 +43,7 @@ def _():
             .df()
             .set_index("treatment_id")["n"]
         )
-    names = {0: "No E-Mail", 1: "Mens E-Mail", 2: "Womens E-Mail"}
+    names = dict(zip(TREATMENTS["treatment_id"], TREATMENTS["name"], strict=True))
     return (
         CUSTOMER_COLUMNS,
         SMD_THRESHOLD,
@@ -168,7 +168,7 @@ def _(ate, df, funnel_ratios, mo, out):
             mo.md("""
     ## 깔때기: 추가로 생긴 방문의 구매율
 
-    처치 행은 효과의 비(구매 증가 / 방문 증가, 매출 증가 / 구매 증가)이고, 대조군 행은 대조군의 비율이다. 처치 행이 대조군 행과 다르면 방문 1회의 가치를 하나로 가정할 수 없다(`docs/PROBLEM.md` 결과 변수 절의 기각한 대안).
+    처치 행은 효과의 비(구매 증가 / 방문 증가, 매출 증가 / 구매 증가)이고, 대조군 행은 대조군의 비율이다. 처치 행이 대조군 행과 다르면 방문 1회의 가치를 하나로 가정할 수 없다(`docs/PROBLEM.md` "고객별 순위와 모델 선택은 visit으로 하고, 정책의 이익은 실제 spend의 IPW 추정으로 잰다" 절의 기각한 대안).
     """),
             mo.ui.table(funnel.round(4).reset_index(names="comparison")),
         ]
@@ -185,7 +185,7 @@ def _(df, mo, names, out, pd, test_counts, precision_at_test_size):
         ],
         ignore_index=True,
     )
-    precision["comparison"] = precision["treatment"].map(names) + " vs No E-Mail"
+    precision["comparison"] = precision["treatment"].map({1: "Mens vs None", 2: "Womens vs None"})
     precision = precision.drop(columns="treatment")
     precision.to_csv(out / "tables" / "precision.csv", index=False)
     mo.vstack(
@@ -193,7 +193,7 @@ def _(df, mo, names, out, pd, test_counts, precision_at_test_size):
             mo.md(f"""
     ## 판정 기준의 비용
 
-    시험 세트 크기(처치별 {dict(test_counts.rename(names))})에서 처치군 대 대조군 차이의 95% 구간 반폭과, 검정력 80%로 0이 아님을 가를 수 있는 최소 효과(MDE)다. 분산은 전체 데이터에서 구했다. 실제 개선이 이 반폭보다 작으면 "크다"로 판정되지 않는다. 정책 간 비교는 같은 고객에 두 정책을 적용한 차이의 구간이라, 두 정책이 같은 처치를 추천한 고객의 몫만큼 이보다 좁다.
+    시험 세트 크기(처치별 {dict(test_counts.rename(names))})에서 처치군 대 대조군 차이의 95% 구간 반폭과, 검정력 80%로 0이 아님을 가를 수 있는 최소 효과(MDE)다. 분산은 전체 데이터에서 구했다. 이 수치가 무엇을 잃게 하는지는 `docs/PROBLEM.md` "성공은 시험 세트에서 고른 정책과 기준선 정책의 증분 이익 차이의 95% 구간으로 판정한다" 절. 정책 간 비교는 같은 고객에 두 정책을 적용한 차이의 구간이라, 두 정책이 같은 처치를 추천한 고객의 몫만큼 이보다 좁다.
     """),
             mo.ui.table(precision.round(5)),
         ]

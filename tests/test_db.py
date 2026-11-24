@@ -82,6 +82,7 @@ def test_profile_counts_by_treatment(raw):
     assert p["dtypes"]["customers"]["recency"] == "int64"
     assert p["boundary_counts"]["history_min"] == {"value": 30.0, "count": 1}
     assert p["boundary_counts"]["spend_positive_min"] == {"value": 29.99, "count": 1}
+    assert p["boundary_counts"]["spend_max"] == {"value": 29.99, "count": 1}
 
 
 def test_tables_markdown_lists_every_table(raw):
@@ -102,6 +103,8 @@ def test_build_tables_fixes_zip_code_typo(raw):
         ("recency", 13, "recency가 1~12 밖"),
         ("visit", 2, "visit이 0/1 밖"),
         ("spend", -1.0, "spend에 음수"),
+        ("history", -1.0, "history에 음수"),
+        ("mens", 2, "mens이 0/1 밖"),
     ],
 )
 def test_build_tables_rejects_out_of_range_values(raw, column, value, message):
