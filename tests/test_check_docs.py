@@ -177,6 +177,7 @@ def test_check_copies_errors_on_record_copies_outside_records(tmp_path, monkeypa
         (".claude/skills/marimo-notebook/SKILL.md", False, True),
         (".claude/skills/run-evaluation/SKILL.md", True, True),
         ("src/uplift/eda.py", False, True),
+        (".claude/harness/CHANGELOG.md", False, True),
         ("tests/test_check_docs.py", False, False),
         ("new-folder/notes.md", True, True),
     ],
@@ -209,3 +210,21 @@ def test_run_skips_reference_checks_in_records():
     text = '`docs/DATA.md` "분할" 절과 고른 정책(`docs/glossary.md`)'
     assert check_docs.run("", text, "docs/MODELING.md")[0] == []
     assert len(check_docs.run("", text, "docs/plans/M2-PLAN.md")[0]) == 2
+
+
+def test_check_copies_skips_canon_files(tmp_path, monkeypatch):
+    monkeypatch.setattr(check_docs, "ROOT", tmp_path)
+    copy = "분할은 고객 단위로 층화해 학습, 검증, 시험 세트로 나눈다."
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "DATA.md").write_text(f"{copy}\n", encoding="utf-8")
+    monkeypatch.setattr(check_docs, "scope_files", lambda: [tmp_path / "docs" / "DATA.md"])
+    assert check_docs.check_copies(copy, "scripts/CLAUDE.md") == ([], [])
+    assert check_docs.check_copies(copy, ".claude/skills/run-evaluation/SKILL.md") == ([], [])
+    assert len(check_docs.check_copies(copy, "docs/glossary.md")[0]) == 1
+
+
+def test_check_refs_checks_spec_section_names(tmp_path, monkeypatch):
+    monkeypatch.setattr(check_docs, "ROOT", tmp_path)
+    (tmp_path / "SPEC.md").write_text("## 5. 승인 지점\n## 7. 완료 기준\n", encoding="utf-8")
+    assert check_docs.check_refs("SPEC.md 승인 지점 절의 항목") == []
+    assert check_docs.check_refs("SPEC.md 모델 선택 절") == ["없는 절: SPEC.md 모델 선택 절"]

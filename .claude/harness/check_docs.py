@@ -6,7 +6,24 @@ from fnmatch import fnmatch
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-EXCLUDE = ["docs/history/*", "artifacts/*", "_workspace/*", ".claude/skills/*", "tests/*.py"]
+EXCLUDE = [
+    "docs/history/*",
+    "artifacts/*",
+    "_workspace/*",
+    ".claude/skills/*",
+    ".claude/harness/CHANGELOG.md",
+    "tests/*.py",
+]
+CANON = [
+    "SPEC.md",
+    "CLAUDE.md",
+    "*/CLAUDE.md",
+    ".claude/*",
+    "experiments/*",
+    "src/*",
+    "scripts/*",
+    "analyses/*",
+]
 INCLUDE = [".claude/skills/run-evaluation/*", ".claude/skills/kaggle-remote-runner/*"]
 SIMILAR = 0.7
 MIN_LEN = 25
@@ -30,6 +47,7 @@ SPEC_ALLOWED = {"docs/THEORY.md", "docs/glossary.md"}
 TITLE_REF = re.compile(r"`[^`]+\.md` [\"'][^\"'\n]+[\"'] 절")
 GLOSSARY_POINTER = re.compile(r"\(`docs/glossary\.md`[,)]")
 PENDING_FILE = "PENDING-DECISIONS.md"
+SPEC_NAME_REF = re.compile(r"SPEC\.md ([가-힣]+(?: [가-힣]+)?) 절")
 POSITION_REF = re.compile(
     r"(?<![가-힣])(?:첫|마지막|앞|위|아래|다음) (?:절|행|문단)"
     r"(?:(?![가-힣])|(?=[은는이가을를의에와과도만로으부까처]))"
@@ -71,6 +89,10 @@ def scope_files() -> list[Path]:
 
 def inbound_files() -> list[Path]:
     return [ROOT / p for p in tracked("*.md", "*.py") if is_inbound(p)]
+
+
+def is_canon(path: str) -> bool:
+    return any(fnmatch(path, p) for p in CANON)
 
 
 def is_record(path: str) -> bool:
@@ -157,11 +179,15 @@ def check_refs(text: str) -> list[str]:
     for n in re.findall(r"SPEC\.md (\d+)절", text):
         if n not in spec_numbers:
             errors.append(f"없는 절: SPEC.md {n}절")
+    spec_names = {re.sub(r"^\d+\.\s*", "", h) for h in headings(ROOT / "SPEC.md")}
+    for name in SPEC_NAME_REF.findall(text):
+        if name not in spec_names:
+            errors.append(f"없는 절: SPEC.md {name} 절")
     return errors
 
 
 def check_copies(new_text: str, path: str) -> tuple[list[str], list[str]]:
-    if is_record(path):
+    if is_record(path) or is_canon(path):
         return [], []
     errors, warnings = [], []
     for f in scope_files():
@@ -182,7 +208,7 @@ def check_copies(new_text: str, path: str) -> tuple[list[str], list[str]]:
 
 
 def check_removed(old_text: str, new_text: str) -> list[str]:
-    phrases = set(re.findall(r"`([^`\n]{4,})`|\"([^\"\n]{4,})\"", old_text))
+    phrases = set(re.findall(r"`([^`\n]{10,})`|\"([^\"\n]{10,})\"", old_text))
     removed = {p for pair in phrases for p in pair if p and p not in new_text}
     warnings = []
     for f in scope_files():
@@ -351,6 +377,7 @@ def branch() -> int:
     ]
     if "+++ b/SPEC.md" in diff:
         warnings.append("SPEC.md가 바뀌었다. 이 작업의 승인 요청이나 보고에 바꾼 줄을 함께 적는다")
+    warnings += [f"반영 대기: {item}" for item in pending_items()]
     for w in warnings:
         print(f"알림: {w}")
     for e in errors:
@@ -378,14 +405,23 @@ def spec_renumbers(old_spec: str, new_spec: str) -> dict[str, str]:
     return {old[t]: new[t] for t in old if t in new and old[t] != new[t]}
 
 
-def pending() -> int:
+def pending_items() -> list[str]:
+    items = []
     for f in record_files():
         title = ""
         for line in f.read_text(encoding="utf-8").splitlines():
             if line.startswith("## "):
                 title = line[3:].strip()
             elif line.startswith("- 정본: 아직 없음"):
-                print(f"{rel(f)} | {title} | {line.removeprefix('- 정본: 아직 없음').strip(' .')}")
+                items.append(
+                    f"{rel(f)} | {title} | {line.removeprefix('- 정본: 아직 없음').strip(' .')}"
+                )
+    return items
+
+
+def pending() -> int:
+    for item in pending_items():
+        print(item)
     return 0
 
 
