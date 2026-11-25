@@ -18,6 +18,7 @@ SCOPE = [
     "experiments/TEMPLATE.md",
 ]
 SIMILAR = 0.7
+RECORD_HEADER = "기록 문서다(SPEC.md 10절)."
 MIN_LEN = 25
 RECORDS = (
     "PROBLEM",
@@ -168,6 +169,8 @@ def check_copies(new_text: str, path: str) -> list[str]:
         same_file = rel(f) == path
         olds = sentences(f.read_text(encoding="utf-8"))
         for s in sentences(new_text):
+            if s.startswith(RECORD_HEADER):
+                continue
             matches = [o for o in olds if similarity(s, o) >= SIMILAR]
             if len(matches) > (1 if same_file else 0):
                 other = s if same_file else matches[0]
