@@ -111,7 +111,7 @@
 | `docs/NARRATIVE.md` | 사이트 항목 초안, 성과 문장, 한계, 배운 점 | 사이트와 deck |
 | `docs/THEORY.md` | 결정 없음. 이론 배경 | 방법론 설명, 기술 면접 대비 |
 
-`docs/THEORY.md`와 `docs/glossary.md`는 기록 문서가 아니다. 이론 배경과 용어 정의이고, 다른 파일이 절 위치로 가리킬 수 있다.
+`docs/THEORY.md`, `docs/glossary.md`, `docs/plans/`의 단계 계획은 기록 문서가 아니다. 단계 계획의 쓰는 법은 `docs/CLAUDE.md`. 이론 배경과 용어 정의이고, 다른 파일이 절 위치로 가리킬 수 있다.
 
 프로젝트 내부 용어는 `docs/glossary.md`에 한국어 이름, 정의, 처음 쓴 곳을 적는다. 새 용어를 문서에 처음 쓸 때 함께 적는다.
 

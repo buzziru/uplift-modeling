@@ -8,6 +8,7 @@ from uplift.eda import (
     category_shares,
     cramers_v,
     cramers_v_matrix,
+    effects_below_zero,
     funnel_ratio_ci,
     group_means,
     incremental_composition,
@@ -209,3 +210,15 @@ def test_buyer_sample_size_scales_by_conversion(trial):
     assert row["customers_per_arm"] == pytest.approx(
         row["buyers_per_arm"] / row["mailed_conversion"]
     )
+
+
+def test_effects_below_zero_keeps_only_clearly_negative_rows():
+    effects = pd.DataFrame(
+        {
+            "comparison": ["Mens - None", "Mens - None", "Mens - Womens"],
+            "ci_high": [-0.01, 0.02, -0.03],
+        }
+    )
+    out = effects_below_zero(effects, ["Mens - None"])
+    assert len(out) == 1
+    assert out["ci_high"].item() == -0.01

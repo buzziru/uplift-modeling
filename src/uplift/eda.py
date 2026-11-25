@@ -285,3 +285,8 @@ def buyer_sample_size(df: pd.DataFrame, mde: float) -> pd.DataFrame:
             }
         ]
     )
+
+
+def effects_below_zero(effects: pd.DataFrame, comparisons: list[str]) -> pd.DataFrame:
+    rows = effects["comparison"].isin(comparisons) & (effects["ci_high"] < 0)
+    return pd.DataFrame(effects[rows])

@@ -15,6 +15,7 @@ def _():
     from uplift.db import TREATMENTS, load_frame
     from uplift.eda import (
         buyer_sample_size,
+        effects_below_zero,
         funnel_ratio_ci,
         incremental_composition,
         product_segment,
@@ -41,6 +42,7 @@ def _():
     return (
         buyer_sample_size,
         df,
+        effects_below_zero,
         ecdf_by_group,
         funnel_ratio_ci,
         incremental_composition,
@@ -216,7 +218,7 @@ def _(df, interval_plot, mo, out, segments, stacked_by_segment):
 
     - Rural 고객의 방문율이 {bv["zip_code: Rural"]:.3f}로 Suburban({bv["zip_code: Suburban"]:.3f}), Urban({bv["zip_code: Urban"]:.3f})보다 높다. A4에서 지역이 다른 특성과 겹치지 않았으므로, 이 차이는 구매액이나 채널로 설명되지 않는다. 가까운 매장이 적어 온라인을 더 찾는다는 해석과 맞지만 데이터로 확인할 수는 없다.
     - 고객 1명당 `spend`는 세 지역의 구간이 겹친다.
-    - 시사점: Rural 고객은 메일이 없어도 오는 고객(Sure Things)이 많을 수 있다. 반응 모델은 이 고객을 고르지만 uplift 모델은 고르지 않아야 한다.
+    - 시사점: 평소 방문율은 uplift 모델이 고객을 고르는 기준이 아니다. uplift 모델은 메일로 늘어나는 몫(C절)으로 고른다. 평소 방문율은 메일을 받았을 때의 방문 확률로 고르는 방식(반응 확률로 고르기)이 왜 다른 고객을 고르는지 설명할 때 쓴다. Rural 고객은 평소 방문율이 높지만 메일 효과는 다른 지역보다 크지 않아(C1), 두 방식의 선택이 갈라지는 후보다.
 
     ### B3. 신규 고객과 구매액에 따라 다른가
 
@@ -232,7 +234,7 @@ def _(df, interval_plot, mo, out, segments, stacked_by_segment):
 
 
 @app.cell
-def _(df, interval_plot, mo, out, segments, stacked_by_segment):
+def _(df, effects_below_zero, interval_plot, mo, out, segments, stacked_by_segment):
     effects = stacked_by_segment(df, segments, ["visit", "spend"], "effects")
     effects.to_csv(out / "tables" / "segment_effects.csv", index=False)
     visit_eff_fig = interval_plot(
@@ -254,7 +256,8 @@ def _(df, interval_plot, mo, out, segments, stacked_by_segment):
     )
     spend_eff_fig.savefig(out / "figures" / "effect_spend.png", dpi=150)
     ev = effects.set_index(["outcome", "label", "comparison"])
-    womens_better = effects[(effects["comparison"] == "Mens - Womens") & (effects["ci_high"] < 0)]
+    womens_better = effects_below_zero(effects, ["Mens - Womens"])
+    harmed = effects_below_zero(effects, ["Mens - None", "Womens - None"])
     mo.vstack(
         [
             mo.md("""
@@ -277,6 +280,8 @@ def _(df, interval_plot, mo, out, segments, stacked_by_segment):
             mo.md(f"""
     - `spend` 효과는 구간이 넓다. 여성용이 남성용보다 큰 점추정은 Urban({ev.loc[("spend", "zip_code: Urban", "Mens - Womens"), "effect"]:.2f}) 등 몇 곳에 있지만, 구간이 0을 포함한다. 여성용이 남성용보다 확실히 나은 세그먼트(차이 구간 상한이 0 미만)는 `visit`과 `spend`를 합쳐 {len(womens_better)}곳이다.
     - 둘 다 산 고객에게는 남성용 메일의 `spend` 효과({ev.loc[("spend", "product: both", "Mens - None"), "effect"]:.2f})가 여성용({ev.loc[("spend", "product: both", "Womens - None"), "effect"]:.2f})보다 크다.
+    - 신규 고객은 메일 없이의 매출이 기존 고객보다 적지만(B3), `spend` 효과는 더 크다. 남성용 {ev.loc[("spend", "newbie: 1", "Mens - None"), "effect"]:.2f} 대 {ev.loc[("spend", "newbie: 0", "Mens - None"), "effect"]:.2f}, 여성용 {ev.loc[("spend", "newbie: 1", "Womens - None"), "effect"]:.2f} 대 {ev.loc[("spend", "newbie: 0", "Womens - None"), "effect"]:.2f}다. `visit` 효과는 두 집단이 비슷하다. 신규 고객에게는 두 메일의 `spend` 효과 차이({ev.loc[("spend", "newbie: 1", "Mens - Womens"), "effect"]:.2f}, 구간 {ev.loc[("spend", "newbie: 1", "Mens - Womens"), "ci_low"]:.2f}\\~{ev.loc[("spend", "newbie: 1", "Mens - Womens"), "ci_high"]:.2f})를 가를 수 없다.
+    - 메일이 결과를 확실히 줄인 세그먼트(효과 구간 상한이 0 미만)는 {len(harmed)}곳이다. 세그먼트 단위에서는 Sleeping Dogs(`docs/glossary.md`)가 보이지 않는다. 있다면 고객별 예측에서 찾아야 한다.
     """),
         ]
     )
@@ -379,7 +384,10 @@ def _(mo):
     | --- | --- | --- |
     | 구매 상품(`mens`, `womens`)과 메일 종류의 짝이 고객별 효과 차이를 가장 크게 만든다 | C1 | M2 모델의 변수 중요도, M3 세그먼트 규칙 |
     | `visit` 기준 고른 정책은 대부분 남성용을 골라 전체 발송 정책과의 차이가 작다 | C1, D1 | M2 첫 실험에서 재는 seed 간 범위와 고른 정책의 정책 가치 차이 |
-    | Rural 고객과 둘 다 산 고객은 메일 없이도 방문율이 높다(Sure Things 후보) | B2, B3 | M2 반응 모델 기준선과 uplift 모델의 고객 선택 비교 |
+    | Rural 고객은 평소 방문율이 높지만 메일 효과는 크지 않아, 반응 확률로 고를 때와 효과로 고를 때 선택이 갈라진다 | B2, C1 | M2 기준선과 uplift 모델의 고객 선택 비교 |
+    | 신규 고객은 `visit` 효과는 기존 고객과 비슷하지만 `spend` 효과가 더 크다 | C1 | M2 금액 모델, M3 이익 최대화형 정책 |
+    | 메일이 결과를 줄이는 고객은 세그먼트 단위에서 보이지 않는다 | C1 | M3 Sleeping Dogs 점검(고객별 예측) |
+    | 모델이 예측한 uplift의 세그먼트 평균이 이 노트북의 세그먼트 효과와 맞는다 | C1 | M2 모델 점검 |
     | Phone 고객은 `visit` 효과에 비해 매출로 덜 이어진다 | B1 | M3 이익 최대화형 정책에서 채널별 증분 이익 |
     | 늘어난 방문 1회당 구매는 처치 안에서 구매 상품 세그먼트로 크게 다르지 않다 | C3 | M2 금액 모델(퍼널 분해 대 두 부분 모델) |
     | 둘 다 산 고객의 효과에는 `history` 200 하한이 섞인다 | A1 | M3 세그먼트 규칙을 `history`를 맞춰 다시 확인 |
