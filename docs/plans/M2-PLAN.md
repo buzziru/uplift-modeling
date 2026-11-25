@@ -10,7 +10,7 @@
 | U2 평가 도구 | IPW 정책 가치와 정책 차이, 부트스트랩 구간, 정책 생성, 처치 쌍별 Qini·AUUC, OOF 실행기(folds 테이블), DuckDB 실행 기록. BACKLOG "다음 작업 PR" 두 행 | 없음 | PR-B |
 | U3 EXP-001 비교 정책 | 무작위 타겟팅, 전체 발송 정책, 반응 모델의 OOF 정책 가치와 비교 정책 사이 차이의 seed 간 범위(U5 판정 규칙에 쓸 값). 빈 `experiments/EXP-001/`을 `EXP-001-<주제>`로 바꿔 씀 | U2 | 실험 PR |
 | U4 공통 학습기와 Kaggle 연결 | 학습기 인터페이스, causalml 설치 확인(로컬, Kaggle 이미지), dataset 업로드·출력 형식·DuckDB 기록 시험 실행 | U2 | U5 PR에 포함 |
-| U5 EXP-002 1단계 | LightGBM 고정, S·T·X·DR-learner, uplift random forest, class transformation, transformed outcome. 설계 절 먼저 커밋 | U3, U4, SPEC 미결 사항 승인(U3 무렵 요청). 늦으면 이진 전용 둘을 나눔 | 실험 PR |
+| U5 EXP-002 1단계 | LightGBM 고정, S·T·X·DR-learner, uplift random forest, class transformation, transformed outcome. 설계 절 먼저 커밋 | U3, U4, 이진 처치 비교 정의 승인(U3 무렵 요청). 늦으면 이진 전용 둘을 나눔 | 실험 PR |
 | 승인 | 1단계 방법론 | U5 | |
 | U6 EXP-003 2단계 | base learner 비교, 결합 후보, 금액 모델 spend 잡음 문턱을 판정 규칙에 먼저 적음 | 1단계 승인 | 실험 PR |
 | 승인 | 최종 모델 | U6 | |
