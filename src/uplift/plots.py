@@ -80,13 +80,29 @@ def association_heatmaps(spearman: pd.DataFrame, cramers: pd.DataFrame) -> Figur
     return fig
 
 
-def buyer_spend_ecdf(df: pd.DataFrame, group: str) -> Figure:
-    buyers = pd.DataFrame(df.loc[df["spend"] > 0, [group, "spend"]])
+def ecdf_by_group(df: pd.DataFrame, value: str, group: str, title: str) -> Figure:
+    data = pd.DataFrame(df[[group, value]])
     fig, ax = plt.subplots(figsize=(7, 4))
-    sns.ecdfplot(data=buyers, x="spend", hue=group, log_scale=True, ax=ax)
-    ax.set_xticks([30, 50, 100, 200, 500])
+    sns.ecdfplot(data=data, x=value, hue=group, log_scale=True, ax=ax)
+    ax.set_xticks([30, 50, 100, 200, 500, 1000, 3000])
     ax.xaxis.set_major_formatter(ScalarFormatter())
     ax.xaxis.set_minor_formatter(NullFormatter())
-    ax.set(title="spend of buyers by treatment", xlabel="USD (log scale)", ylabel="share of buyers")
+    ax.set(title=title, xlabel=f"{value} (USD, log scale)", ylabel="share")
+    fig.tight_layout()
+    return fig
+
+
+def buyer_spend_ecdf(df: pd.DataFrame, group: str) -> Figure:
+    buyers = pd.DataFrame(df.loc[df["spend"] > 0])
+    fig = ecdf_by_group(buyers, "spend", group, "spend of buyers by treatment")
+    fig.axes[0].set_xlim(25, 600)
+    return fig
+
+
+def share_heatmap(table: pd.DataFrame, title: str) -> Figure:
+    fig, ax = plt.subplots(figsize=(1.3 * table.shape[1] + 2, 0.5 * table.shape[0] + 1.5))
+    sns.heatmap(table, vmin=0, vmax=1, cmap="mako_r", annot=True, fmt=".2f", cbar=False, ax=ax)
+    ax.set(title=title)
+    ax.tick_params(axis="y", rotation=0)
     fig.tight_layout()
     return fig

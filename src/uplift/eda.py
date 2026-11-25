@@ -71,7 +71,9 @@ def cramers_v(x: pd.Series, y: pd.Series) -> float:
 
 def cramers_v_matrix(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
     return pd.DataFrame(
-        [[cramers_v(pd.Series(df[a]), pd.Series(df[b])) for b in cols] for a in cols], index=cols, columns=cols
+        [[cramers_v(pd.Series(df[a]), pd.Series(df[b])) for b in cols] for a in cols],
+        index=cols,
+        columns=cols,
     )
 
 
@@ -80,7 +82,8 @@ def bootstrap_mean_ci(
 ) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     draws = {
-        name: x[rng.integers(0, len(x), (n_boot, len(x)))].mean(axis=1) for name, x in groups.items()
+        name: x[rng.integers(0, len(x), (n_boot, len(x)))].mean(axis=1)
+        for name, x in groups.items()
     }
     rows = [
         {"group": name, "n": len(x), "mean": x.mean(), **_interval(draws[name])}
@@ -104,3 +107,29 @@ def bootstrap_mean_ci(
 def _interval(draws: np.ndarray) -> dict[str, float]:
     low, high = np.quantile(draws, [0.025, 0.975])
     return {"ci_low": float(low), "ci_high": float(high)}
+
+
+PRODUCT_LABELS = {(1, 0): "mens_only", (0, 1): "womens_only", (1, 1): "both"}
+
+
+def product_segment(df: pd.DataFrame) -> pd.Series:
+    return pd.Series(
+        [PRODUCT_LABELS[(m, w)] for m, w in zip(df["mens"], df["womens"], strict=True)],
+        index=df.index,
+        name="product",
+    )
+
+
+def segment_profile(df: pd.DataFrame, by: str) -> pd.DataFrame:
+    return (
+        df.groupby(by)
+        .agg(
+            n=("history", "size"),
+            history_median=("history", "median"),
+            history_mean=("history", "mean"),
+            recency_mean=("recency", "mean"),
+            newbie_share=("newbie", "mean"),
+            multichannel_share=("channel", lambda s: (s == "Multichannel").mean()),
+        )
+        .reset_index()
+    )

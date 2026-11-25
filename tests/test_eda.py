@@ -9,6 +9,8 @@ from uplift.eda import (
     cramers_v_matrix,
     numeric_summary,
     outcome_summary,
+    product_segment,
+    segment_profile,
 )
 
 
@@ -66,3 +68,29 @@ def test_bootstrap_mean_ci_covers_mean_and_adds_pairwise_difference():
     assert out.loc["b", "ci_low"] == pytest.approx(10.0)
     assert out.loc["a - b", "mean"] == pytest.approx(-7.5)
     assert out.loc["a - b", "ci_high"] < 0
+
+
+def test_product_segment_labels_each_combination():
+    df = pd.DataFrame({"mens": [1, 0, 1], "womens": [0, 1, 1]})
+    assert product_segment(df).tolist() == ["mens_only", "womens_only", "both"]
+
+
+def test_product_segment_rejects_no_purchase():
+    with pytest.raises(KeyError):
+        product_segment(pd.DataFrame({"mens": [0], "womens": [0]}))
+
+
+def test_segment_profile_shares():
+    df = pd.DataFrame(
+        {
+            "g": ["a", "a", "b"],
+            "history": [50.0, 150.0, 300.0],
+            "recency": [1, 3, 5],
+            "newbie": [1, 0, 1],
+            "channel": ["Web", "Multichannel", "Phone"],
+        }
+    )
+    out = segment_profile(df, "g").set_index("g")
+    assert out.loc["a", "history_median"] == pytest.approx(100.0)
+    assert out.loc["a", "multichannel_share"] == pytest.approx(0.5)
+    assert out.loc["b", "n"] == 1
