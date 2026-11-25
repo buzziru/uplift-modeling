@@ -7,6 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 EXCLUDE = [
+    "SPEC.md",
     "docs/history/*",
     "artifacts/*",
     "_workspace/*",
@@ -15,7 +16,6 @@ EXCLUDE = [
     "tests/*.py",
 ]
 CANON = [
-    "SPEC.md",
     "CLAUDE.md",
     "*/CLAUDE.md",
     ".claude/*",
@@ -42,12 +42,10 @@ RECORD_REF = re.compile(
     r"(?:#[^\s)`]+|`?(?!에 항목)(?:\s*\"[^\"\n]+\")?[^|\n`]{0,20}?(?<!\d)(?:절(?!차)|항목))"
 )
 HISTORY_LIMIT = 0.2
-SPEC_PATH = re.compile(r"`([^`\s]+\.(?:md|py|yaml|json))`")
-SPEC_ALLOWED = {"docs/THEORY.md", "docs/glossary.md"}
 TITLE_REF = re.compile(r"`[^`]+\.md` [\"'][^\"'\n]+[\"'] 절")
 GLOSSARY_POINTER = re.compile(r"\(`docs/glossary\.md`[,)]")
 PENDING_FILE = "PENDING-DECISIONS.md"
-SPEC_NAME_REF = re.compile(r"SPEC\.md ([가-힣]+(?: [가-힣]+)?) 절")
+SPEC_REF = re.compile(r"SPEC\.md (?:\d+절|[가-힣]+(?: [가-힣]+)? 절)")
 POSITION_REF = re.compile(
     r"(?<![가-힣])(?:첫|마지막|앞|위|아래|다음) (?:절|행|문단)"
     r"(?:(?![가-힣])|(?=[은는이가을를의에와과도만로으부까처]))"
@@ -75,7 +73,7 @@ def in_scope(path: str) -> bool:
 
 def is_inbound(path: str) -> bool:
     skip = ("docs/", "_workspace/", "tests/")
-    return path.endswith((".md", ".py")) and not path.startswith(skip)
+    return path.endswith((".md", ".py")) and not path.startswith(skip) and path != "SPEC.md"
 
 
 def tracked(*patterns: str) -> list[str]:
@@ -122,21 +120,6 @@ def history_ratio(text: str) -> float:
     return count / len(lines) if lines else 0.0
 
 
-def check_spec(text: str) -> list[str]:
-    errors, section = [], ""
-    for n, line in enumerate(text.splitlines(), 1):
-        if line.startswith("## "):
-            section = line
-        if "문서 체계" in section:
-            continue
-        if line.startswith(("정본:", "기록:")):
-            errors.append(f"SPEC.md {n}줄: 위치를 가리키는 줄")
-        errors += [
-            f"SPEC.md {n}줄: 경로 {p}" for p in SPEC_PATH.findall(line) if p not in SPEC_ALLOWED
-        ]
-    return errors
-
-
 def check_history() -> list[str]:
     warnings = []
     for f in record_files():
@@ -148,11 +131,6 @@ def check_history() -> list[str]:
 
 def rel(p: Path) -> str:
     return p.relative_to(ROOT).as_posix()
-
-
-def headings(path: Path) -> list[str]:
-    text = path.read_text(encoding="utf-8") if path.exists() else ""
-    return [m.group(1).strip() for m in re.finditer(r"^#+\s+(.+)$", text, re.MULTILINE)]
 
 
 def sentences(text: str) -> list[str]:
@@ -173,16 +151,7 @@ def similarity(a: str, b: str) -> float:
 def check_refs(text: str) -> list[str]:
     errors = [f'절 제목 인용: "{m.group(0)}"' for m in TITLE_REF.finditer(text)]
     errors += [f'용어집 가리키기: "{m.group(0)}"' for m in GLOSSARY_POINTER.finditer(text)]
-    spec_numbers = {
-        m.group(1) for h in headings(ROOT / "SPEC.md") if (m := re.match(r"(\d+)\.", h))
-    }
-    for n in re.findall(r"SPEC\.md (\d+)절", text):
-        if n not in spec_numbers:
-            errors.append(f"없는 절: SPEC.md {n}절")
-    spec_names = {re.sub(r"^\d+\.\s*", "", h) for h in headings(ROOT / "SPEC.md")}
-    for name in SPEC_NAME_REF.findall(text):
-        if name not in spec_names:
-            errors.append(f"없는 절: SPEC.md {name} 절")
+    errors += [f'시작 명세 가리키기: "{m.group(0)}"' for m in SPEC_REF.finditer(text)]
     return errors
 
 
@@ -263,6 +232,8 @@ def check_citations(text: str) -> list[str]:
 
 def run(old_text: str, new_text: str, path: str) -> tuple[list[str], list[str]]:
     errors = [] if is_record(path) else check_refs(new_text)
+    if path == "docs/glossary.md":
+        errors = [e for e in errors if not e.startswith("시작 명세 가리키기")]
     if path == PENDING_FILE and new_text.strip():
         errors.append(f"{PENDING_FILE}: 반영 대기 목록은 check_docs.py --pending으로 뽑는다")
     copy_errors, warnings = check_copies(new_text, path)
@@ -302,8 +273,6 @@ def hook() -> None:
             errors += check_refs(new)
     if file_path in record_files():
         warnings += check_history()
-    if path == "SPEC.md":
-        errors += check_spec(file_path.read_text(encoding="utf-8"))
     lines = [f"오류: {e}" for e in errors] + [f"알림: {w}" for w in warnings]
     if not lines:
         return
@@ -370,15 +339,8 @@ def branch() -> int:
             )
             errors += [f"{m.group(1)}: {e}" for e in check_refs(added)]
     warnings += check_history()
-    errors += check_spec((ROOT / "SPEC.md").read_text(encoding="utf-8"))
-    old_spec = git_text("show", "origin/main:SPEC.md")
-    numbers = spec_renumbers(old_spec, (ROOT / "SPEC.md").read_text(encoding="utf-8"))
-    warnings += [
-        f"SPEC.md 절 번호가 바뀜: {old}절 -> {new}절. SPEC.md {old}절 참조를 확인한다"
-        for old, new in numbers.items()
-    ]
     if "+++ b/SPEC.md" in diff:
-        warnings.append("SPEC.md가 바뀌었다. 이 작업의 승인 요청이나 보고에 바꾼 줄을 함께 적는다")
+        warnings.append("SPEC.md는 시작 명세로 고정한 문서다. 바꾼 이유를 보고에 적는다")
     warnings += [f"반영 대기: {item}" for item in pending_items()]
     for w in warnings:
         print(f"알림: {w}")
@@ -396,15 +358,6 @@ def git_text(*args: str) -> str:
         encoding="utf-8",
         check=True,
     ).stdout
-
-
-def spec_renumbers(old_spec: str, new_spec: str) -> dict[str, str]:
-    def numbers(text: str) -> dict[str, str]:
-        found = re.finditer(r"^## (\d+)\.\s+(.+)$", text, re.MULTILINE)
-        return {m.group(2).strip(): m.group(1) for m in found}
-
-    old, new = numbers(old_spec), numbers(new_spec)
-    return {old[t]: new[t] for t in old if t in new and old[t] != new[t]}
 
 
 def pending_items() -> list[str]:

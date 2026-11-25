@@ -16,7 +16,7 @@ description: PR을 열기 전에 평가 에이전트와 PR 전 검토 에이전�
 
 역할: 평가는 루브릭(`.claude/rubrics/<이름>.md`)의 항목으로만 판정한다. 문서 사이의 정합을 누가 보는지는 루브릭의 R8 폐지 줄을 따른다. 두 에이전트가 같은 지적을 따로 내지 않게 하기 위해서다.
 
-평가 대상 파일은 루브릭이 판정하는 파일이다: `SPEC.md`, `docs/`, `src/`, `scripts/`, `analyses/`, `experiments/`, `artifacts/`, `tests/baseline/`(기준값 파일). 하네스 파일, CI 설정, 의존성 파일, 그 밖의 `tests/`, `.gitignore`는 평가 대상이 아니다.
+평가 대상 파일은 루브릭이 판정하는 파일이다: `docs/`, `src/`, `scripts/`, `analyses/`, `experiments/`, `artifacts/`, `tests/baseline/`(기준값 파일). 하네스 파일, CI 설정, 의존성 파일, 그 밖의 `tests/`, `.gitignore`는 평가 대상이 아니다.
 
 플러그인의 PR 검사는 하네스 파일이 아닌 파일을 바꾼 PR에 평가 기록을 요구한다. 평가 대상 파일을 바꾸지 않았는데 이 검사에 막히면, 바꾼 파일을 입력으로 평가를 한 번 받는다. 이때 입력 파일 목록은 아래 "평가 대상 파일 모두"의 예외로, 바꾼 파일 전체다.
 

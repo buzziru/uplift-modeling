@@ -56,23 +56,6 @@ def test_history_ratio_is_zero_without_history():
     assert check_docs.history_ratio("## 제목\n- 결정: a\n") == 0.0
 
 
-def test_check_spec_skips_only_the_document_system_section():
-    text = (
-        "## 3. 데이터\n\n기록: `docs/DATA.md`\n"
-        "- 분할: `scripts/splits.yaml`, `src/uplift/split.py`.\n"
-        "## 10. 문서 체계\n\n실험 양식은 `experiments/TEMPLATE.md`가 정본이다.\n"
-        "## 14. 미결 사항\n\n(`docs/THEORY.md` 절)\n정본: `src/uplift/policy.py`\n"
-    )
-    assert check_docs.check_spec(text) == [
-        "SPEC.md 3줄: 위치를 가리키는 줄",
-        "SPEC.md 3줄: 경로 docs/DATA.md",
-        "SPEC.md 4줄: 경로 scripts/splits.yaml",
-        "SPEC.md 4줄: 경로 src/uplift/split.py",
-        "SPEC.md 11줄: 위치를 가리키는 줄",
-        "SPEC.md 11줄: 경로 src/uplift/policy.py",
-    ]
-
-
 def test_check_refs_flags_title_refs_and_glossary_pointers(tmp_path, monkeypatch):
     monkeypatch.setattr(check_docs, "ROOT", tmp_path)
     (tmp_path / "SPEC.md").write_text("## 1. 목적\n", encoding="utf-8")
@@ -139,12 +122,6 @@ def test_check_citations_matches_parenthetical_and_inline_cites():
     assert check_docs.check_citations(negative) == []
 
 
-def test_spec_renumbers_maps_shifted_sections_by_title():
-    old = "## 1. 목적\n## 2. 데이터\n## 3. 문서 체계\n"
-    new = "## 1. 목적\n## 2. 문제\n## 3. 데이터\n## 4. 문서 체계\n"
-    assert check_docs.spec_renumbers(old, new) == {"2": "3", "3": "4"}
-
-
 def test_check_copies_errors_on_record_copies_outside_records(tmp_path, monkeypatch):
     monkeypatch.setattr(check_docs, "ROOT", tmp_path)
     copy = "분할은 고객 단위로 층화해 학습, 검증, 시험 세트로 나눈다."
@@ -170,7 +147,8 @@ def test_check_copies_errors_on_record_copies_outside_records(tmp_path, monkeypa
 @pytest.mark.parametrize(
     ("path", "scope", "inbound"),
     [
-        ("SPEC.md", True, True),
+        ("SPEC.md", False, False),
+        ("CLAUDE.md", True, True),
         ("docs/plans/M2-PLAN.md", True, False),
         ("docs/history/DATA.md", False, False),
         ("artifacts/ANA-003/summary.md", False, True),
@@ -212,7 +190,7 @@ def test_run_skips_reference_checks_in_records():
     assert len(check_docs.run("", text, "docs/plans/M2-PLAN.md")[0]) == 2
 
 
-def test_check_copies_skips_canon_files(tmp_path, monkeypatch):
+def test_check_copies_skips_record_matches_in_canon(tmp_path, monkeypatch):
     monkeypatch.setattr(check_docs, "ROOT", tmp_path)
     copy = "분할은 고객 단위로 층화해 학습, 검증, 시험 세트로 나눈다."
     (tmp_path / "docs").mkdir()
@@ -220,20 +198,29 @@ def test_check_copies_skips_canon_files(tmp_path, monkeypatch):
     monkeypatch.setattr(check_docs, "scope_files", lambda: [tmp_path / "docs" / "DATA.md"])
     assert check_docs.check_copies(copy, "scripts/CLAUDE.md") == ([], [])
     assert check_docs.check_copies(copy, ".claude/skills/run-evaluation/SKILL.md") == ([], [])
-    (tmp_path / "SPEC.md").write_text(f"{copy}\n", encoding="utf-8")
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "CLAUDE.md").write_text(f"{copy}\n", encoding="utf-8")
     monkeypatch.setattr(
-        check_docs, "scope_files", lambda: [tmp_path / "docs" / "DATA.md", tmp_path / "SPEC.md"]
+        check_docs,
+        "scope_files",
+        lambda: [tmp_path / "docs" / "DATA.md", tmp_path / "scripts" / "CLAUDE.md"],
     )
     errors, warnings = check_docs.check_copies(copy, "CLAUDE.md")
     assert errors == [] and len(warnings) == 1
     assert len(check_docs.check_copies(copy, "docs/glossary.md")[0]) == 1
 
 
-def test_check_refs_checks_spec_section_names(tmp_path, monkeypatch):
-    monkeypatch.setattr(check_docs, "ROOT", tmp_path)
-    (tmp_path / "SPEC.md").write_text("## 5. 승인 지점\n## 7. 완료 기준\n", encoding="utf-8")
-    assert check_docs.check_refs("SPEC.md 승인 지점 절의 항목") == []
-    assert check_docs.check_refs("SPEC.md 모델 선택 절") == ["없는 절: SPEC.md 모델 선택 절"]
+def test_check_refs_flags_spec_section_refs():
+    assert check_docs.check_refs("SPEC.md 승인 지점 절의 항목") == [
+        '시작 명세 가리키기: "SPEC.md 승인 지점 절"'
+    ]
+    assert check_docs.check_refs("SPEC.md 13절 2번") == ['시작 명세 가리키기: "SPEC.md 13절"']
+    assert check_docs.check_refs("시작 명세는 `SPEC.md`다.") == []
+
+
+def test_run_allows_spec_refs_in_glossary_first_use_column():
+    errors, _ = check_docs.run("", "| 정책 가치 | 뜻 | SPEC.md 5절 |", "docs/glossary.md")
+    assert errors == []
 
 
 def test_check_removed_ignores_phrases_under_ten_characters(tmp_path, monkeypatch):
