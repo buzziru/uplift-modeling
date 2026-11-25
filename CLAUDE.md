@@ -26,8 +26,7 @@
 
 ## 프로젝트
 
-- 명세는 `SPEC.md`, 용어는 `docs/glossary.md`다. 결정의 정본과 기록 문서의 구분은 SPEC.md 문서 체계 절이다.
-- SPEC.md에 담는 것은 SPEC.md 문서 체계 절. SPEC.md를 바꾸는 작업은 따로 승인받지 않고, 그 작업의 승인 요청이나 보고에 바꾼 SPEC 줄을 함께 적는다.
+- 명세는 `SPEC.md`, 용어는 `docs/glossary.md`다. 문서마다 담는 것(정본, 기록 문서, SPEC.md)은 SPEC.md 문서 체계 절이다. SPEC.md를 바꾸는 작업은 따로 승인받지 않고, 그 작업의 승인 요청이나 보고에 바꾼 SPEC 줄을 함께 적는다.
 - 폴더 규약은 `analyses/CLAUDE.md`, `docs/CLAUDE.md`, `experiments/CLAUDE.md`, `scripts/CLAUDE.md`, `tests/CLAUDE.md`, 실험 양식은 `experiments/TEMPLATE.md`, Kaggle 실행은 `.claude/skills/kaggle-remote-runner/SKILL.md`다.
 
 ### 폴더 구조
