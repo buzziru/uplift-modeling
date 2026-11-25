@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 
+from uplift.randomization import Z80, Z95, ate_diff
+
 QUANTILES = {"p50": 0.5, "p90": 0.9, "p99": 0.99}
 
 
@@ -133,3 +135,98 @@ def segment_profile(df: pd.DataFrame, by: str) -> pd.DataFrame:
         )
         .reset_index()
     )
+
+
+COMPARISONS = {0: {1: "Mens - None", 2: "Womens - None"}, 2: {1: "Mens - Womens"}}
+
+
+def group_means(df: pd.DataFrame, by: str, outcomes: list[str]) -> pd.DataFrame:
+    rows = []
+    for level, g in df.groupby(by):
+        for outcome in outcomes:
+            y = g[outcome]
+            se = y.std() / np.sqrt(len(y))
+            rows.append(
+                {
+                    by: level,
+                    "outcome": outcome,
+                    "n": len(y),
+                    "mean": y.mean(),
+                    "ci_low": y.mean() - Z95 * se,
+                    "ci_high": y.mean() + Z95 * se,
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def segment_effects(df: pd.DataFrame, by: str, outcome: str) -> pd.DataFrame:
+    rows = []
+    for level, g in df.groupby(by):
+        for control, labels in COMPARISONS.items():
+            result = ate_diff(pd.Series(g[outcome]), pd.Series(g["treatment_id"]), control)
+            columns = ["treatment", "effect", "ci_low", "ci_high"]
+            for t, effect, low, high in result[columns].itertuples(index=False):
+                if t in labels:
+                    rows.append(
+                        {
+                            by: level,
+                            "comparison": labels[t],
+                            "n": len(g),
+                            "effect": effect,
+                            "ci_low": low,
+                            "ci_high": high,
+                        }
+                    )
+    return pd.DataFrame(rows)
+
+
+def incremental_composition(effects: pd.DataFrame, by: str) -> pd.DataFrame:
+    out = pd.DataFrame(effects[effects["comparison"].str.endswith("- None")])
+    out["increment"] = out["effect"] * out["n"]
+    out["share"] = out["increment"] / out.groupby("comparison")["increment"].transform("sum")
+    return pd.DataFrame(out[["comparison", by, "n", "effect", "increment", "share"]])
+
+
+def funnel_ratio_ci(
+    df: pd.DataFrame, by: str, treatment: int, n_boot: int = 2000, seed: int = 0
+) -> pd.DataFrame:
+    rng = np.random.default_rng(seed)
+    rows = []
+    for level, g in df.groupby(by):
+        arms = {
+            t: g.loc[g["treatment_id"] == t, ["visit", "conversion"]].to_numpy()
+            for t in (treatment, 0)
+        }
+        boot = {
+            t: x[rng.integers(0, len(x), (n_boot, len(x)))].mean(axis=1) for t, x in arms.items()
+        }
+        diff = boot[treatment] - boot[0]
+        ratio = diff[:, 1] / diff[:, 0]
+        point = arms[treatment].mean(axis=0) - arms[0].mean(axis=0)
+        rows.append(
+            {
+                by: level,
+                "treatment": treatment,
+                "visit_effect": point[0],
+                "conversion_effect": point[1],
+                "conversion_per_visit": point[1] / point[0],
+                **_interval(ratio),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def threshold_effects(df: pd.DataFrame, thresholds: list[float]) -> pd.DataFrame:
+    return pd.concat(
+        [
+            ate_diff(pd.Series(df["spend"] > t, dtype=int), pd.Series(df["treatment_id"])).assign(
+                threshold=t
+            )
+            for t in thresholds
+        ],
+        ignore_index=True,
+    )
+
+
+def n_per_arm(sd: float, mde: float) -> int:
+    return int(np.ceil(2 * ((Z95 + Z80) * sd / mde) ** 2))

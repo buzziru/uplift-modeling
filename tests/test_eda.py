@@ -7,10 +7,16 @@ from uplift.eda import (
     category_shares,
     cramers_v,
     cramers_v_matrix,
+    funnel_ratio_ci,
+    group_means,
+    incremental_composition,
+    n_per_arm,
     numeric_summary,
     outcome_summary,
     product_segment,
+    segment_effects,
     segment_profile,
+    threshold_effects,
 )
 
 
@@ -94,3 +100,63 @@ def test_segment_profile_shares():
     assert out.loc["a", "history_median"] == pytest.approx(100.0)
     assert out.loc["a", "multichannel_share"] == pytest.approx(0.5)
     assert out.loc["b", "n"] == 1
+
+
+@pytest.fixture
+def trial() -> pd.DataFrame:
+    rng = np.random.default_rng(1)
+    n = 3000
+    t = np.tile([0, 1, 2], n // 3)
+    seg = np.repeat(["a", "b"], n // 2)
+    visit = (rng.random(n) < 0.1 + 0.1 * (t == 1) + 0.05 * (t == 2) * (seg == "b")).astype(int)
+    conversion = visit * (rng.random(n) < 0.3)
+    return pd.DataFrame(
+        {
+            "seg": seg,
+            "treatment_id": t,
+            "visit": visit,
+            "conversion": conversion,
+            "spend": conversion * 100.0,
+        }
+    )
+
+
+def test_group_means_interval_covers_mean(trial):
+    out = group_means(trial, "seg", ["visit"])
+    assert set(out["seg"]) == {"a", "b"}
+    assert np.all(out["ci_low"].to_numpy() < out["mean"].to_numpy())
+    assert np.all(out["mean"].to_numpy() < out["ci_high"].to_numpy())
+
+
+def test_segment_effects_has_three_comparisons_per_level(trial):
+    out = segment_effects(trial, "seg", "visit")
+    assert len(out) == 6
+    mens = out[(out["seg"] == "a") & (out["comparison"] == "Mens - None")]["effect"].item()
+    a = trial[trial["seg"] == "a"]
+    expected = a[a["treatment_id"] == 1]["visit"].mean() - a[a["treatment_id"] == 0]["visit"].mean()
+    assert mens == pytest.approx(expected)
+
+
+def test_incremental_composition_shares_sum_to_one(trial):
+    out = incremental_composition(segment_effects(trial, "seg", "visit"), "seg")
+    assert set(out["comparison"]) == {"Mens - None", "Womens - None"}
+    for name in ["Mens - None", "Womens - None"]:
+        assert out.loc[out["comparison"] == name, "share"].sum() == pytest.approx(1.0)
+
+
+def test_funnel_ratio_ci_point_is_ratio_of_effects(trial):
+    out = funnel_ratio_ci(trial, "seg", 1, n_boot=200).set_index("seg")
+    row = out.loc["a"]
+    assert row["conversion_per_visit"] == pytest.approx(
+        row["conversion_effect"] / row["visit_effect"]
+    )
+
+
+def test_threshold_effects_one_row_per_threshold_and_treatment(trial):
+    out = threshold_effects(trial, [50.0, 150.0])
+    assert len(out) == 4
+    assert np.abs(out.loc[out["threshold"] == 150.0, "effect"].to_numpy()).max() == 0
+
+
+def test_n_per_arm_matches_formula():
+    assert n_per_arm(sd=1.0, mde=1.0) == 16

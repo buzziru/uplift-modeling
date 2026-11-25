@@ -106,3 +106,28 @@ def share_heatmap(table: pd.DataFrame, title: str) -> Figure:
     ax.tick_params(axis="y", rotation=0)
     fig.tight_layout()
     return fig
+
+
+def interval_plot(
+    table: pd.DataFrame, label: str, group: str, value: str, title: str, xlabel: str
+) -> Figure:
+    labels = list(dict.fromkeys(table[label].astype(str)))
+    groups = list(dict.fromkeys(table[group]))
+    fig, ax = plt.subplots(figsize=(7, 0.45 * len(labels) * max(len(groups), 2) / 2 + 1.5))
+    step = 0.6 / max(len(groups), 1)
+    for i, name in enumerate(groups):
+        part = pd.DataFrame(table.loc[table[group] == name])
+        y = (
+            np.array([labels.index(str(v)) for v in part[label]])
+            + (i - (len(groups) - 1) / 2) * step
+        )
+        x = part[value].to_numpy()
+        err = np.vstack([x - part["ci_low"].to_numpy(), part["ci_high"].to_numpy() - x])
+        ax.errorbar(x, y, xerr=err, fmt="o", capsize=3, label=str(name))
+    ax.set_yticks(range(len(labels)), [s.replace("$", r"\$") for s in labels])
+    ax.invert_yaxis()
+    ax.axvline(0, color="gray", linewidth=0.8)
+    ax.set(title=title, xlabel=xlabel)
+    ax.legend(loc="best", fontsize=8)
+    fig.tight_layout()
+    return fig

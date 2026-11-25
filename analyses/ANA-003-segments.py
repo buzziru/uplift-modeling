@@ -13,8 +13,17 @@ def _():
     import pandas as pd
 
     from uplift.db import TREATMENTS, load_frame
-    from uplift.eda import product_segment, segment_profile
-    from uplift.plots import ecdf_by_group, share_heatmap
+    from uplift.eda import (
+        funnel_ratio_ci,
+        group_means,
+        incremental_composition,
+        n_per_arm,
+        product_segment,
+        segment_effects,
+        segment_profile,
+        threshold_effects,
+    )
+    from uplift.plots import ecdf_by_group, interval_plot, share_heatmap
 
     root = Path(__file__).resolve().parents[1]
     out = root / "artifacts" / "ANA-003"
@@ -27,7 +36,25 @@ def _():
     )
     df["product"] = product_segment(df)
     both_min = df.loc[df["product"] == "both", "history"].min()
-    return both_min, df, ecdf_by_group, mo, out, pd, segment_profile, share_heatmap
+    segments = ["product", "channel", "zip_code", "newbie", "history_segment"]
+    return (
+        both_min,
+        df,
+        ecdf_by_group,
+        funnel_ratio_ci,
+        group_means,
+        incremental_composition,
+        interval_plot,
+        mo,
+        n_per_arm,
+        out,
+        pd,
+        segment_effects,
+        segment_profile,
+        segments,
+        share_heatmap,
+        threshold_effects,
+    )
 
 
 @app.cell
@@ -39,7 +66,13 @@ def _(df, mo):
 
     구매 상품 세그먼트(`product`)는 `mens`, `womens`를 남성 상품만(`mens_only`), 여성 상품만(`womens_only`), 둘 다(`both`)로 묶은 값이다. 둘 다 사지 않은 고객은 없다. 한 종류만 산 고객의 성별은 그 상품의 성별로 추정할 수 있지만 확정할 수는 없다.
 
-    A. 고객은 어떻게 구성되어 있나
+    - A. 고객은 어떻게 구성되어 있나
+    - B. 메일이 없을 때 누가 방문하고 사나(대조군)
+    - C. 메일에 누가 반응했나
+    - D. 담당자 질문: 여성용이 나은 고객군, 고액 구매, 지금 데이터로 답할 수 없는 질문
+    - E. M2·M3에 넘길 가설
+
+    C·D의 차이는 수십 개 비교 가운데 하나라 우연히 커 보일 수 있다. 판정하지 않고 95% 구간과 함께 가설로 둔다.
     """)
     return
 
@@ -84,6 +117,7 @@ def _(both_min, df, mo, out, segment_profile):
     - 하한을 맞추면 중앙값이 둘 다 산 고객 {q.loc["both", "history_median"]:.0f}, 남성 상품만 {q.loc["mens_only", "history_median"]:.0f}, 여성 상품만 {q.loc["womens_only", "history_median"]:.0f}로, 세 배가 넘던 차이가 {q.loc["both", "history_median"] / q.loc["mens_only", "history_median"]:.1f}배로 줄어든다. 차이의 대부분은 하한에서 나왔다.
     - Multichannel 비율도 {q.loc["both", "multichannel_share"]:.0%} 대 {q.loc["mens_only", "multichannel_share"]:.0%}로 비슷해진다. A3에서 보는 Multichannel과 둘 다 산 고객의 관계도 두 세그먼트가 같은 200 하한을 가진 데서 나온 것일 수 있다.
     - 그래서 "둘 다 사는 고객은 가족을 위해 사서 더 많이 산다"는 가설은 이 데이터로 뒷받침되지 않는다. 남는 차이는 작고, 가족 구매와 한 사람의 잦은 구매를 가를 변수도 없다.
+    - 시사점: 구매 상품 세그먼트를 모델 입력이나 세그먼트 규칙에 쓸 때, `both`의 효과에는 200 하한이 섞인다. 규칙이 `both`를 고르면 `history`를 맞춘 비교로 다시 확인한다.
     """),
         ]
     )
@@ -128,9 +162,242 @@ def _(df, mo, out, pd, share_heatmap):
             channel_zip_fig,
             mo.md("""
     - 세 지역의 채널 구성이 거의 같다. `zip_code`는 이 데이터의 다른 고객 특성과 거의 관계가 없다(ANA-002 Cramer's V 0.02 이하).
+    - 시사점: 지역은 다른 특성과 겹치지 않으므로, 지역에 따른 결과 차이가 있으면(B, C) 다른 특성의 차이로 설명되지 않는 독립된 정보다.
     """),
         ]
     )
+    return
+
+
+@app.cell
+def _(df, group_means, interval_plot, mo, out, pd, segments):
+    control = df[df["treatment_id"] == 0]
+    baseline = pd.concat(
+        [
+            group_means(control, by, ["visit", "conversion", "spend"])
+            .rename(columns={by: "level"})
+            .assign(segment=by)
+            for by in segments
+        ],
+        ignore_index=True,
+    )
+    baseline["label"] = baseline["segment"] + ": " + baseline["level"].astype(str)
+    baseline.to_csv(out / "tables" / "control_by_segment.csv", index=False)
+    visit_base_fig = interval_plot(
+        baseline[baseline["outcome"] == "visit"],
+        "label",
+        "outcome",
+        "mean",
+        "visit rate without email (control)",
+        "visit rate",
+    )
+    visit_base_fig.savefig(out / "figures" / "control_visit.png", dpi=150)
+    spend_base_fig = interval_plot(
+        baseline[baseline["outcome"] == "spend"],
+        "label",
+        "outcome",
+        "mean",
+        "spend per customer without email (control)",
+        "USD",
+    )
+    spend_base_fig.savefig(out / "figures" / "control_spend.png", dpi=150)
+    bv = baseline[baseline["outcome"] == "visit"].set_index("label")["mean"]
+    mo.vstack(
+        [
+            mo.md("""
+    ## B. 메일이 없을 때 누가 방문하고 사나
+
+    대조군(메일을 받지 않은 고객)만 본다. 메일 효과를 읽을 때 출발점이 되는 평소 행동이다.
+
+    ### B1. 이용 채널에 따라 방문과 구매가 다른가
+    """),
+            visit_base_fig,
+            mo.md(f"""
+    - 방문율은 Phone {bv["channel: Phone"]:.3f}, Web {bv["channel: Web"]:.3f}, Multichannel {bv["channel: Multichannel"]:.3f}이다. 전화로 사는 고객이 웹사이트에 덜 온다. `visit`은 웹사이트 방문이라 자연스러운 차이다.
+    - 고객 1명당 `spend`는 채널 사이에 구간이 겹쳐 차이를 가를 수 없다(아래 그림). 구매 고객이 대조군에서 86명뿐이라 금액 비교는 대부분 이렇다.
+    - 시사점: Phone 고객은 메일로 웹 방문을 늘릴 여지가 크지만, 구매가 전화로 일어나면 `visit`이 매출을 덜 대신한다. C에서 Phone 고객의 `visit` 효과와 `spend` 효과를 함께 본다.
+
+    ### B2. 사는 곳에 따라 방문과 구매 금액이 다른가
+
+    - Rural 고객의 방문율이 {bv["zip_code: Rural"]:.3f}로 Suburban({bv["zip_code: Suburban"]:.3f}), Urban({bv["zip_code: Urban"]:.3f})보다 높다. A4에서 지역이 다른 특성과 겹치지 않았으므로, 이 차이는 구매액이나 채널로 설명되지 않는다. 가까운 매장이 적어 온라인을 더 찾는다는 해석과 맞지만 데이터로 확인할 수는 없다.
+    - 고객 1명당 `spend`는 세 지역의 구간이 겹친다.
+    - 시사점: Rural 고객은 메일이 없어도 오는 고객(Sure Things)이 많을 수 있다. 반응 모델은 이 고객을 고르지만 uplift 모델은 고르지 않아야 한다.
+
+    ### B3. 신규 고객과 구매액에 따라 다른가
+
+    - 기존 고객의 방문율({bv["newbie: 0"]:.3f})이 신규 고객({bv["newbie: 1"]:.3f})보다 높다.
+    - 구매액이 클수록 방문율이 높아지다가({bv["history_segment: 1) $0 - $100"]:.3f}에서 {bv["history_segment: 4) $350 - $500"]:.3f}), 500\\~750 구간에서 {bv["history_segment: 5) $500 - $750"]:.3f}로 떨어졌다가 그 위 구간에서 다시 높다. 500달러 이상 구간은 모두 신규 고객이라(ANA-002), 구매액 효과와 신규 고객 효과가 겹친다.
+    - 둘 다 산 고객의 방문율({bv["product: both"]:.3f})이 한 종류만 산 고객(약 {bv["product: mens_only"]:.2f})의 두 배에 가깝다.
+    """),
+            spend_base_fig,
+        ]
+    )
+    return
+
+
+@app.cell
+def _(df, interval_plot, mo, out, pd, segment_effects, segments):
+    effects = pd.concat(
+        [
+            segment_effects(df, by, outcome)
+            .rename(columns={by: "level"})
+            .assign(segment=by, outcome=outcome)
+            for by in segments
+            for outcome in ["visit", "spend"]
+        ],
+        ignore_index=True,
+    )
+    effects["label"] = effects["segment"] + ": " + effects["level"].astype(str)
+    effects.to_csv(out / "tables" / "segment_effects.csv", index=False)
+    visit_eff_fig = interval_plot(
+        effects[effects["outcome"] == "visit"],
+        "label",
+        "comparison",
+        "effect",
+        "visit effect by segment",
+        "difference in visit rate",
+    )
+    visit_eff_fig.savefig(out / "figures" / "effect_visit.png", dpi=150)
+    spend_eff_fig = interval_plot(
+        effects[effects["outcome"] == "spend"],
+        "label",
+        "comparison",
+        "effect",
+        "spend effect by segment",
+        "difference in spend per customer (USD)",
+    )
+    spend_eff_fig.savefig(out / "figures" / "effect_spend.png", dpi=150)
+    ev = effects.set_index(["outcome", "label", "comparison"])
+    womens_better = effects[(effects["comparison"] == "Mens - Womens") & (effects["ci_high"] < 0)]
+    mo.vstack(
+        [
+            mo.md("""
+    ## C. 메일에 누가 반응했나
+
+    세그먼트마다 남성용 대 미발송, 여성용 대 미발송, 남성용 대 여성용의 차이와 95% 구간이다.
+
+    ### C1. 구매 상품과 메일 종류가 맞으면 더 반응하는가
+    """),
+            visit_eff_fig,
+            mo.md(f"""
+    - 여성 상품만 산 고객: 여성용 메일의 방문 효과({ev.loc[("visit", "product: womens_only", "Womens - None"), "effect"]:.3f})가 남성용({ev.loc[("visit", "product: womens_only", "Mens - None"), "effect"]:.3f})과 같다(차이 구간 {ev.loc[("visit", "product: womens_only", "Mens - Womens"), "ci_low"]:.3f}\\~{ev.loc[("visit", "product: womens_only", "Mens - Womens"), "ci_high"]:.3f}).
+    - 남성 상품만 산 고객: 여성용 메일의 방문 효과가 {ev.loc[("visit", "product: mens_only", "Womens - None"), "effect"]:.3f}로 거의 없다. 남성용은 {ev.loc[("visit", "product: mens_only", "Mens - None"), "effect"]:.3f}다.
+    - 둘 다 산 고객: 남성용 메일의 방문 효과가 {ev.loc[("visit", "product: both", "Mens - None"), "effect"]:.3f}로 세그먼트 가운데 가장 크다.
+    - 남성용 메일은 모든 구매 상품 세그먼트에서 여성용과 같거나 더 크다. 다른 세그먼트 변수(채널, 지역, 신규 여부, 구매액 구간)에서도 `visit` 효과가 여성용이 남성용보다 큰 곳은 없다.
+    - 해석: 여성용 메일은 여성 상품을 사는 고객에게만 듣고, 남성용 메일은 받는 사람을 가리지 않는다. 남성용 메일의 내용이나 상품이 더 넓은 고객에게 맞았을 수 있으나, 메일 내용이 데이터에 없어 확인할 수 없다.
+    - 시사점: `visit` 기준으로 고객마다 메일을 고르는 정책은 대부분의 고객에게 남성용을 고르게 된다. 여성 상품만 산 고객에게는 두 메일이 같아 어느 쪽이든 정책 가치가 같다. 그래서 M2의 고른 정책이 "모두 남성용"을 `visit`으로 크게 넘기 어렵다고 예상한다.
+    """),
+            spend_eff_fig,
+            mo.md(f"""
+    - `spend` 효과는 구간이 넓다. 여성용이 남성용보다 큰 점추정은 Urban({ev.loc[("spend", "zip_code: Urban", "Mens - Womens"), "effect"]:.2f}) 등 몇 곳에 있지만, 구간이 0을 포함한다. 여성용이 남성용보다 확실히 나은 세그먼트(차이 구간 상한이 0 미만)는 `visit`과 `spend`를 합쳐 {len(womens_better)}곳이다.
+    - 둘 다 산 고객에게는 남성용 메일의 `spend` 효과({ev.loc[("spend", "product: both", "Mens - None"), "effect"]:.2f})가 여성용({ev.loc[("spend", "product: both", "Womens - None"), "effect"]:.2f})보다 크다.
+    """),
+        ]
+    )
+    return
+
+
+@app.cell
+def _(df, funnel_ratio_ci, incremental_composition, mo, out, pd, segment_effects):
+    composition = pd.concat(
+        [
+            incremental_composition(segment_effects(df, "product", outcome), "product").assign(
+                outcome=outcome
+            )
+            for outcome in ["visit", "spend"]
+        ],
+        ignore_index=True,
+    )
+    composition.to_csv(out / "tables" / "incremental_composition.csv", index=False)
+    funnel = pd.concat([funnel_ratio_ci(df, "product", t) for t in (1, 2)], ignore_index=True)
+    funnel.to_csv(out / "tables" / "funnel_by_product.csv", index=False)
+    cv = composition.set_index(["outcome", "comparison", "product"])["share"]
+    fv = funnel.set_index(["treatment", "product"])
+    mo.vstack(
+        [
+            mo.md("""
+    ### C2. 메일로 늘어난 방문과 매출은 어느 고객에게서 나왔나
+
+    고객 한 명이 반응했는지는 알 수 없다(한 고객은 메일을 받은 경우와 받지 않은 경우 중 하나만 관측된다). 그래서 세그먼트마다 효과에 고객 수를 곱해, 늘어난 방문과 매출이 어느 세그먼트에서 왔는지 나눈다.
+    """),
+            mo.ui.table(composition.round(3)),
+            mo.md(f"""
+    - 여성용 메일로 늘어난 방문의 {cv[("visit", "Womens - None", "womens_only")]:.0%}가 여성 상품만 산 고객에게서 나왔다. 남성용 메일로 늘어난 방문은 남성 상품만({cv[("visit", "Mens - None", "mens_only")]:.0%}), 여성 상품만({cv[("visit", "Mens - None", "womens_only")]:.0%}), 둘 다({cv[("visit", "Mens - None", "both")]:.0%})로 고르게 나뉜다.
+    - 둘 다 산 고객은 전체의 10%인데, 남성용 메일로 늘어난 매출의 {cv[("spend", "Mens - None", "both")]:.0%}를 차지한다. `spend` 효과의 구간이 넓어 이 몫도 흔들린다.
+
+    ### C3. 늘어난 방문 1회당 구매는 고객마다 같은가
+
+    퍼널 분해(M2 금액 모델 후보)는 처치마다 늘어난 방문 1회당 구매가 고객 특성으로는 크게 다르지 않다고 가정한다. 구매 상품 세그먼트로 이 가정을 본다.
+    """),
+            mo.ui.table(funnel.round(3)),
+            mo.md(f"""
+    - 남성용 메일의 늘어난 방문 1회당 구매는 둘 다 산 고객 {fv.loc[(1, "both"), "conversion_per_visit"]:.3f}, 남성 상품만 {fv.loc[(1, "mens_only"), "conversion_per_visit"]:.3f}, 여성 상품만 {fv.loc[(1, "womens_only"), "conversion_per_visit"]:.3f}이고 구간이 서로 겹친다. 가정을 기각할 근거는 없지만, 구간이 넓어 같다고 확인한 것도 아니다.
+    - 여성용 메일은 남성 상품만 산 고객의 방문 효과가 거의 0이라 비율의 구간이 매우 넓다({fv.loc[(2, "mens_only"), "ci_low"]:.2f}\\~{fv.loc[(2, "mens_only"), "ci_high"]:.2f}).
+    - 시사점: 퍼널 분해를 쓸 때 처치별 비율 하나를 쓰는 것이 이 데이터에서 반박되지 않는다. M2 금액 모델 비교에서 두 부분 모델과의 차이를 볼 때 이 결과를 출발점으로 쓴다.
+    """),
+        ]
+    )
+    return
+
+
+@app.cell
+def _(df, mo, n_per_arm, out, threshold_effects):
+    thresholds = threshold_effects(df, [50.0, 100.0, 200.0])
+    thresholds.to_csv(out / "tables" / "threshold_effects.csv", index=False)
+    th = thresholds.set_index(["threshold", "treatment"])
+    buyer_sd = df.loc[df["spend"] > 0, "spend"].std()
+    needed = n_per_arm(buyer_sd, 10.0)
+    conversion = df.loc[df["treatment_id"] > 0, "conversion"].mean()
+    mo.vstack(
+        [
+            mo.md("""
+    ## D. 담당자 질문
+
+    ### D1. 여성용 메일이 남성용보다 나은 고객군이 있는가
+
+    C1에서 본 대로, `visit`과 `spend` 어느 쪽에서도 여성용이 남성용보다 확실히 나은 세그먼트는 없다. 여성 상품만 산 고객에게는 두 메일이 같다.
+
+    ### D2. 메일이 고액 구매를 늘리는가
+
+    `spend`가 문턱을 넘는 고객의 비율을 처치군과 대조군으로 비교한다. 전체 고객을 비교하므로, 구매 고객끼리 비교할 때와 달리 처치 효과로 읽을 수 있다. 문턱은 499 잘림 아래에 둔다.
+    """),
+            mo.ui.table(thresholds.round(4)),
+            mo.md(f"""
+    - 남성용 메일은 200달러 넘게 사는 고객의 비율을 {th.loc[(200.0, 1), "mean_control"]:.4f}에서 {th.loc[(200.0, 1), "mean_treated"]:.4f}로 높였다(구간 {th.loc[(200.0, 1), "ci_low"]:.4f}\\~{th.loc[(200.0, 1), "ci_high"]:.4f}). 여성용은 {th.loc[(200.0, 2), "mean_treated"]:.4f}이고 구간이 0에 닿는다.
+    - 100달러 문턱에서는 두 메일 모두 비율을 대조군의 약 두 배로 높였다.
+    - 시사점: 메일은 소액 구매만 늘린 것이 아니다. 고액 구매자 수는 여전히 적어(학습 세트 전체에서 수십 명) 세그먼트별로 나누어 보기는 어렵다.
+
+    ### D3. 지금 데이터로 답할 수 없는 질문
+
+    | 질문 | 없는 정보 |
+    | --- | --- |
+    | 남성용 메일로 구매 금액을 어떻게 높이나 | 메일 내용, 상품, 가격의 변형. 처치마다 메일이 한 종류다 |
+    | 여성용 메일의 방문을 어떻게 늘리나 | 같음 |
+    | 둘 다 사는 고객은 가족을 위해 사나 | 구매 횟수, 받는 사람, 배송지 |
+    | 구매 고객 1명당 금액이 메일마다 다른가 | 구매 고객 수. 아래 표본 크기 |
+
+    - 구매 고객 1명당 금액의 차이 10달러를 검정력 80%로 가르려면 군마다 구매 고객 {needed:,}명이 필요하다(구매 고객 `spend`의 표준편차 {buyer_sd:.0f}로 계산). 메일 받은 고객의 구매율 {conversion:.2%}로 나누면 군마다 고객 약 {needed / conversion:,.0f}명이다. 지금 학습 세트는 군마다 약 15,000명이다.
+    - 후속 실험 제안: 메일 내용(상품 구성, 가격대)을 바꾼 처치를 둔 실험을 이 크기로 설계하거나, 구매 금액 대신 장바구니 크기처럼 구매 고객이 아니어도 관측되는 지표를 함께 기록한다.
+    """),
+        ]
+    )
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md("""
+    ## E. M2·M3에 넘길 가설
+
+    | 가설 | 근거 | 확인할 곳 |
+    | --- | --- | --- |
+    | 구매 상품(`mens`, `womens`)과 메일 종류의 짝이 고객별 효과 차이를 가장 크게 만든다 | C1 | M2 모델의 변수 중요도, M3 세그먼트 규칙 |
+    | `visit` 기준 고른 정책은 대부분 남성용을 골라 "모두 남성용"과의 차이가 작다 | C1, D1 | M2 판정 규칙의 잡음 바닥(EXP-001)과 고른 정책의 정책 가치 차이 |
+    | Rural 고객과 둘 다 산 고객은 메일 없이도 방문율이 높다(Sure Things 후보) | B2, B3 | M2 반응 모델 기준선과 uplift 모델의 고객 선택 비교 |
+    | Phone 고객은 `visit` 효과에 비해 매출로 덜 이어진다 | B1 | M3 이익 최대화형 정책에서 채널별 증분 이익 |
+    | 늘어난 방문 1회당 구매는 처치 안에서 구매 상품 세그먼트로 크게 다르지 않다 | C3 | M2 금액 모델(퍼널 분해 대 두 부분 모델) |
+    | 둘 다 산 고객의 효과에는 `history` 200 하한이 섞인다 | A1 | M3 세그먼트 규칙을 `history`를 맞춰 다시 확인 |
+    """)
     return
 
 
