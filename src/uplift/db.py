@@ -104,16 +104,23 @@ def check_tables(tables: dict[str, pd.DataFrame]) -> list[str]:
     return errors
 
 
-def load_frame(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+def load_frame(con: duckdb.DuckDBPyConnection, split: str | None = None) -> pd.DataFrame:
     """고객 특성, 배정, 결과를 customer_id로 이은 분석용 표를 읽는다."""
-    return con.sql(
-        """
+    filter_split = (
+        ""
+        if split is None
+        else "INNER JOIN splits AS s ON c.customer_id = s.customer_id AND s.split = $split"
+    )
+    return con.execute(
+        f"""
         SELECT c.*, a.treatment_id, o.visit, o.conversion, o.spend
         FROM customers AS c
         INNER JOIN assignments AS a ON c.customer_id = a.customer_id
         INNER JOIN outcomes AS o ON c.customer_id = o.customer_id
+        {filter_split}
         ORDER BY c.customer_id
-        """
+        """,
+        {} if split is None else {"split": split},
     ).df()
 
 

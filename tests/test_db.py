@@ -135,3 +135,13 @@ def test_load_frame_joins_by_customer_id(raw, tmp_path):
         df = load_frame(con)
     assert df["customer_id"].tolist() == [0, 1, 2]
     assert df.loc[2, ["channel", "treatment_id", "spend"]].tolist() == ["Multichannel", 2, 29.99]
+
+
+def test_load_frame_filters_split(raw, tmp_path):
+    tables = build_tables(raw)
+    tables["splits"] = pd.DataFrame({"customer_id": [0, 1, 2], "split": ["train", "test", "train"]})
+    path = tmp_path / "split.duckdb"
+    write_db(tables, path)
+    with duckdb.connect(str(path)) as con:
+        assert load_frame(con, "train")["customer_id"].tolist() == [0, 2]
+        assert len(load_frame(con)) == 3
