@@ -162,7 +162,7 @@ def test_check_copies_errors_on_record_copies_outside_records(tmp_path, monkeypa
     assert len(errors) == 1 and warnings == []
     assert check_docs.check_copies(copy, "docs/MODELING.md") == ([], [])
     errors, warnings = check_docs.check_copies(
-        "용어집에 적은 다른 문장이 여기에 꽤 길게 하나 있다고 하자.", "SPEC.md"
+        "용어집에 적은 다른 문장이 여기에 꽤 길게 하나 있다고 하자.", "docs/plans/M3-PLAN.md"
     )
     assert errors == [] and len(warnings) == 1
 
