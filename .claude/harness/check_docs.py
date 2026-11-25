@@ -187,7 +187,7 @@ def check_refs(text: str) -> list[str]:
 
 
 def check_copies(new_text: str, path: str) -> tuple[list[str], list[str]]:
-    if is_record(path) or is_canon(path):
+    if is_record(path):
         return [], []
     errors, warnings = [], []
     for f in scope_files():
@@ -198,6 +198,8 @@ def check_copies(new_text: str, path: str) -> tuple[list[str], list[str]]:
             if len(matches) <= (1 if same_file else 0):
                 continue
             other = s if same_file else matches[0]
+            if is_record(rel(f)) and is_canon(path):
+                continue
             if is_record(rel(f)):
                 errors.append(
                     f'기록 문서 결정의 사본: {path} "{s[:40]}…" ≈ {rel(f)} "{other[:40]}…"'

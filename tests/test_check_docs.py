@@ -220,6 +220,12 @@ def test_check_copies_skips_canon_files(tmp_path, monkeypatch):
     monkeypatch.setattr(check_docs, "scope_files", lambda: [tmp_path / "docs" / "DATA.md"])
     assert check_docs.check_copies(copy, "scripts/CLAUDE.md") == ([], [])
     assert check_docs.check_copies(copy, ".claude/skills/run-evaluation/SKILL.md") == ([], [])
+    (tmp_path / "SPEC.md").write_text(f"{copy}\n", encoding="utf-8")
+    monkeypatch.setattr(
+        check_docs, "scope_files", lambda: [tmp_path / "docs" / "DATA.md", tmp_path / "SPEC.md"]
+    )
+    errors, warnings = check_docs.check_copies(copy, "CLAUDE.md")
+    assert errors == [] and len(warnings) == 1
     assert len(check_docs.check_copies(copy, "docs/glossary.md")[0]) == 1
 
 
@@ -228,3 +234,11 @@ def test_check_refs_checks_spec_section_names(tmp_path, monkeypatch):
     (tmp_path / "SPEC.md").write_text("## 5. 승인 지점\n## 7. 완료 기준\n", encoding="utf-8")
     assert check_docs.check_refs("SPEC.md 승인 지점 절의 항목") == []
     assert check_docs.check_refs("SPEC.md 모델 선택 절") == ["없는 절: SPEC.md 모델 선택 절"]
+
+
+def test_check_removed_ignores_phrases_under_ten_characters(tmp_path, monkeypatch):
+    monkeypatch.setattr(check_docs, "ROOT", tmp_path)
+    (tmp_path / "a.md").write_text("`docs/a.md`와 `docs/abcde.md`가 남았다.\n", encoding="utf-8")
+    monkeypatch.setattr(check_docs, "scope_files", lambda: [tmp_path / "a.md"])
+    old = "`docs/a.md`와 `docs/abcde.md`"
+    assert check_docs.check_removed(old, "") == ['지운 표현이 남음: "docs/abcde.md" in a.md']
