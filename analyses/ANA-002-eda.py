@@ -185,7 +185,7 @@ def _(
             mo.md(f"""
     - `history`와 `history_segment`는 Spearman {spearman.loc["history", "history_segment"]:.2f}로 같은 정보다. `history_segment`는 `history`를 구간으로 자른 값이라 모델 입력에는 `history` 하나만 쓴다.
     - `mens`와 `womens`는 Spearman {spearman.loc["mens", "womens"]:.2f}다. 둘 다 0인 고객이 없어서, 한쪽이 0이면 다른 쪽은 반드시 1이다.
-    - `history_segment`와 `newbie`(Cramer's V {cramers.loc["history_segment", "newbie"]:.2f}): 기존 고객(`newbie = 0`)은 `history` 최댓값이 {history_by_newbie.set_index("newbie").loc[0, "history_max"]:.0f}이고, 500달러 이상 구간(5\\~7)의 고객은 모두 신규 고객이다(아래 표). 기존 고객의 금액만 500에서 잘린 것으로 보이며, 원본이 그렇게 만들어진 이유는 데이터로 알 수 없다. 그래서 `history`가 500 이상이면 신규 고객이라는 것이 확정되고, 두 변수를 함께 쓰는 모델은 이 경계를 학습한다.
+    - `history_segment`와 `newbie`(Cramer's V {cramers.loc["history_segment", "newbie"]:.2f}): 기존 고객(`newbie = 0`)은 `history` 최댓값이 {history_by_newbie.set_index("newbie").loc[0, "history_max"]:.0f}이고, 500달러 이상 구간(5\\~7)의 고객은 모두 신규 고객이다(아래 표). 기존 고객의 금액만 500 아래에서 잘린 것으로 보이며, 원본이 그렇게 만들어진 이유는 데이터로 알 수 없다. 그래서 `history`가 500 이상이면 신규 고객이라는 것이 확정되고, 두 변수를 함께 쓰는 모델은 이 경계를 학습한다.
     - `history_segment`와 `channel`(Cramer's V {cramers.loc["history_segment", "channel"]:.2f}): Multichannel 고객은 `history`가 모두 200달러 이상이다(구간 1, 2가 없음). 여러 채널로 산 고객이 구매액이 큰 것은 자연스럽지만, 200 미만이 한 명도 없는 것은 정의에서 온 경계로 보인다.
     - 나머지 쌍은 `mens`·`womens`를 빼면 Cramer's V가 0.13 이하로, 서로 거의 독립이다.
     """),
