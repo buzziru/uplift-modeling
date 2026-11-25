@@ -24,6 +24,7 @@ SPEC.loader.exec_module(check_approval)
         "### 승인 요청\n- 반응 모델: visit 기준",
         "**승인 요청**: 시험 세트 사용",
         "승인 요청: 공개 배포",
+        "진행할까요?\n`확인한 앞 결정` 줄을 쓴다.",
     ],
 )
 def test_needs_review_flags_requests_without_prior_decision(message):
@@ -38,6 +39,8 @@ def test_needs_review_flags_requests_without_prior_decision(message):
             "닫히지 않는 이유: 시험 세트 사용은 승인 지점이다"
         ),
         "승인 요청 Stop hook을 더했다.",
+        "## 승인 요청 hook 추가\n본문",
+        "**승인 요청 검사**를 더했다.",
         "CLAUDE.md 승인 지점 절의 승인 요청 문장을 고쳤다.",
         "메인이 정함: 반응 모델은 visit 기준, 근거: docs/PROBLEM.md",
         "패턴 `정해 주세요`를 감지한다.",
