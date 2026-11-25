@@ -15,11 +15,11 @@
 - 정본(SPEC.md 10절)과 SPEC.md의 내용을 하네스 파일에 옮겨 적지 않고 위치로 가리킨다.
 - 규칙을 새로 쓰거나 바꾸기 전에 같은 대상을 정하는 정본과 하네스 파일(범위는 아래 변경 이력 줄)을 먼저 읽는다. 용어나 규칙 표현을 바꾸면 바뀌기 전 표현을 저장소에서 검색해 남은 곳을 같은 커밋에서 고친다.
 - 이미 정의된 용어를 새 문장에 쓰면 정의를 가리킨다. 괄호로 다시 나열하거나 다른 말로 바꾸지 않는다.
-- 하네스 파일(이 절, `.claude/skills/`, `.claude/rules/`, `.claude/agents/`, `.claude/rubrics/`, 거부 규칙, `.claude/harness/config.json`, `.claude/harness/check_docs.py`)을 바꾸면 `.claude/harness/CHANGELOG.md`에 행을 더한다. 같은 브랜치에서 이미 행을 더했으면 solo-harness `docs/formats.md` 4절을 따른다.
+- 하네스 파일(이 절, `.claude/skills/`, `.claude/rules/`, `.claude/agents/`, `.claude/rubrics/`, 거부 규칙, `.claude/harness/config.json`, `.claude/harness/check_docs.py`, `.claude/harness/check_approval.py`)을 바꾸면 `.claude/harness/CHANGELOG.md`에 행을 더한다. 같은 브랜치에서 이미 행을 더했으면 solo-harness `docs/formats.md` 4절을 따른다.
 
 ### 승인 지점
 
-- 사용자에게 묻는다: SPEC.md 11절의 승인 지점, 시험 세트 사용, 공개 배포, 저장소 공개 설정 변경, 해석이 갈리는 지시. 승인 요청에는 선택지별 개념 설명, 근거 수치, 추천안을 붙인다.
+- 사용자에게 묻는다: SPEC.md 11절의 승인 지점, 시험 세트 사용, 공개 배포, 저장소 공개 설정 변경, 해석이 갈리는 지시. 승인 요청에는 선택지별 개념 설명, 근거 수치, 추천안과 "확인한 앞 결정: <위치>, 닫히지 않는 이유: <한 줄>" 줄을 붙인다. 이 줄 없이 결정을 요청한 답변은 Stop hook(`.claude/harness/check_approval.py`)이 한 번 되돌린다.
 - 메인이 정하고 보고에 한 줄로 적는다: SPEC.md 11절 끝 문단의 항목, 폴더 구조, 앞 결정의 의도가 덮는 새 사례, 저장소를 읽으면 닫히는 질문. 정한 것은 정본에 반영하고 해당 기록 문서에 항목을 남긴다.
 
 <!-- solo-harness:end -->
