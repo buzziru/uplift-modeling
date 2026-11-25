@@ -16,14 +16,13 @@
 | 승인 | 최종 모델 | U6 | |
 | U7 M2 마감 | tests/baseline 회귀 기준값과 CI 회귀 테스트(SPEC 9절 84줄 시점은 U3 결과 보고 정함), NARRATIVE M2, 기록 문서 항목 | 최종 모델 승인 | 마감 PR |
 
-- 메인 결정(구현 때 정본에 반영하고 기록 문서에 항목): 1단계는 방법마다 같은 예산의 가벼운 HPO(trial은 seed 42), 2단계는 넓게. S·T·X·DR·uplift RF는 causalml, class transformation·transformed outcome은 직접 구현. IPW 배정 확률은 설계값 1/3. 반응 모델 정책의 정의는 사용자 결정을 기다린다(2026-11-25, 기존 정의와 충돌).
-- 병행: 쉬운 판 3\~9절(기초 개념은 문제에 걸린 것만, 2026-11-25 피드백). 하네스 BACKLOG 행은 다른 브랜치에 모아 M2를 닫을 때.
+- 메인 결정(구현 때 정본에 반영하고 기록 문서에 항목): 1단계는 방법마다 같은 예산의 가벼운 HPO(trial은 seed 42), 2단계는 넓게. S·T·X·DR·uplift RF는 causalml, class transformation·transformed outcome은 직접 구현. IPW 배정 확률은 설계값 1/3.- 병행: 쉬운 판 3\~9절(기초 개념은 문제에 걸린 것만, 2026-11-25 피드백). 하네스 BACKLOG 행은 다른 브랜치에 모아 M2를 닫을 때.
 
 ## 단위별 메모
 
 ### U1
 
-- ANA-002, ANA-003 완료. 평가·검토 1단계 반영, 2단계는 반응 모델 결정 뒤.
+- ANA-002, ANA-003 완료. 기준선 정책(전체 발송 정책, 무작위 타겟팅, 반응 모델) 결정을 PROBLEM.md와 PENDING에 반영.
 
 ### U3, U5: 모델링에 가져갈 것(ANA-002, ANA-003)
 
