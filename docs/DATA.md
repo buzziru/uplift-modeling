@@ -2,8 +2,7 @@
 
 담는 범위: 데이터 출처와 받는 법, 무작위 배정 점검, 전처리, 분할.
 
-기록 문서다(SPEC.md 10절). 결정한 날짜순으로 항목을 둔다.
-
+결정 당시 기록이며 지금 규칙과 다를 수 있다. 결정한 날짜순으로 항목을 둔다.
 
 ## 2026-11-23 분석 데이터는 데이터 구조와 분석 목적에 따라 테이블로 나눈다
 
@@ -23,7 +22,7 @@
   | `predictions` | model_id, customer_id, treatment_id, fold, uplift_score | 고객별 처치별 예측 |
   | `metrics` | run_id, model_id, metric, fold, value | 지표 |
 
-- 근거: 사용자 지시(2026-11-23). 변수 정의는 `docs/THEORY.md` "Hillstrom 데이터 구조" 절.
+- 근거: 사용자 지시(2026-11-23). 변수 정의는 `docs/THEORY.md`.
 - 기각한 대안: 원본 한 테이블에 예측과 지표 열을 덧붙이는 안. 실행이 늘 때마다 열이 늘고 실행 간 비교 쿼리가 어려워진다.
 - 정본: `src/uplift/db.py`, `scripts/build_db.py`. 실험 기록 테이블 다섯 개(`experiments`부터 `metrics`까지)의 열은 초안이고, M2 첫 실험에서 만들며 확정한다.
 - 승인: 2026-11-23
@@ -33,7 +32,7 @@
 - 결정:
   - `scripts/fetch_data.py`가 MineThatData의 원 출처 CSV(2008-03-20판)를 받는다. SHA-256과 행 수(64,000), 열 이름을 확인한 뒤 `data/raw/hillstrom.parquet`로 저장한다. 해시는 스크립트의 `SHA256` 상수에 있고, 해시가 다르면 받은 파일을 지우고 멈춘다.
   - 체크섬은 받을 때만 확인한다. PR마다 도는 검사(CI와 `.claude/harness/config.json`의 `check`)에는 넣지 않는다.
-- 근거: 사용자 결정(2026-11-23). 받기는 환경마다 한 번이고, CI에는 데이터가 없다. 해시는 2026-11-23에 처음 받은 파일의 값이다. 출처 설명은 `docs/THEORY.md` "Hillstrom 데이터 구조" 절.
+- 근거: 사용자 결정(2026-11-23). 받기는 환경마다 한 번이고, CI에는 데이터가 없다. 해시는 2026-11-23에 처음 받은 파일의 값이다. 출처 설명은 `docs/THEORY.md`.
 - 기각한 대안:
   - `scikit-uplift`의 `fetch_hillstrom`. 다른 미러의 gz 파일을 받아, 원 출처 파일과 같은지 그 해시로 확인할 수 없다.
   - 체크섬 확인을 PR마다 도는 검사에 넣는 안. CI에는 원본이 없고, 받은 뒤에는 원본이 바뀌지 않는다.
@@ -91,7 +90,7 @@
   - CV: 학습 세트에 같은 층으로 층화한 5-fold CV를 seed 42, 154, 1592로 세 번 반복한다. 반복마다 fold 배정과 모델 `random_state`에 그 반복의 seed 하나를 쓴다. seed별 쓰임(HPO와 후보 비교)은 `docs/EVALUATION.md`의 모델 선택 항목이다.
   - 설정은 `scripts/splits.yaml`, 결과는 `splits`, `folds` 테이블이다.
 - 근거: 사용자 지시(2026-11-24). 구매는 시험 세트에서 처치별 36\~80명이다(`profile.json`의 `splits`). 구매가 드물어 분할 운에 따라 `spend` 결과가 크게 흔들리므로, 퍼널 단계로 층화해 구매 고객을 학습과 시험에 7:3으로 나눈다. 시험 세트 크기에서 `spend` 차이의 95% 구간 반폭은 0.47\~0.52다(`artifacts/ANA-001/tables/precision.csv`).
-- 기각한 대안: 처치 x `visit`으로 층화하는 안(SPEC.md 3절의 처음 안). 구매 고객 수가 분할마다 달라진다. 80/20 분할. 학습이 0.8/0.7 = 1.14배 커지는 대신 시험 세트의 구간 반폭이 √(0.3/0.2) = 1.22배 넓어진다(구간 반폭은 표본 크기의 제곱근에 반비례). 시험 세트도 seed마다 다시 나누는 안. 시험 세트를 한 번만 쓰는 원칙이 깨진다.
+- 기각한 대안: 처치 x `visit`으로 층화하는 안(SPEC.md의 처음 안). 구매 고객 수가 분할마다 달라진다. 80/20 분할. 학습이 0.8/0.7 = 1.14배 커지는 대신 시험 세트의 구간 반폭이 √(0.3/0.2) = 1.22배 넓어진다(구간 반폭은 표본 크기의 제곱근에 반비례). 시험 세트도 seed마다 다시 나누는 안. 시험 세트를 한 번만 쓰는 원칙이 깨진다.
 - 정본: `scripts/splits.yaml`, `src/uplift/split.py`
 - 승인: 2026-11-24
 
@@ -106,7 +105,7 @@
   | Multichannel 고객의 `history`가 모두 200 이상 | 200달러 미만 구간에 한 명도 없다(`artifacts/ANA-002/tables/segment_by_channel.csv`) | 채널 사이의 결과 차이에 구매액 차이가 섞인다 |
   | 남성·여성 상품을 둘 다 산 고객의 `history`가 모두 200 이상 | 최솟값 200.13(`artifacts/ANA-003/tables/product_profile.csv`). 200 이상으로 맞추면 한 종류만 산 고객과의 중앙값 차이가 세 배에서 1.2배로 준다(`product_profile_above_both_floor.csv`) | 둘 다 산 고객의 구매액이 커 보이는 차이의 대부분이 이 하한에서 나온다 |
   | `spend`가 499에서 잘림 | 구매 고객 405명 중 8명이 499이고 p99도 499다(`artifacts/ANA-002/tables/outcome_summary.csv`) | 고액 구매자의 금액이 실제보다 작게 기록됐을 수 있다. 금액 평균은 고액 쪽 차이를 덜 보이고, 499보다 큰 문턱의 구매는 관측되지 않는다 |
-  | `mens`, `womens`는 구매 상품 표시 | 구매 상품 세그먼트(`docs/glossary.md`)가 남성 상품만 45.3%, 여성 상품만 44.6%, 둘 다 10.1%이고 둘 다 아님은 없다(`artifacts/ANA-002/tables/product_shares.csv`) | 성별 변수가 아니다. 한 종류만 산 고객의 성별은 추정일 뿐이다. 한쪽이 0이면 다른 쪽이 1이라 두 변수의 정보가 겹친다 |
+  | `mens`, `womens`는 구매 상품 표시 | 구매 상품 세그먼트가 남성 상품만 45.3%, 여성 상품만 44.6%, 둘 다 10.1%이고 둘 다 아님은 없다(`artifacts/ANA-002/tables/product_shares.csv`) | 성별 변수가 아니다. 한 종류만 산 고객의 성별은 추정일 뿐이다. 한쪽이 0이면 다른 쪽이 1이라 두 변수의 정보가 겹친다 |
   | `recency` 9\~10개월의 두 번째 봉우리 | 신규·기존 고객 모두에게 같은 모양이다(`artifacts/ANA-002/tables/recency_by_newbie.csv`) | 구매가 몰린 시기로 보이나 실험 날짜가 없어 어떤 시기인지 알 수 없다. 원본 파일이 2008-03-20판이라 실험은 그 전이다 |
 
 - 근거: 사용자 지시(2026-11-25). `analyses/ANA-002-eda.py`, `analyses/ANA-003-segments.py`와 특이점 표의 결과 파일.
@@ -133,7 +132,7 @@
 | `newbie` | int64(0/1) | 1의 비율 0.5022 |
 | `channel` | str | `Multichannel`, `Phone`, `Web` |
 
-결과(`outcomes`)는 `visit`(int64, 0/1), `conversion`(int64, 0/1), `spend`(float64, 달러)다. 열 정의는 `docs/THEORY.md` "Hillstrom 데이터 구조" 절.
+결과(`outcomes`)는 `visit`(int64, 0/1), `conversion`(int64, 0/1), `spend`(float64, 달러)다. 열 정의는 `docs/THEORY.md`.
 
 처치 그룹별 행 수와 결과 평균:
 

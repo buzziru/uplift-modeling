@@ -26,10 +26,8 @@
 
 ## 프로젝트
 
-- 명세는 `SPEC.md`, 용어는 `docs/glossary.md`다. 결정의 정본과 기록 문서의 구분은 SPEC.md 10절이다.
-- 임시 결정 파일(`docs/glossary.md`)은 `PENDING-DECISIONS.md`다.
-- SPEC.md에 적지 않는 것은 SPEC.md 머리말. SPEC.md를 바꾸는 작업은 따로 승인받지 않고, 그 작업의 승인 요청이나 보고에 바꾼 SPEC 줄을 함께 적는다.
-- 폴더 규약은 `analyses/CLAUDE.md`, `docs/CLAUDE.md`, `experiments/CLAUDE.md`, `scripts/CLAUDE.md`, 실험 양식은 `experiments/TEMPLATE.md`, Kaggle 실행은 `.claude/skills/kaggle-remote-runner/SKILL.md`다.
+- `SPEC.md`는 시작 명세이고 고치지 않는다. 지금 계획은 `docs/plans/`, 문서 체계는 `docs/CLAUDE.md`, 용어는 `docs/glossary.md`다.
+- 폴더 규약은 `analyses/CLAUDE.md`, `docs/CLAUDE.md`, `experiments/CLAUDE.md`, `scripts/CLAUDE.md`, `tests/CLAUDE.md`, 실험 양식은 `experiments/TEMPLATE.md`, Kaggle 실행은 `.claude/skills/kaggle-remote-runner/SKILL.md`다.
 
 ### 폴더 구조
 
