@@ -35,7 +35,7 @@ def test_needs_review_flags_requests_without_prior_decision(message):
     "message",
     [
         (
-            "## 정해 주실 것\n- 시험 세트 사용\n  확인한 앞 결정: SPEC.md 11절, "
+            "## 정해 주실 것\n- 시험 세트 사용\n  확인한 앞 결정: CLAUDE.md 승인 지점 절, "
             "닫히지 않는 이유: 시험 세트 사용은 승인 지점이다"
         ),
         "승인 요청 Stop hook을 더했다.",

@@ -2,23 +2,30 @@ import json
 import re
 import subprocess
 import sys
+from fnmatch import fnmatch
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCOPE = [
+EXCLUDE = [
     "SPEC.md",
-    "CLAUDE.md",
-    "docs/*.md",
-    ".claude/agents/*.md",
-    ".claude/rubrics/*.md",
-    ".claude/skills/run-evaluation/SKILL.md",
-    ".claude/skills/kaggle-remote-runner/SKILL.md",
-    "PENDING-DECISIONS.md",
-    "*/CLAUDE.md",
-    "experiments/TEMPLATE.md",
+    "docs/history/*",
+    "artifacts/*",
+    "_workspace/*",
+    ".claude/skills/*",
+    ".claude/harness/CHANGELOG.md",
+    "tests/*.py",
 ]
+CANON = [
+    "CLAUDE.md",
+    "*/CLAUDE.md",
+    ".claude/*",
+    "experiments/*",
+    "src/*",
+    "scripts/*",
+    "analyses/*",
+]
+INCLUDE = [".claude/skills/run-evaluation/*", ".claude/skills/kaggle-remote-runner/*"]
 SIMILAR = 0.7
-RECORD_HEADER = "기록 문서다(SPEC.md 10절)."
 MIN_LEN = 25
 RECORDS = (
     "PROBLEM",
@@ -30,30 +37,15 @@ RECORDS = (
     "ENGINEERING",
     "NARRATIVE",
 )
-INBOUND = [
-    "SPEC.md",
-    "docs/glossary.md",
-    "CLAUDE.md",
-    "PENDING-DECISIONS.md",
-    "*/CLAUDE.md",
-    "src/**/*.py",
-    "scripts/**/*.py",
-    "analyses/**/*.py",
-    "experiments/**/*.md",
-    "experiments/**/*.py",
-    "artifacts/**/*.md",
-    ".claude/agents/*.md",
-    ".claude/rubrics/*.md",
-    ".claude/skills/**/*.md",
-]
 RECORD_REF = re.compile(
     r"docs/(?:" + "|".join(RECORDS) + r")\.md"
     r"(?:#[^\s)`]+|`?(?!에 항목)(?:\s*\"[^\"\n]+\")?[^|\n`]{0,20}?(?<!\d)(?:절(?!차)|항목))"
 )
 HISTORY_LIMIT = 0.2
-SPEC_PATH = re.compile(r"`([^`\s]+\.(?:md|py|yaml|json))`")
-SPEC_ALLOWED = {"docs/THEORY.md", "docs/glossary.md"}
-TITLE_REF = re.compile(r"`([^`]+\.md)` [\"']([^\"'\n]+)[\"'] 절")
+TITLE_REF = re.compile(r"`[^`]+\.md` [\"'][^\"'\n]+[\"'] 절")
+GLOSSARY_POINTER = re.compile(r"\(`docs/glossary\.md`[,)]")
+PENDING_FILE = "PENDING-DECISIONS.md"
+SPEC_REF = re.compile(r"SPEC(?:\.md)? (?:\d+(?:\.\d+)?절|[가-힣]+(?: [가-힣]+){0,3} 절)")
 POSITION_REF = re.compile(
     r"(?<![가-힣])(?:첫|마지막|앞|위|아래|다음) (?:절|행|문단)"
     r"(?:(?![가-힣])|(?=[은는이가을를의에와과도만로으부까처]))"
@@ -69,16 +61,46 @@ CITE_INLINE = re.compile(
 REFERENCE = re.compile(r"^- ([^\s,]+?)[,.] .*?\((\d{4})", re.MULTILINE)
 
 
+def excluded(path: str) -> bool:
+    if any(fnmatch(path, p) for p in INCLUDE):
+        return False
+    return any(fnmatch(path, p) for p in EXCLUDE)
+
+
+def in_scope(path: str) -> bool:
+    return path.endswith(".md") and not excluded(path)
+
+
+def is_inbound(path: str) -> bool:
+    skip = ("docs/", "_workspace/", "tests/")
+    return path.endswith((".md", ".py")) and not path.startswith(skip) and path != "SPEC.md"
+
+
+def tracked(*patterns: str) -> list[str]:
+    out = git_text("ls-files", "--", *patterns)
+    return [p for p in out.splitlines() if (ROOT / p).is_file()]
+
+
 def scope_files() -> list[Path]:
-    return sorted({p for pattern in SCOPE for p in ROOT.glob(pattern)})
+    return [ROOT / p for p in tracked("*.md") if in_scope(p)]
 
 
 def inbound_files() -> list[Path]:
-    return sorted({p for pattern in INBOUND for p in ROOT.glob(pattern) if p.is_file()})
+    return [ROOT / p for p in tracked("*.md", "*.py") if is_inbound(p)]
+
+
+def is_canon(path: str) -> bool:
+    return any(fnmatch(path, p) for p in CANON)
+
+
+def is_record(path: str) -> bool:
+    return path in {f"docs/{name}.md" for name in RECORDS}
 
 
 def record_files() -> list[Path]:
-    return sorted((ROOT / "docs").glob("*.md"))
+    return [
+        ROOT / "docs" / f"{name}.md" for name in RECORDS if (ROOT / "docs" / f"{name}.md").exists()
+    ]
 
 
 def check_inbound(text: str, path: str) -> list[str]:
@@ -98,21 +120,6 @@ def history_ratio(text: str) -> float:
     return count / len(lines) if lines else 0.0
 
 
-def check_spec(text: str) -> list[str]:
-    errors, section = [], ""
-    for n, line in enumerate(text.splitlines(), 1):
-        if m := re.match(r"## (\d+)\.", line):
-            section = m.group(1)
-        if section == "10":
-            continue
-        if line.startswith(("정본:", "기록:")):
-            errors.append(f"SPEC.md {n}줄: 위치를 가리키는 줄")
-        errors += [
-            f"SPEC.md {n}줄: 경로 {p}" for p in SPEC_PATH.findall(line) if p not in SPEC_ALLOWED
-        ]
-    return errors
-
-
 def check_history() -> list[str]:
     warnings = []
     for f in record_files():
@@ -124,11 +131,6 @@ def check_history() -> list[str]:
 
 def rel(p: Path) -> str:
     return p.relative_to(ROOT).as_posix()
-
-
-def headings(path: Path) -> list[str]:
-    text = path.read_text(encoding="utf-8") if path.exists() else ""
-    return [m.group(1).strip() for m in re.finditer(r"^#+\s+(.+)$", text, re.MULTILINE)]
 
 
 def sentences(text: str) -> list[str]:
@@ -147,39 +149,37 @@ def similarity(a: str, b: str) -> float:
 
 
 def check_refs(text: str) -> list[str]:
-    errors = []
-    for path, title in TITLE_REF.findall(text):
-        target = ROOT / path
-        if not target.exists():
-            errors.append(f"없는 파일: `{path}`")
-        elif not any(title in h for h in headings(target)):
-            errors.append(f'없는 절: `{path}` "{title}"')
-    spec_numbers = {
-        m.group(1) for h in headings(ROOT / "SPEC.md") if (m := re.match(r"(\d+)\.", h))
-    }
-    for n in re.findall(r"SPEC\.md (\d+)절", text):
-        if n not in spec_numbers:
-            errors.append(f"없는 절: SPEC.md {n}절")
+    errors = [f'절 제목 인용: "{m.group(0)}"' for m in TITLE_REF.finditer(text)]
+    errors += [f'용어집 가리키기: "{m.group(0)}"' for m in GLOSSARY_POINTER.finditer(text)]
+    errors += [f'시작 명세 가리키기: "{m.group(0)}"' for m in SPEC_REF.finditer(text)]
     return errors
 
 
-def check_copies(new_text: str, path: str) -> list[str]:
-    warnings = []
+def check_copies(new_text: str, path: str) -> tuple[list[str], list[str]]:
+    if is_record(path):
+        return [], []
+    errors, warnings = [], []
     for f in scope_files():
         same_file = rel(f) == path
         olds = sentences(f.read_text(encoding="utf-8"))
         for s in sentences(new_text):
-            if s.startswith(RECORD_HEADER):
-                continue
             matches = [o for o in olds if similarity(s, o) >= SIMILAR]
-            if len(matches) > (1 if same_file else 0):
-                other = s if same_file else matches[0]
+            if len(matches) <= (1 if same_file else 0):
+                continue
+            other = s if same_file else matches[0]
+            if is_record(rel(f)) and is_canon(path):
+                continue
+            if is_record(rel(f)):
+                errors.append(
+                    f'기록 문서 결정의 사본: {path} "{s[:40]}…" ≈ {rel(f)} "{other[:40]}…"'
+                )
+            else:
                 warnings.append(f'사본 의심: {path} "{s[:40]}…" ≈ {rel(f)} "{other[:40]}…"')
-    return warnings
+    return errors, warnings
 
 
 def check_removed(old_text: str, new_text: str) -> list[str]:
-    phrases = set(re.findall(r"`([^`\n]{4,})`|\"([^\"\n]{4,})\"", old_text))
+    phrases = set(re.findall(r"`([^`\n]{10,})`|\"([^\"\n]{10,})\"", old_text))
     removed = {p for pair in phrases for p in pair if p and p not in new_text}
     warnings = []
     for f in scope_files():
@@ -231,8 +231,15 @@ def check_citations(text: str) -> list[str]:
 
 
 def run(old_text: str, new_text: str, path: str) -> tuple[list[str], list[str]]:
-    errors = check_refs(new_text)
-    warnings = check_copies(new_text, path) + check_removed(old_text, new_text)
+    checked = new_text
+    if path == "docs/glossary.md":
+        checked = "\n".join(line.rsplit("|", 2)[0] for line in new_text.splitlines())
+    errors = [] if is_record(path) else check_refs(checked)
+    if path == PENDING_FILE and new_text.strip():
+        errors.append(f"{PENDING_FILE}: 반영 대기 목록은 check_docs.py --pending으로 뽑는다")
+    copy_errors, warnings = check_copies(new_text, path)
+    errors += copy_errors
+    warnings += check_removed(old_text, new_text)
     warnings += check_redefine(new_text, path) + check_style(new_text, path)
     return errors, warnings
 
@@ -244,10 +251,6 @@ def check_file(path: str) -> tuple[list[str], list[str]]:
     text = target.read_text(encoding="utf-8")
     errors = check_citations(text) if path == "docs/THEORY.md" else []
     return errors, check_blank_runs(text, path)
-
-
-def in_scope(path: str) -> bool:
-    return path in {rel(f) for f in scope_files()}
 
 
 def hook() -> None:
@@ -265,12 +268,12 @@ def hook() -> None:
         e, w = check_file(path)
         errors += e
         warnings += w
-    if file_path in inbound_files():
+    if is_inbound(path):
         errors += check_inbound(new, path)
+        if path.endswith(".py"):
+            errors += check_refs(new)
     if file_path in record_files():
         warnings += check_history()
-    if path == "SPEC.md":
-        errors += check_spec(file_path.read_text(encoding="utf-8"))
     lines = [f"오류: {e}" for e in errors] + [f"알림: {w}" for w in warnings]
     if not lines:
         return
@@ -293,8 +296,7 @@ def branch() -> int:
         print("origin/main이 없어 문서 정합 검사를 건너뛴다(git fetch 뒤 다시 돌린다).")
         return 0
     diff = subprocess.run(
-        ["git", "-c", "core.quotepath=false", "diff", "-U0", "origin/main...HEAD", "--"]
-        + [f":(glob){p}" for p in SCOPE],
+        ["git", "-c", "core.quotepath=false", "diff", "-U0", "origin/main...HEAD", "--", "*.md"],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -307,6 +309,8 @@ def branch() -> int:
         if not m:
             continue
         path = m.group(1)
+        if not in_scope(path):
+            continue
         added = "\n".join(
             line[1:]
             for line in chunk.splitlines()
@@ -324,20 +328,21 @@ def branch() -> int:
         errors += e
         warnings += w
     for f in inbound_files():
-        text = f.read_text(encoding="utf-8")
-        errors += check_inbound(text, rel(f))
-        if f.suffix == ".py":
-            errors += [f"{rel(f)}: {e}" for e in check_refs(text)]
+        errors += check_inbound(f.read_text(encoding="utf-8"), rel(f))
+    py_diff = git_text("diff", "-U0", "origin/main...HEAD", "--", "*.py")
+    for chunk in re.split(r"^diff --git ", py_diff, flags=re.MULTILINE)[1:]:
+        m = re.search(r"^\+\+\+ b/(.+)$", chunk, re.MULTILINE)
+        if m and is_inbound(m.group(1)):
+            added = "\n".join(
+                line[1:]
+                for line in chunk.splitlines()
+                if line.startswith("+") and not line.startswith("+++")
+            )
+            errors += [f"{m.group(1)}: {e}" for e in check_refs(added)]
     warnings += check_history()
-    errors += check_spec((ROOT / "SPEC.md").read_text(encoding="utf-8"))
-    old_spec = git_text("show", "origin/main:SPEC.md")
-    numbers = spec_renumbers(old_spec, (ROOT / "SPEC.md").read_text(encoding="utf-8"))
-    warnings += [
-        f"SPEC.md 절 번호가 바뀜: {old}절 -> {new}절. SPEC.md {old}절 참조를 확인한다"
-        for old, new in numbers.items()
-    ]
     if "+++ b/SPEC.md" in diff:
-        warnings.append("SPEC.md가 바뀌었다. 이 작업의 승인 요청이나 보고에 바꾼 줄을 함께 적는다")
+        warnings.append("SPEC.md는 시작 명세로 고정한 문서다. 바꾼 이유를 보고에 적는다")
+    warnings += [f"반영 대기: {item}" for item in pending_items()]
     for w in warnings:
         print(f"알림: {w}")
     for e in errors:
@@ -356,63 +361,30 @@ def git_text(*args: str) -> str:
     ).stdout
 
 
-def heading_renames(diff: str) -> list[tuple[str, str, str]]:
-    renames = []
-    for chunk in re.split(r"^diff --git ", diff, flags=re.MULTILINE)[1:]:
-        m = re.search(r"^\+\+\+ b/(.+)$", chunk, re.MULTILINE)
-        if not m:
-            continue
-        for hunk in re.split(r"^@@.*$", chunk, flags=re.MULTILINE)[1:]:
-            lines = [
-                x
-                for x in hunk.splitlines()
-                if x.startswith(("-", "+")) and not x.startswith(("---", "+++"))
-            ]
-            if len(lines) != 2:
-                continue
-            old = re.match(r"^-#+\s+(.+)$", lines[0])
-            new = re.match(r"^\+#+\s+(.+)$", lines[1])
-            if old and new and old.group(1).strip() != new.group(1).strip():
-                renames.append((m.group(1), old.group(1).strip(), new.group(1).strip()))
-    return renames
+def pending_items() -> list[str]:
+    items = []
+    for f in record_files():
+        title = ""
+        for line in f.read_text(encoding="utf-8").splitlines():
+            if line.startswith("## "):
+                title = line[3:].strip()
+            elif line.startswith("- 정본: 아직 없음"):
+                items.append(
+                    f"{rel(f)} | {title} | {line.removeprefix('- 정본: 아직 없음').strip(' .')}"
+                )
+    return items
 
 
-def spec_renumbers(old_spec: str, new_spec: str) -> dict[str, str]:
-    def numbers(text: str) -> dict[str, str]:
-        found = re.finditer(r"^## (\d+)\.\s+(.+)$", text, re.MULTILINE)
-        return {m.group(2).strip(): m.group(1) for m in found}
-
-    old, new = numbers(old_spec), numbers(new_spec)
-    return {old[t]: new[t] for t in old if t in new and old[t] != new[t]}
-
-
-def replace_refs(text: str, renames: list[tuple[str, str, str]]) -> str:
-    for path, old, new in renames:
-        for q in "\"'":
-            text = text.replace(f"`{path}` {q}{old}{q} 절", f"`{path}` {q}{new}{q} 절")
-    return text
-
-
-def fix() -> int:
-    renames = heading_renames(git_text("diff", "-U0", "origin/main...HEAD", "--", "*.md"))
-    changed = []
-    for f in sorted(set(scope_files()) | set(inbound_files())):
-        text = f.read_bytes().decode("utf-8")
-        new = replace_refs(text, renames)
-        if new != text:
-            f.write_bytes(new.encode("utf-8"))
-            changed.append(rel(f))
-    for path, old, new in renames:
-        print(f'제목: {path} "{old}" -> "{new}"')
-    for path in changed:
-        print(f"고침: {path}")
+def pending() -> int:
+    for item in pending_items():
+        print(item)
     return 0
 
 
 if __name__ == "__main__":
     if "--hook" in sys.argv:
         hook()
-    elif "--fix" in sys.argv:
-        sys.exit(fix())
+    elif "--pending" in sys.argv:
+        sys.exit(pending())
     else:
         sys.exit(branch())

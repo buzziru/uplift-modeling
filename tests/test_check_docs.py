@@ -56,29 +56,16 @@ def test_history_ratio_is_zero_without_history():
     assert check_docs.history_ratio("## 제목\n- 결정: a\n") == 0.0
 
 
-def test_check_spec_flags_location_lines_outside_section_10():
-    text = (
-        "## 3. 데이터\n\n기록: `docs/DATA.md`\n"
-        "- 분할: `scripts/splits.yaml`, `src/uplift/split.py`.\n"
-        "## 10. 문서 체계\n\n실험 양식은 `experiments/TEMPLATE.md`가 정본이다.\n"
-        "## 14. 미결 사항\n\n(`docs/THEORY.md` 절)\n정본: `src/uplift/policy.py`\n"
-    )
-    assert check_docs.check_spec(text) == [
-        "SPEC.md 3줄: 위치를 가리키는 줄",
-        "SPEC.md 3줄: 경로 docs/DATA.md",
-        "SPEC.md 4줄: 경로 scripts/splits.yaml",
-        "SPEC.md 4줄: 경로 src/uplift/split.py",
-        "SPEC.md 11줄: 위치를 가리키는 줄",
-        "SPEC.md 11줄: 경로 src/uplift/policy.py",
-    ]
-
-
-def test_title_ref_checks_single_quoted_titles(tmp_path, monkeypatch):
+def test_check_refs_flags_title_refs_and_glossary_pointers(tmp_path, monkeypatch):
     monkeypatch.setattr(check_docs, "ROOT", tmp_path)
-    (tmp_path / "a.md").write_text("## 있는 제목\n", encoding="utf-8")
     (tmp_path / "SPEC.md").write_text("## 1. 목적\n", encoding="utf-8")
-    assert check_docs.check_refs("`a.md` '있는 제목' 절") == []
-    assert check_docs.check_refs("`a.md` '없는 제목' 절") == ['없는 절: `a.md` "없는 제목"']
+    assert check_docs.check_refs("`a.md` '있는 제목' 절") == [
+        "절 제목 인용: \"`a.md` '있는 제목' 절\""
+    ]
+    assert check_docs.check_refs("고른 정책(`docs/glossary.md`)은") == [
+        '용어집 가리키기: "(`docs/glossary.md`)"'
+    ]
+    assert check_docs.check_refs("용어는 `docs/glossary.md`다. `a.md`에 있다.") == []
 
 
 @pytest.mark.parametrize(
@@ -135,39 +122,121 @@ def test_check_citations_matches_parenthetical_and_inline_cites():
     assert check_docs.check_citations(negative) == []
 
 
-def test_heading_renames_keeps_only_title_only_hunks_with_path():
-    diff = (
-        "diff --git a/docs/DATA.md b/docs/DATA.md\n--- a/docs/DATA.md\n+++ b/docs/DATA.md\n"
-        "@@ -1 +1 @@\n-## 2026-11-24 깔때기 단계로 나눈다\n+## 2026-11-24 퍼널 단계로 나눈다\n"
-        "@@ -9 +9 @@\n-본문\n+본문 고침\n"
-        "@@ -20,2 +20,2 @@\n-## 지운 절\n-본문\n+## 새 절\n+다른 본문\n"
+def test_check_copies_errors_on_record_copies_outside_records(tmp_path, monkeypatch):
+    monkeypatch.setattr(check_docs, "ROOT", tmp_path)
+    copy = "분할은 고객 단위로 층화해 학습, 검증, 시험 세트로 나눈다."
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "DATA.md").write_text(f"{copy}\n", encoding="utf-8")
+    (tmp_path / "docs" / "glossary.md").write_text(
+        "용어집에 적은 다른 문장이 여기에 꽤 길게 하나 있다고 하자.\n", encoding="utf-8"
     )
-    assert check_docs.heading_renames(diff) == [
-        ("docs/DATA.md", "2026-11-24 깔때기 단계로 나눈다", "2026-11-24 퍼널 단계로 나눈다")
+    monkeypatch.setattr(
+        check_docs,
+        "scope_files",
+        lambda: [tmp_path / "docs" / "DATA.md", tmp_path / "docs" / "glossary.md"],
+    )
+    errors, warnings = check_docs.check_copies(copy, "docs/plans/M2-PLAN.md")
+    assert len(errors) == 1 and warnings == []
+    assert check_docs.check_copies(copy, "docs/MODELING.md") == ([], [])
+    errors, warnings = check_docs.check_copies(
+        "용어집에 적은 다른 문장이 여기에 꽤 길게 하나 있다고 하자.", "docs/plans/M3-PLAN.md"
+    )
+    assert errors == [] and len(warnings) == 1
+
+
+@pytest.mark.parametrize(
+    ("path", "scope", "inbound"),
+    [
+        ("SPEC.md", False, False),
+        ("CLAUDE.md", True, True),
+        ("docs/plans/M2-PLAN.md", True, False),
+        ("docs/history/DATA.md", False, False),
+        ("artifacts/ANA-003/summary.md", False, True),
+        (".claude/skills/marimo-notebook/SKILL.md", False, True),
+        (".claude/skills/run-evaluation/SKILL.md", True, True),
+        ("src/uplift/eda.py", False, True),
+        (".claude/harness/CHANGELOG.md", False, True),
+        ("tests/test_check_docs.py", False, False),
+        ("new-folder/notes.md", True, True),
+    ],
+)
+def test_scope_is_everything_except_the_exclusions(path, scope, inbound):
+    assert check_docs.in_scope(path) is scope
+    assert check_docs.is_inbound(path) is inbound
+
+
+def test_run_blocks_pending_file():
+    errors, _ = check_docs.run("", "| 결정 | 반영할 곳 |", check_docs.PENDING_FILE)
+    assert any("--pending" in e for e in errors)
+
+
+def test_pending_lists_record_entries_without_canon(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(check_docs, "ROOT", tmp_path)
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "MODELING.md").write_text(
+        "## 2026-11-25 가 결정\n\n- 정본: 아직 없음. 정책 함수에 반영한다.\n\n"
+        "## 2026-11-24 나 결정\n\n- 정본: `src/uplift/eda.py`\n",
+        encoding="utf-8",
+    )
+    assert check_docs.pending() == 0
+    assert capsys.readouterr().out.splitlines() == [
+        "docs/MODELING.md | 2026-11-25 가 결정 | 정책 함수에 반영한다"
     ]
 
 
-def test_spec_renumbers_maps_shifted_sections_by_title():
-    old = "## 1. 목적\n## 2. 데이터\n## 3. 문서 체계\n"
-    new = "## 1. 목적\n## 2. 문제\n## 3. 데이터\n## 4. 문서 체계\n"
-    assert check_docs.spec_renumbers(old, new) == {"2": "3", "3": "4"}
+def test_run_skips_reference_checks_in_records():
+    text = '`docs/DATA.md` "분할" 절과 고른 정책(`docs/glossary.md`)'
+    assert check_docs.run("", text, "docs/MODELING.md")[0] == []
+    assert len(check_docs.run("", text, "docs/plans/M2-PLAN.md")[0]) == 2
 
 
-def test_replace_refs_rewrites_only_refs_to_the_renamed_file_and_is_idempotent():
-    text = '`a.md` "옛 제목" 절, `a.md` \'옛 제목\' 절, `b.md` "옛 제목" 절, SPEC.md 2절'
-    renames = [("a.md", "옛 제목", "새 제목")]
-    once = check_docs.replace_refs(text, renames)
-    assert once == '`a.md` "새 제목" 절, `a.md` \'새 제목\' 절, `b.md` "옛 제목" 절, SPEC.md 2절'
-    assert check_docs.replace_refs(once, renames) == once
-
-
-def test_check_copies_skips_record_header_only(tmp_path, monkeypatch):
+def test_check_copies_skips_record_matches_in_canon(tmp_path, monkeypatch):
     monkeypatch.setattr(check_docs, "ROOT", tmp_path)
-    monkeypatch.setattr(check_docs, "SCOPE", ["docs/*.md"])
-    header = "기록 문서다(SPEC.md 10절). 결정한 날짜순으로 항목을 둔다."
     copy = "분할은 고객 단위로 층화해 학습, 검증, 시험 세트로 나눈다."
     (tmp_path / "docs").mkdir()
-    (tmp_path / "docs" / "A.md").write_text(f"{header}\n{copy}\n", encoding="utf-8")
-    assert check_docs.sentences(header) == [header]
-    assert check_docs.check_copies(header, "docs/B.md") == []
-    assert len(check_docs.check_copies(copy, "docs/B.md")) == 1
+    (tmp_path / "docs" / "DATA.md").write_text(f"{copy}\n", encoding="utf-8")
+    monkeypatch.setattr(check_docs, "scope_files", lambda: [tmp_path / "docs" / "DATA.md"])
+    assert check_docs.check_copies(copy, "scripts/CLAUDE.md") == ([], [])
+    assert check_docs.check_copies(copy, ".claude/skills/run-evaluation/SKILL.md") == ([], [])
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "CLAUDE.md").write_text(f"{copy}\n", encoding="utf-8")
+    monkeypatch.setattr(
+        check_docs,
+        "scope_files",
+        lambda: [tmp_path / "docs" / "DATA.md", tmp_path / "scripts" / "CLAUDE.md"],
+    )
+    errors, warnings = check_docs.check_copies(copy, "CLAUDE.md")
+    assert errors == [] and len(warnings) == 1
+    assert len(check_docs.check_copies(copy, "docs/glossary.md")[0]) == 1
+
+
+def test_check_refs_flags_spec_section_refs():
+    assert check_docs.check_refs("SPEC.md 승인 지점 절의 항목") == [
+        '시작 명세 가리키기: "SPEC.md 승인 지점 절"'
+    ]
+    assert check_docs.check_refs("SPEC.md 13절 2번") == ['시작 명세 가리키기: "SPEC.md 13절"']
+    assert check_docs.check_refs("시작 명세는 `SPEC.md`다.") == []
+
+
+def test_run_allows_spec_refs_only_in_glossary_first_use_column():
+    errors, _ = check_docs.run("", "| 정책 가치 | 뜻 | SPEC.md 5절 |", "docs/glossary.md")
+    assert errors == []
+    errors, _ = check_docs.run(
+        "", "| 통계적 성공 | 완료 기준(SPEC.md 13절 2번)의 판정. | x |", "docs/glossary.md"
+    )
+    assert errors == ['시작 명세 가리키기: "SPEC.md 13절"']
+
+
+def test_spec_ref_catches_short_and_dotted_forms():
+    assert check_docs.check_refs("SPEC 9절과 SPEC.md 5.2절") == [
+        '시작 명세 가리키기: "SPEC 9절"',
+        '시작 명세 가리키기: "SPEC.md 5.2절"',
+    ]
+
+
+def test_check_removed_ignores_phrases_under_ten_characters(tmp_path, monkeypatch):
+    monkeypatch.setattr(check_docs, "ROOT", tmp_path)
+    (tmp_path / "a.md").write_text("`docs/a.md`와 `docs/abcde.md`가 남았다.\n", encoding="utf-8")
+    monkeypatch.setattr(check_docs, "scope_files", lambda: [tmp_path / "a.md"])
+    old = "`docs/a.md`와 `docs/abcde.md`"
+    assert check_docs.check_removed(old, "") == ['지운 표현이 남음: "docs/abcde.md" in a.md']
