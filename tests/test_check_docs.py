@@ -71,3 +71,84 @@ def test_check_spec_flags_location_lines_outside_section_10():
         "SPEC.md 11줄: 위치를 가리키는 줄",
         "SPEC.md 11줄: 경로 src/uplift/policy.py",
     ]
+
+
+def test_title_ref_checks_single_quoted_titles(tmp_path, monkeypatch):
+    monkeypatch.setattr(check_docs, "ROOT", tmp_path)
+    (tmp_path / "a.md").write_text("## 있는 제목\n", encoding="utf-8")
+    (tmp_path / "SPEC.md").write_text("## 1. 목적\n", encoding="utf-8")
+    assert check_docs.check_refs("`a.md` '있는 제목' 절") == []
+    assert check_docs.check_refs("`a.md` '없는 제목' 절") == ['없는 절: `a.md` "없는 제목"']
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("근거는 첫 절의 기각한 대안이다", 1),
+        ("마지막 행의 분산은 크다", 1),
+        ("모델 선택(위 행)으로 고른다", 1),
+        ("아래 금액 모델 행", 0),
+        ("위 행동을 고른다", 0),
+        ("다음 절차를 따른다", 0),
+        ("다음 절에서 다룬다", 1),
+        ("마지막 행에는 합계가 있다", 1),
+        ("위 행렬을 곱한다", 0),
+    ],
+)
+def test_check_style_flags_position_refs(text, expected):
+    found = [w for w in check_docs.check_style(text, "x.md") if w.startswith("위치 참조")]
+    assert len(found) == expected
+
+
+def test_check_style_flags_merged_items_cleft_and_missing_alternative():
+    text = "출발점으로 삼는다.  - class transformation\n넣은 것은 고친 것이다.\n- 기각한 대안: 없음(사용자 지시)"
+    kinds = [w.split(":")[0] for w in check_docs.check_style(text, "docs/MODELING.md")]
+    assert kinds == ["목록 두 항목이 한 줄에 붙음", "분열문", "기각한 대안이 없음"]
+    assert check_docs.check_style("- 기각한 대안: 없음", "CLAUDE.md") == []
+    assert check_docs.check_style("메인이 정한 것은 정본에 반영한다.", "x.md") == []
+
+
+def test_check_blank_runs_ignores_code_blocks():
+    assert check_docs.check_blank_runs("a\n\n\nb", "x.md")
+    assert check_docs.check_blank_runs("a\n\n```\nx\n\n\ny\n```\nb", "x.md") == []
+
+
+def test_check_citations_matches_parenthetical_and_inline_cites():
+    text = (
+        "방법 (Künzel et al., 2019; Jaśkowski & Jaroszewicz, 2012). Kennedy (2023)는 쓴다. "
+        "(causalml, 2026). Radcliffe (2007)도.\n"
+        "## 참고문헌\n\n"
+        "- causalml. (2026). Doc.\n"
+        "- Jaśkowski, M., & Jaroszewicz, S. (2012). Title.\n"
+        "- Künzel, S. R. (2019). Title.\n"
+        "- Radcliffe, N. J. (2007). Title.\n"
+    )
+    assert check_docs.check_citations(text) == ["참고문헌에 없는 인용: kennedy 2023"]
+    negative = "(표본 10000명) 고객 (2000명) (2026-11-24)\n## 참고문헌\n"
+    assert check_docs.check_citations(negative) == []
+
+
+def test_heading_renames_keeps_only_title_only_hunks_with_path():
+    diff = (
+        "diff --git a/docs/DATA.md b/docs/DATA.md\n--- a/docs/DATA.md\n+++ b/docs/DATA.md\n"
+        "@@ -1 +1 @@\n-## 2026-11-24 깔때기 단계로 나눈다\n+## 2026-11-24 퍼널 단계로 나눈다\n"
+        "@@ -9 +9 @@\n-본문\n+본문 고침\n"
+        "@@ -20,2 +20,2 @@\n-## 지운 절\n-본문\n+## 새 절\n+다른 본문\n"
+    )
+    assert check_docs.heading_renames(diff) == [
+        ("docs/DATA.md", "2026-11-24 깔때기 단계로 나눈다", "2026-11-24 퍼널 단계로 나눈다")
+    ]
+
+
+def test_spec_renumbers_maps_shifted_sections_by_title():
+    old = "## 1. 목적\n## 2. 데이터\n## 3. 문서 체계\n"
+    new = "## 1. 목적\n## 2. 문제\n## 3. 데이터\n## 4. 문서 체계\n"
+    assert check_docs.spec_renumbers(old, new) == {"2": "3", "3": "4"}
+
+
+def test_replace_refs_rewrites_only_refs_to_the_renamed_file_and_is_idempotent():
+    text = '`a.md` "옛 제목" 절, `a.md` \'옛 제목\' 절, `b.md` "옛 제목" 절, SPEC.md 2절'
+    renames = [("a.md", "옛 제목", "새 제목")]
+    once = check_docs.replace_refs(text, renames)
+    assert once == '`a.md` "새 제목" 절, `a.md` \'새 제목\' 절, `b.md` "옛 제목" 절, SPEC.md 2절'
+    assert check_docs.replace_refs(once, renames) == once
