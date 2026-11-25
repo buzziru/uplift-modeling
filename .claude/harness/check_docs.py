@@ -54,7 +54,8 @@ SPEC_PATH = re.compile(r"`([^`\s]+\.(?:md|py|yaml|json))`")
 SPEC_ALLOWED = {"docs/THEORY.md", "docs/glossary.md"}
 TITLE_REF = re.compile(r"`([^`]+\.md)` [\"']([^\"'\n]+)[\"'] 절")
 POSITION_REF = re.compile(
-    r"(?<![가-힣])(?:첫|마지막|앞|위|아래|다음) (?:절|행|문단)(?!동|렬|차|사)"
+    r"(?<![가-힣])(?:첫|마지막|앞|위|아래|다음) (?:절|행|문단)"
+    r"(?:(?![가-힣])|(?=[은는이가을를의에와과도만로으부까처]))"
 )
 MERGED_ITEM = re.compile(r"\S {2,}- \S")
 CLEFT = re.compile(r"[가-힣]+[한된던운은는] 것은 [^.\n]{0,60}?(?:이다|였다|이었다)\.")

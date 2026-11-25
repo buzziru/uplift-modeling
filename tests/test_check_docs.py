@@ -93,6 +93,13 @@ def test_title_ref_checks_single_quoted_titles(tmp_path, monkeypatch):
         ("다음 절에서 다룬다", 1),
         ("마지막 행에는 합계가 있다", 1),
         ("위 행렬을 곱한다", 0),
+        ("아래 절반을 쓴다", 0),
+        ("위 행위를 막는다", 0),
+        ("다음 행사를 연다", 0),
+        ("범위는 위 절을 따른다", 1),
+        ("앞 절의 정의", 1),
+        ("고정했으므로(위 절) 행 순서", 1),
+        ("위 문단으로 돌아간다", 1),
     ],
 )
 def test_check_style_flags_position_refs(text, expected):
