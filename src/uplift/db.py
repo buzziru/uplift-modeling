@@ -73,7 +73,7 @@ def category_fix_counts(raw: pd.DataFrame) -> dict:
 
 
 def check_tables(tables: dict[str, pd.DataFrame]) -> list[str]:
-    """키, 허용값과 범위, 깔때기 규칙을 확인하고 위반을 돌려준다."""
+    """키, 허용값과 범위, 퍼널 규칙을 확인하고 위반을 돌려준다."""
     customers, outcomes = tables["customers"], tables["outcomes"]
     errors = []
     ids = customers["customer_id"]

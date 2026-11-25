@@ -49,7 +49,7 @@
 - 승인: 2026-11-23
 
 
-## 2026-11-24 적재 때 키, 허용값과 범위, 깔때기, 분할 규칙을 확인하고 어긋나면 적재를 멈춘다
+## 2026-11-24 적재 때 키, 허용값과 범위, 퍼널, 분할 규칙을 확인하고 어긋나면 적재를 멈춘다
 
 - 결정: `build_tables`(`uplift.db.check_tables`)와 `scripts/build_db.py`(`uplift.split.check_splits`)가 아래 규칙을 확인한다. 규칙은 뒤의 계산이 기대는 사실만 둔다.
 
@@ -57,7 +57,7 @@
   | --- | --- | --- |
   | 키 | `customer_id` 고유, `customers`, `assignments`, `outcomes`가 같은 고객 집합 | 모든 조인 |
   | 허용값과 범위 | `treatment_id` ∈ {0, 1, 2}, `history_segment`, `zip_code`, `channel`은 정해진 값 집합, 이진 열과 `visit`, `conversion`은 0/1, `recency` 1\~12, `history`, `spend` 0 이상 | 범주별 SMD, 모델 입력. 값 집합을 고정해 새 오타가 들어오면 멈춘다 |
-  | 깔때기 | `conversion = 1`이면 `visit = 1`, `spend > 0`과 `conversion = 1`이 같다 | 깔때기 층화, 방문과 매출의 관계 |
+  | 퍼널 | `conversion = 1`이면 `visit = 1`, `spend > 0`과 `conversion = 1`이 같다 | 퍼널 층화, 방문과 매출의 관계 |
   | 분할 | 고객마다 `splits` 한 행, seed마다 학습 고객이 `folds`에 한 번씩 | 시험 세트 단일 사용, OOF 예측 |
 
 - 근거: 사용자 지시(2026-11-24). 지금 데이터는 모든 규칙을 통과한다(`scripts/build_db.py` 실행). 규칙 위반을 잡는지는 `tests/test_db.py`, `tests/test_split.py`가 본다.
@@ -84,13 +84,13 @@
 - 정본: `src/uplift/randomization.py`의 `SRM_ALPHA`, `SMD_THRESHOLD`. 공변량 보정 회귀는 균형을 통과해 구현하지 않았다.
 - 승인: 2026-11-24
 
-## 2026-11-24 처치 x 깔때기 단계로 층화해 학습 70%, 시험 30%로 한 번 나누고, 학습 세트에서 5-fold CV를 seed 42, 154, 1592로 세 번 반복한다
+## 2026-11-24 처치 x 퍼널 단계로 층화해 학습 70%, 시험 30%로 한 번 나누고, 학습 세트에서 5-fold CV를 seed 42, 154, 1592로 세 번 반복한다
 
 - 결정:
-  - 시험 세트: 처치(3) x 깔때기 단계(`docs/glossary.md`, 3)의 9개 층으로 층화해 30%를 seed 42로 한 번 나눈다. 시험 세트는 고정하고 마지막 판정에 한 번만 쓴다.
+  - 시험 세트: 처치(3) x 퍼널 단계(3단계, `docs/glossary.md`)의 9개 층으로 층화해 30%를 seed 42로 한 번 나눈다. 시험 세트는 고정하고 마지막 판정에 한 번만 쓴다.
   - CV: 학습 세트에 같은 층으로 층화한 5-fold CV를 seed 42, 154, 1592로 세 번 반복한다. 반복마다 fold 배정과 모델 `random_state`에 그 반복의 seed 하나를 쓴다. seed별 쓰임(HPO와 후보 비교)은 `docs/EVALUATION.md`의 모델 선택 항목이다.
   - 설정은 `scripts/splits.yaml`, 결과는 `splits`, `folds` 테이블이다.
-- 근거: 사용자 지시(2026-11-24). 구매는 시험 세트에서 처치별 36\~80명이다(`profile.json`의 `splits`). 구매가 드물어 분할 운에 따라 `spend` 결과가 크게 흔들리므로, 깔때기 단계로 층화해 구매 고객을 학습과 시험에 7:3으로 나눈다. 시험 세트 크기에서 `spend` 차이의 95% 구간 반폭은 0.47\~0.52다(`artifacts/ANA-001/tables/precision.csv`).
+- 근거: 사용자 지시(2026-11-24). 구매는 시험 세트에서 처치별 36\~80명이다(`profile.json`의 `splits`). 구매가 드물어 분할 운에 따라 `spend` 결과가 크게 흔들리므로, 퍼널 단계로 층화해 구매 고객을 학습과 시험에 7:3으로 나눈다. 시험 세트 크기에서 `spend` 차이의 95% 구간 반폭은 0.47\~0.52다(`artifacts/ANA-001/tables/precision.csv`).
 - 기각한 대안: 처치 x `visit`으로 층화하는 안(SPEC.md 3절의 처음 안). 구매 고객 수가 분할마다 달라진다. 80/20 분할. 학습이 0.8/0.7 = 1.14배 커지는 대신 시험 세트의 구간 반폭이 √(0.3/0.2) = 1.22배 넓어진다(구간 반폭은 표본 크기의 제곱근에 반비례). 시험 세트도 seed마다 다시 나누는 안. 시험 세트를 한 번만 쓰는 원칙이 깨진다.
 - 정본: `scripts/splits.yaml`, `src/uplift/split.py`
 - 승인: 2026-11-24
