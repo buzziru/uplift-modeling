@@ -18,6 +18,7 @@ SCOPE = [
     "experiments/TEMPLATE.md",
 ]
 SIMILAR = 0.7
+RECORD_HEADER = "기록 문서다(SPEC.md 10절)."
 MIN_LEN = 25
 RECORDS = (
     "PROBLEM",
@@ -54,7 +55,8 @@ SPEC_PATH = re.compile(r"`([^`\s]+\.(?:md|py|yaml|json))`")
 SPEC_ALLOWED = {"docs/THEORY.md", "docs/glossary.md"}
 TITLE_REF = re.compile(r"`([^`]+\.md)` [\"']([^\"'\n]+)[\"'] 절")
 POSITION_REF = re.compile(
-    r"(?<![가-힣])(?:첫|마지막|앞|위|아래|다음) (?:절|행|문단)(?!동|렬|차|사)"
+    r"(?<![가-힣])(?:첫|마지막|앞|위|아래|다음) (?:절|행|문단)"
+    r"(?:(?![가-힣])|(?=[은는이가을를의에와과도만로으부까처]))"
 )
 MERGED_ITEM = re.compile(r"\S {2,}- \S")
 CLEFT = re.compile(r"[가-힣]+[한된던운은는] 것은 [^.\n]{0,60}?(?:이다|였다|이었다)\.")
@@ -167,6 +169,8 @@ def check_copies(new_text: str, path: str) -> list[str]:
         same_file = rel(f) == path
         olds = sentences(f.read_text(encoding="utf-8"))
         for s in sentences(new_text):
+            if s.startswith(RECORD_HEADER):
+                continue
             matches = [o for o in olds if similarity(s, o) >= SIMILAR]
             if len(matches) > (1 if same_file else 0):
                 other = s if same_file else matches[0]

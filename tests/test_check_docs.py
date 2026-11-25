@@ -93,6 +93,13 @@ def test_title_ref_checks_single_quoted_titles(tmp_path, monkeypatch):
         ("다음 절에서 다룬다", 1),
         ("마지막 행에는 합계가 있다", 1),
         ("위 행렬을 곱한다", 0),
+        ("아래 절반을 쓴다", 0),
+        ("위 행위를 막는다", 0),
+        ("다음 행사를 연다", 0),
+        ("범위는 위 절을 따른다", 1),
+        ("앞 절의 정의", 1),
+        ("고정했으므로(위 절) 행 순서", 1),
+        ("위 문단으로 돌아간다", 1),
     ],
 )
 def test_check_style_flags_position_refs(text, expected):
@@ -152,3 +159,15 @@ def test_replace_refs_rewrites_only_refs_to_the_renamed_file_and_is_idempotent()
     once = check_docs.replace_refs(text, renames)
     assert once == '`a.md` "새 제목" 절, `a.md` \'새 제목\' 절, `b.md` "옛 제목" 절, SPEC.md 2절'
     assert check_docs.replace_refs(once, renames) == once
+
+
+def test_check_copies_skips_record_header_only(tmp_path, monkeypatch):
+    monkeypatch.setattr(check_docs, "ROOT", tmp_path)
+    monkeypatch.setattr(check_docs, "SCOPE", ["docs/*.md"])
+    header = "기록 문서다(SPEC.md 10절). 결정한 날짜순으로 항목을 둔다."
+    copy = "분할은 고객 단위로 층화해 학습, 검증, 시험 세트로 나눈다."
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "A.md").write_text(f"{header}\n{copy}\n", encoding="utf-8")
+    assert check_docs.sentences(header) == [header]
+    assert check_docs.check_copies(header, "docs/B.md") == []
+    assert len(check_docs.check_copies(copy, "docs/B.md")) == 1
