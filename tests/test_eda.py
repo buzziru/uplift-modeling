@@ -210,6 +210,7 @@ def test_buyer_sample_size_scales_by_conversion(trial):
     assert row["customers_per_arm"] == pytest.approx(
         row["buyers_per_arm"] / row["mailed_conversion"]
     )
+    assert row["current_customers_per_arm_min"] == 1000
 
 
 def test_effects_below_zero_keeps_only_clearly_negative_rows():

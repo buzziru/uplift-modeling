@@ -274,6 +274,7 @@ def buyer_sample_size(df: pd.DataFrame, mde: float) -> pd.DataFrame:
     buyer_sd = df.loc[df["spend"] > 0, "spend"].std()
     conversion = df.loc[df["treatment_id"] > 0, "conversion"].mean()
     buyers = n_per_arm(buyer_sd, mde)
+    arm_sizes = df["treatment_id"].value_counts()
     return pd.DataFrame(
         [
             {
@@ -282,6 +283,8 @@ def buyer_sample_size(df: pd.DataFrame, mde: float) -> pd.DataFrame:
                 "buyers_per_arm": buyers,
                 "mailed_conversion": conversion,
                 "customers_per_arm": buyers / conversion,
+                "current_customers_per_arm_min": int(arm_sizes.min()),
+                "current_customers_per_arm_max": int(arm_sizes.max()),
             }
         ]
     )
