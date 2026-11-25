@@ -56,7 +56,8 @@ def in_scope(path: str) -> bool:
 
 
 def is_inbound(path: str) -> bool:
-    return path.endswith((".md", ".py")) and not path.startswith("docs/") and not excluded(path)
+    skip = ("docs/", "_workspace/", "tests/")
+    return path.endswith((".md", ".py")) and not path.startswith(skip)
 
 
 def tracked(*patterns: str) -> list[str]:
@@ -233,7 +234,7 @@ def check_citations(text: str) -> list[str]:
 
 
 def run(old_text: str, new_text: str, path: str) -> tuple[list[str], list[str]]:
-    errors = check_refs(new_text)
+    errors = [] if is_record(path) else check_refs(new_text)
     if path == PENDING_FILE and new_text.strip():
         errors.append(f"{PENDING_FILE}: 반영 대기 목록은 check_docs.py --pending으로 뽑는다")
     copy_errors, warnings = check_copies(new_text, path)
@@ -330,6 +331,16 @@ def branch() -> int:
         warnings += w
     for f in inbound_files():
         errors += check_inbound(f.read_text(encoding="utf-8"), rel(f))
+    py_diff = git_text("diff", "-U0", "origin/main...HEAD", "--", "*.py")
+    for chunk in re.split(r"^diff --git ", py_diff, flags=re.MULTILINE)[1:]:
+        m = re.search(r"^\+\+\+ b/(.+)$", chunk, re.MULTILINE)
+        if m and is_inbound(m.group(1)):
+            added = "\n".join(
+                line[1:]
+                for line in chunk.splitlines()
+                if line.startswith("+") and not line.startswith("+++")
+            )
+            errors += [f"{m.group(1)}: {e}" for e in check_refs(added)]
     warnings += check_history()
     errors += check_spec((ROOT / "SPEC.md").read_text(encoding="utf-8"))
     old_spec = git_text("show", "origin/main:SPEC.md")

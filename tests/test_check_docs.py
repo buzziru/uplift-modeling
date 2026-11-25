@@ -173,8 +173,8 @@ def test_check_copies_errors_on_record_copies_outside_records(tmp_path, monkeypa
         ("SPEC.md", True, True),
         ("docs/plans/M2-PLAN.md", True, False),
         ("docs/history/DATA.md", False, False),
-        ("artifacts/ANA-003/summary.md", False, False),
-        (".claude/skills/marimo-notebook/SKILL.md", False, False),
+        ("artifacts/ANA-003/summary.md", False, True),
+        (".claude/skills/marimo-notebook/SKILL.md", False, True),
         (".claude/skills/run-evaluation/SKILL.md", True, True),
         ("src/uplift/eda.py", False, True),
         ("tests/test_check_docs.py", False, False),
@@ -203,3 +203,9 @@ def test_pending_lists_record_entries_without_canon(tmp_path, monkeypatch, capsy
     assert capsys.readouterr().out.splitlines() == [
         "docs/MODELING.md | 2026-11-25 가 결정 | 정책 함수에 반영한다"
     ]
+
+
+def test_run_skips_reference_checks_in_records():
+    text = '`docs/DATA.md` "분할" 절과 고른 정책(`docs/glossary.md`)'
+    assert check_docs.run("", text, "docs/MODELING.md")[0] == []
+    assert len(check_docs.run("", text, "docs/plans/M2-PLAN.md")[0]) == 2
