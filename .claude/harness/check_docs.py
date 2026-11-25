@@ -45,7 +45,7 @@ HISTORY_LIMIT = 0.2
 TITLE_REF = re.compile(r"`[^`]+\.md` [\"'][^\"'\n]+[\"'] 절")
 GLOSSARY_POINTER = re.compile(r"\(`docs/glossary\.md`[,)]")
 PENDING_FILE = "PENDING-DECISIONS.md"
-SPEC_REF = re.compile(r"SPEC\.md (?:\d+절|[가-힣]+(?: [가-힣]+)? 절)")
+SPEC_REF = re.compile(r"SPEC(?:\.md)? (?:\d+(?:\.\d+)?절|[가-힣]+(?: [가-힣]+){0,3} 절)")
 POSITION_REF = re.compile(
     r"(?<![가-힣])(?:첫|마지막|앞|위|아래|다음) (?:절|행|문단)"
     r"(?:(?![가-힣])|(?=[은는이가을를의에와과도만로으부까처]))"
@@ -231,9 +231,10 @@ def check_citations(text: str) -> list[str]:
 
 
 def run(old_text: str, new_text: str, path: str) -> tuple[list[str], list[str]]:
-    errors = [] if is_record(path) else check_refs(new_text)
+    checked = new_text
     if path == "docs/glossary.md":
-        errors = [e for e in errors if not e.startswith("시작 명세 가리키기")]
+        checked = "\n".join(line.rsplit("|", 2)[0] for line in new_text.splitlines())
+    errors = [] if is_record(path) else check_refs(checked)
     if path == PENDING_FILE and new_text.strip():
         errors.append(f"{PENDING_FILE}: 반영 대기 목록은 check_docs.py --pending으로 뽑는다")
     copy_errors, warnings = check_copies(new_text, path)

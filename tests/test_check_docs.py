@@ -218,9 +218,20 @@ def test_check_refs_flags_spec_section_refs():
     assert check_docs.check_refs("시작 명세는 `SPEC.md`다.") == []
 
 
-def test_run_allows_spec_refs_in_glossary_first_use_column():
+def test_run_allows_spec_refs_only_in_glossary_first_use_column():
     errors, _ = check_docs.run("", "| 정책 가치 | 뜻 | SPEC.md 5절 |", "docs/glossary.md")
     assert errors == []
+    errors, _ = check_docs.run(
+        "", "| 통계적 성공 | 완료 기준(SPEC.md 13절 2번)의 판정. | x |", "docs/glossary.md"
+    )
+    assert errors == ['시작 명세 가리키기: "SPEC.md 13절"']
+
+
+def test_spec_ref_catches_short_and_dotted_forms():
+    assert check_docs.check_refs("SPEC 9절과 SPEC.md 5.2절") == [
+        '시작 명세 가리키기: "SPEC 9절"',
+        '시작 명세 가리키기: "SPEC.md 5.2절"',
+    ]
 
 
 def test_check_removed_ignores_phrases_under_ten_characters(tmp_path, monkeypatch):
