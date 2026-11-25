@@ -274,14 +274,14 @@ def _(df, effects_below_zero, interval_plot, mo, out, segments, stacked_by_segme
     - 둘 다 산 고객: 남성용 메일의 방문 효과가 {ev.loc[("visit", "product: both", "Mens - None"), "effect"]:.3f}로 세그먼트 가운데 가장 크다.
     - 남성용 메일은 모든 구매 상품 세그먼트에서 여성용과 같거나 더 크다. 다른 세그먼트 변수(채널, 지역, 신규 여부, 구매액 구간)에서도 `visit` 효과가 여성용이 남성용보다 큰 곳은 없다.
     - 해석: 여성용 메일의 방문 효과는 여성 상품만 산 고객에게 가장 크고, 남성 상품만 산 고객에게는 매우 작다. 남성용 메일은 세 세그먼트 모두에서 효과가 비슷하거나 더 크다. 남성용 메일의 내용이나 상품이 더 넓은 고객에게 맞았을 수 있으나, 메일 내용이 데이터에 없어 확인할 수 없다.
-    - 시사점: `visit` 기준으로 고객마다 메일을 고르는 정책은 대부분의 고객에게 남성용을 고르게 된다. 여성 상품만 산 고객에게는 두 메일이 같아 어느 쪽이든 정책 가치가 같다. 그래서 M2의 고른 정책(`docs/glossary.md`)이 전체 발송 정책(`docs/glossary.md`)을 `visit`으로 크게 넘기 어렵다고 예상한다.
+    - 시사점: `visit` 기준으로 고객마다 메일을 고르는 정책은 대부분의 고객에게 남성용을 고르게 된다. 여성 상품만 산 고객에게는 두 메일이 같아 어느 쪽이든 정책 가치가 같다. 그래서 M2의 고른 정책이 전체 발송 정책을 `visit`으로 크게 넘기 어렵다고 예상한다.
     """),
             spend_eff_fig,
             mo.md(f"""
     - `spend` 효과는 구간이 넓다. 여성용이 남성용보다 큰 점추정은 Urban({ev.loc[("spend", "zip_code: Urban", "Mens - Womens"), "effect"]:.2f}) 등 몇 곳에 있지만, 구간이 0을 포함한다. 여성용이 남성용보다 확실히 나은 세그먼트(차이 구간 상한이 0 미만)는 `visit`과 `spend`를 합쳐 {len(womens_better)}곳이다.
     - 둘 다 산 고객에게는 남성용 메일의 `spend` 효과({ev.loc[("spend", "product: both", "Mens - None"), "effect"]:.2f})가 여성용({ev.loc[("spend", "product: both", "Womens - None"), "effect"]:.2f})보다 크다.
     - 신규 고객은 메일 없이의 매출이 기존 고객보다 적지만(B3), `spend` 효과는 더 크다. 남성용 {ev.loc[("spend", "newbie: 1", "Mens - None"), "effect"]:.2f} 대 {ev.loc[("spend", "newbie: 0", "Mens - None"), "effect"]:.2f}, 여성용 {ev.loc[("spend", "newbie: 1", "Womens - None"), "effect"]:.2f} 대 {ev.loc[("spend", "newbie: 0", "Womens - None"), "effect"]:.2f}다. `visit` 효과는 두 집단이 비슷하다. 신규 고객에게는 두 메일의 `spend` 효과 차이({ev.loc[("spend", "newbie: 1", "Mens - Womens"), "effect"]:.2f}, 구간 {ev.loc[("spend", "newbie: 1", "Mens - Womens"), "ci_low"]:.2f}\\~{ev.loc[("spend", "newbie: 1", "Mens - Womens"), "ci_high"]:.2f})를 가를 수 없다.
-    - 메일이 결과를 확실히 줄인 세그먼트(효과 구간 상한이 0 미만)는 {len(harmed)}곳이다. 세그먼트 단위에서는 Sleeping Dogs(`docs/glossary.md`)가 보이지 않는다. 있다면 고객별 예측에서 찾아야 한다.
+    - 메일이 결과를 확실히 줄인 세그먼트(효과 구간 상한이 0 미만)는 {len(harmed)}곳이다. 세그먼트 단위에서는 Sleeping Dogs가 보이지 않는다. 있다면 고객별 예측에서 찾아야 한다.
     """),
         ]
     )
