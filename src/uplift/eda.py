@@ -56,6 +56,8 @@ def outcome_summary(df: pd.DataFrame, by: str) -> pd.DataFrame:
                 "spend_mean": g["spend"].mean(),
                 "buyer_spend_mean": buyers.mean(),
                 **{f"buyer_{name}": buyers.quantile(q) for name, q in QUANTILES.items()},
+                "buyer_min": buyers.min(),
+                "buyers_at_min_share": (buyers == buyers.min()).mean(),
                 "buyer_max": buyers.max(),
                 "buyers_at_max": int((buyers == buyers.max()).sum()),
             }
@@ -127,7 +129,9 @@ def segment_profile(df: pd.DataFrame, by: str) -> pd.DataFrame:
         df.groupby(by)
         .agg(
             n=("history", "size"),
+            history_min=("history", "min"),
             history_median=("history", "median"),
+            history_max=("history", "max"),
             history_mean=("history", "mean"),
             recency_mean=("recency", "mean"),
             newbie_share=("newbie", "mean"),
@@ -230,3 +234,54 @@ def threshold_effects(df: pd.DataFrame, thresholds: list[float]) -> pd.DataFrame
 
 def n_per_arm(sd: float, mde: float) -> int:
     return int(np.ceil(2 * ((Z95 + Z80) * sd / mde) ** 2))
+
+
+def share_table(df: pd.DataFrame, row: str, col: str) -> pd.DataFrame:
+    table = pd.crosstab(df[row], df[col], normalize="index")
+    table.columns = [f"{col}={v}" for v in table.columns]
+    return table
+
+
+def spearman_matrix(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
+    data = pd.DataFrame(df[cols])
+    if "history_segment" in cols:
+        data["history_segment"] = data["history_segment"].str[0].astype(int)
+    return data.corr(method="spearman")
+
+
+def profile_above_floor(df: pd.DataFrame, by: str, level: str) -> pd.DataFrame:
+    floor = df.loc[df[by] == level, "history"].min()
+    return segment_profile(pd.DataFrame(df[df["history"] >= floor]), by).assign(history_floor=floor)
+
+
+def stacked_by_segment(
+    df: pd.DataFrame, segments: list[str], outcomes: list[str], kind: str
+) -> pd.DataFrame:
+    frames = []
+    for by in segments:
+        if kind == "means":
+            parts = [group_means(df, by, outcomes)]
+        else:
+            parts = [segment_effects(df, by, y).assign(outcome=y) for y in outcomes]
+        for part in parts:
+            frames.append(part.rename(columns={by: "level"}).assign(segment=by))
+    out = pd.concat(frames, ignore_index=True)
+    out["label"] = out["segment"] + ": " + out["level"].astype(str)
+    return out
+
+
+def buyer_sample_size(df: pd.DataFrame, mde: float) -> pd.DataFrame:
+    buyer_sd = df.loc[df["spend"] > 0, "spend"].std()
+    conversion = df.loc[df["treatment_id"] > 0, "conversion"].mean()
+    buyers = n_per_arm(buyer_sd, mde)
+    return pd.DataFrame(
+        [
+            {
+                "mde": mde,
+                "buyer_spend_sd": buyer_sd,
+                "buyers_per_arm": buyers,
+                "mailed_conversion": conversion,
+                "customers_per_arm": buyers / conversion,
+            }
+        ]
+    )

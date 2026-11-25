@@ -10,7 +10,6 @@ def _():
 
     import duckdb
     import marimo as mo
-    import pandas as pd
 
     from uplift.db import TREATMENTS, load_frame
     from uplift.eda import (
@@ -19,6 +18,10 @@ def _():
         cramers_v_matrix,
         numeric_summary,
         outcome_summary,
+        product_segment,
+        segment_profile,
+        share_table,
+        spearman_matrix,
     )
     from uplift.plots import (
         association_heatmaps,
@@ -51,7 +54,10 @@ def _():
         numeric_summary,
         out,
         outcome_summary,
-        pd,
+        product_segment,
+        segment_profile,
+        share_table,
+        spearman_matrix,
     )
 
 
@@ -79,17 +85,20 @@ def _(
     numeric_distribution_plot,
     numeric_summary,
     out,
-    pd,
+    product_segment,
+    share_table,
 ):
     numeric = numeric_summary(df, ["recency", "history"])
     shares = category_shares(
         df, ["history_segment", "zip_code", "channel", "mens", "womens", "newbie"]
     )
-    product_mix = pd.crosstab(df["mens"], df["womens"], normalize=True)
-    recency_by_newbie = pd.crosstab(df["newbie"], df["recency"]).rename(columns=str)
+    product_mix = category_shares(df.assign(product=product_segment(df)), ["product"]).set_index(
+        "level"
+    )
+    recency_by_newbie = share_table(df, "newbie", "recency")
     numeric.to_csv(out / "tables" / "numeric_summary.csv", index=False)
     shares.to_csv(out / "tables" / "category_shares.csv", index=False)
-    product_mix.to_csv(out / "tables" / "mens_womens.csv")
+    product_mix.to_csv(out / "tables" / "product_shares.csv")
     recency_by_newbie.to_csv(out / "tables" / "recency_by_newbie.csv")
     numeric_fig = numeric_distribution_plot(df)
     numeric_fig.savefig(out / "figures" / "numeric_distribution.png", dpi=150)
@@ -109,7 +118,7 @@ def _(
             mo.ui.table(shares.round(4)),
             category_fig,
             mo.md(f"""
-    - `mens`, `womens`는 성별이 아니라 지난 1년 동안 남성 상품, 여성 상품을 샀는지다. 남성 상품만 {product_mix.loc[1, 0]:.1%}, 여성 상품만 {product_mix.loc[0, 1]:.1%}, 둘 다 {product_mix.loc[1, 1]:.1%}이고 둘 다 사지 않은 고객은 {product_mix.loc[0, 0]:.1%}다. 둘 다 산 고객이 있어 두 비율의 합이 100%를 넘는다.
+    - `mens`, `womens`는 성별이 아니라 지난 1년 동안 남성 상품, 여성 상품을 샀는지다. 남성 상품만 {product_mix.loc["mens_only", "share"]:.1%}, 여성 상품만 {product_mix.loc["womens_only", "share"]:.1%}, 둘 다 {product_mix.loc["both", "share"]:.1%}이고, 둘 다 사지 않은 고객은 없다. 둘 다 산 고객이 있어 두 비율의 합이 100%를 넘는다.
     - `newbie`는 지난 1년 안에 처음 구매한 고객이다. 이 데이터는 지난 1년 안에 구매한 고객만 모았기 때문에 신규 고객이 절반을 차지한다.
     - 작은 범주: `zip_code` Rural, `channel` Multichannel, `history_segment` 상위 두 구간. 세그먼트별 추정이 흔들릴 수 있다.
     """),
@@ -121,8 +130,6 @@ def _(
 @app.cell
 def _(buyer_spend_plot, df, mo, out, outcome_summary):
     outcomes = outcome_summary(df.assign(group="All"), "group")
-    buyers = df.loc[df["spend"] > 0, "spend"]
-    floor_share = (buyers == buyers.min()).mean()
     outcomes.to_csv(out / "tables" / "outcome_summary.csv", index=False)
     spend_fig = buyer_spend_plot(df["spend"])
     spend_fig.savefig(out / "figures" / "buyer_spend.png", dpi=150)
@@ -134,7 +141,7 @@ def _(buyer_spend_plot, df, mo, out, outcome_summary):
             spend_fig,
             mo.md(f"""
     - 방문율 {row["visit_rate"]:.3f}, 구매율 {row["conversion_rate"]:.4f}. 구매 고객은 {row["buyers"]:,}명뿐이다.
-    - 구매 고객의 `spend`: 중앙값 {row["buyer_p50"]:.1f}, 평균 {row["buyer_spend_mean"]:.1f}, p90 {row["buyer_p90"]:.1f}. 구매 고객의 {floor_share:.0%}가 정확히 {buyers.min():.2f}를 썼다.
+    - 구매 고객의 `spend`: 중앙값 {row["buyer_p50"]:.1f}, 평균 {row["buyer_spend_mean"]:.1f}, p90 {row["buyer_p90"]:.1f}. 구매 고객의 {row["buyers_at_min_share"]:.0%}가 최솟값 {row["buyer_min"]:.2f}를 썼다.
     - 최댓값 {row["buyer_max"]:.0f}에 {row["buyers_at_max"]}명이 있고 p99도 같은 값이다. 원본이 이 값에서 잘렸을 수 있다. 그렇다면 고액 구매자의 금액은 실제보다 작게 기록돼 있고, 금액 평균의 비교는 고액 쪽 차이를 덜 보인다.
     """),
         ]
@@ -143,18 +150,26 @@ def _(buyer_spend_plot, df, mo, out, outcome_summary):
 
 
 @app.cell
-def _(association_heatmaps, cramers_v_matrix, df, mo, out, pd):
-    ordinal = df.assign(history_segment_rank=df["history_segment"].str[0].astype(int))
-    spearman = ordinal[
-        ["recency", "history", "history_segment_rank", "mens", "womens", "newbie"]
-    ].corr(method="spearman")
+def _(
+    association_heatmaps,
+    cramers_v_matrix,
+    df,
+    mo,
+    out,
+    segment_profile,
+    share_table,
+    spearman_matrix,
+):
+    spearman = spearman_matrix(
+        df, ["recency", "history", "history_segment", "mens", "womens", "newbie"]
+    )
     cramers = cramers_v_matrix(
         df, ["history_segment", "recency", "zip_code", "channel", "mens", "womens", "newbie"]
     )
-    segment_by_newbie = pd.crosstab(
-        df["history_segment"], df["newbie"], normalize="columns"
-    ).rename(columns=str)
-    segment_by_channel = pd.crosstab(df["history_segment"], df["channel"], normalize="columns")
+    segment_by_newbie = share_table(df, "newbie", "history_segment")
+    segment_by_channel = share_table(df, "channel", "history_segment")
+    history_by_newbie = segment_profile(df, "newbie")
+    history_by_newbie.to_csv(out / "tables" / "history_by_newbie.csv", index=False)
     segment_by_newbie.to_csv(out / "tables" / "segment_by_newbie.csv")
     segment_by_channel.to_csv(out / "tables" / "segment_by_channel.csv")
     spearman.to_csv(out / "tables" / "spearman.csv")
@@ -168,9 +183,9 @@ def _(association_heatmaps, cramers_v_matrix, df, mo, out, pd):
             mo.ui.table(segment_by_newbie.round(3).reset_index()),
             mo.ui.table(segment_by_channel.round(3).reset_index()),
             mo.md(f"""
-    - `history`와 `history_segment`는 Spearman {spearman.loc["history", "history_segment_rank"]:.2f}로 같은 정보다. `history_segment`는 `history`를 구간으로 자른 값이라 모델 입력에는 `history` 하나만 쓴다.
+    - `history`와 `history_segment`는 Spearman {spearman.loc["history", "history_segment"]:.2f}로 같은 정보다. `history_segment`는 `history`를 구간으로 자른 값이라 모델 입력에는 `history` 하나만 쓴다.
     - `mens`와 `womens`는 Spearman {spearman.loc["mens", "womens"]:.2f}다. 둘 다 0인 고객이 없어서, 한쪽이 0이면 다른 쪽은 반드시 1이다.
-    - `history_segment`와 `newbie`(Cramer's V {cramers.loc["history_segment", "newbie"]:.2f}): 기존 고객(`newbie = 0`)은 `history` 최댓값이 {df.loc[df["newbie"] == 0, "history"].max():.0f}이고, 500달러 이상 구간(5\\~7)의 고객은 모두 신규 고객이다(아래 표). 기존 고객의 금액만 500에서 잘린 것으로 보이며, 원본이 그렇게 만들어진 이유는 데이터로 알 수 없다. 그래서 `history`가 500 이상이면 신규 고객이라는 것이 확정되고, 두 변수를 함께 쓰는 모델은 이 경계를 학습한다.
+    - `history_segment`와 `newbie`(Cramer's V {cramers.loc["history_segment", "newbie"]:.2f}): 기존 고객(`newbie = 0`)은 `history` 최댓값이 {history_by_newbie.set_index("newbie").loc[0, "history_max"]:.0f}이고, 500달러 이상 구간(5\\~7)의 고객은 모두 신규 고객이다(아래 표). 기존 고객의 금액만 500에서 잘린 것으로 보이며, 원본이 그렇게 만들어진 이유는 데이터로 알 수 없다. 그래서 `history`가 500 이상이면 신규 고객이라는 것이 확정되고, 두 변수를 함께 쓰는 모델은 이 경계를 학습한다.
     - `history_segment`와 `channel`(Cramer's V {cramers.loc["history_segment", "channel"]:.2f}): Multichannel 고객은 `history`가 모두 200달러 이상이다(구간 1, 2가 없음). 여러 채널로 산 고객이 구매액이 큰 것은 자연스럽지만, 200 미만이 한 명도 없는 것은 정의에서 온 경계로 보인다.
     - 나머지 쌍은 `mens`·`womens`를 빼면 Cramer's V가 0.13 이하로, 서로 거의 독립이다.
     """),

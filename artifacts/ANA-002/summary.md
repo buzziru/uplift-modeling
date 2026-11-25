@@ -13,17 +13,17 @@
 
 ## mens와 womens는 구매 상품 표시이고, 모든 고객이 둘 중 하나 이상을 샀다
 
-남성 상품만 45.3%, 여성 상품만 44.6%, 둘 다 10.1%, 둘 다 아님 0%다(`tables/mens_womens.csv`).
+남성 상품만 45.3%, 여성 상품만 44.6%, 둘 다 10.1%이고 둘 다 사지 않은 고객은 없다(`tables/product_shares.csv`).
 
-## 기존 고객은 history가 500에서 잘려 있고, Multichannel 고객은 history가 모두 200 이상이다
+## 기존 고객은 history가 500 아래에서 잘려 있고, Multichannel 고객은 history가 모두 200 이상이다
 
-- 500달러 이상 구간의 고객은 모두 신규 고객이다(`tables/segment_by_newbie.csv`, Cramer's V 0.41, `tables/cramers_v.csv`).
+- 기존 고객의 `history` 최댓값은 499.95이고(`tables/history_by_newbie.csv`), 500달러 이상 구간의 고객은 모두 신규 고객이다(`tables/segment_by_newbie.csv`, Cramer's V 0.41, `tables/cramers_v.csv`).
 - Multichannel 고객에게는 200달러 미만 구간이 없다(`tables/segment_by_channel.csv`, Cramer's V 0.33).
 - 그 밖의 쌍은 `mens`·`womens`를 빼면 Cramer's V 0.13 이하다.
 
-## 구매 고객의 spend는 25%가 29.99이고 499에서 잘려 있다
+## 구매 고객의 spend는 4분의 1이 29.99이고 499에서 잘려 있다
 
-구매 고객 405명의 중앙값은 78.9, 평균 117.4다. 25%가 29.99를 썼고, 최댓값 499에 8명이 있다(`tables/outcome_summary.csv`, `figures/buyer_spend.png`).
+구매 고객 405명의 중앙값은 78.9, 평균 117.4다. 24.9%가 최솟값 29.99를 썼고, 최댓값 499에 8명이 있다(`tables/outcome_summary.csv`, `figures/buyer_spend.png`).
 
 ## 구매 고객 1명당 금액은 처치군 사이에 차이를 가를 수 없다
 

@@ -4,6 +4,7 @@ import pytest
 
 from uplift.eda import (
     bootstrap_mean_ci,
+    buyer_sample_size,
     category_shares,
     cramers_v,
     cramers_v_matrix,
@@ -14,8 +15,12 @@ from uplift.eda import (
     numeric_summary,
     outcome_summary,
     product_segment,
+    profile_above_floor,
     segment_effects,
     segment_profile,
+    share_table,
+    spearman_matrix,
+    stacked_by_segment,
     threshold_effects,
 )
 
@@ -160,3 +165,47 @@ def test_threshold_effects_one_row_per_threshold_and_treatment(trial):
 
 def test_n_per_arm_matches_formula():
     assert n_per_arm(sd=1.0, mde=1.0) == 16
+
+
+def test_share_table_labels_columns_with_variable_name():
+    df = pd.DataFrame({"mens": [1, 1, 0, 0], "womens": [0, 1, 1, 1]})
+    out = share_table(df, "mens", "womens")
+    assert list(out.columns) == ["womens=0", "womens=1"]
+    assert out.loc[1, "womens=1"] == pytest.approx(0.5)
+
+
+def test_spearman_matrix_ranks_history_segment():
+    df = pd.DataFrame(
+        {"history": [10.0, 150.0, 300.0], "history_segment": ["1) a", "2) b", "3) c"]}
+    )
+    out = spearman_matrix(df, ["history", "history_segment"])
+    assert out.loc["history", "history_segment"] == pytest.approx(1.0)
+
+
+def test_profile_above_floor_uses_level_minimum():
+    df = pd.DataFrame(
+        {
+            "p": ["both", "both", "one", "one", "one"],
+            "history": [200.0, 400.0, 30.0, 250.0, 500.0],
+            "recency": [1, 2, 3, 4, 5],
+            "newbie": [0, 1, 0, 1, 0],
+            "channel": ["Web"] * 5,
+        }
+    )
+    out = profile_above_floor(df, "p", "both").set_index("p")
+    assert out.loc["one", "n"] == 2
+    assert out.loc["one", "history_floor"] == 200.0
+
+
+def test_stacked_by_segment_labels_rows(trial):
+    means = stacked_by_segment(trial, ["seg"], ["visit"], "means")
+    effects = stacked_by_segment(trial, ["seg"], ["visit", "spend"], "effects")
+    assert set(means["label"]) == {"seg: a", "seg: b"}
+    assert len(effects) == 12
+
+
+def test_buyer_sample_size_scales_by_conversion(trial):
+    row = buyer_sample_size(trial, 10.0).iloc[0]
+    assert row["customers_per_arm"] == pytest.approx(
+        row["buyers_per_arm"] / row["mailed_conversion"]
+    )

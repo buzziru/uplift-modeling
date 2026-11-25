@@ -1,2 +1,2 @@
-group,n,visit_rate,conversion_rate,buyers,spend_mean,buyer_spend_mean,buyer_p50,buyer_p90,buyer_p99,buyer_max,buyers_at_max
-All,44800,0.1467857142857143,0.009040178571428572,405,1.0611223214285714,117.37846913580246,78.87,272.5640000000001,499.0,499.0,8
+group,n,visit_rate,conversion_rate,buyers,spend_mean,buyer_spend_mean,buyer_p50,buyer_p90,buyer_p99,buyer_min,buyers_at_min_share,buyer_max,buyers_at_max
+All,44800,0.1467857142857143,0.009040178571428572,405,1.0611223214285714,117.37846913580246,78.87,272.5640000000001,499.0,29.99,0.24938271604938272,499.0,8
