@@ -91,9 +91,8 @@ def test_estimators_recover_planted_policy_value_and_aipw_is_narrower():
     policy = top_k(p[:, 1:] - p[:, :1], k=len(t) // 2)
     truth = (policy * p).sum(axis=1).mean()
     table = compare_methods(policy, t, y, p, n_boot=1000)
-    for row in table.itertuples():
-        assert row.low <= truth <= row.high
-    se = table.set_index("method")["se"]
+    assert bool(((table["low"] <= truth) & (truth <= table["high"])).all())
+    se = dict(zip(table["method"], table["se"], strict=True))
     assert se["aipw"] < se["ipw"]
     assert se["hajek"] < se["ipw"]
 

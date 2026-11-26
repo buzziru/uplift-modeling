@@ -26,9 +26,13 @@ def test_pair_scores_use_only_that_mail_and_control():
     y = (rng.random(n) < p).astype(int)
     scores = ranking_scores(effect, t, y)
     assert set(scores["comparison"]) == {"Mens vs None", "Womens vs None"}
-    assert (scores["qini_auc"] > 0).all()
+    assert bool((scores["qini_auc"].to_numpy() > 0).all())
     curves = qini_curves(effect, t, y)
-    assert curves.groupby("comparison")["n_targeted"].max().tolist() == [
+    max_targeted = [
+        int(curves.loc[curves["comparison"] == name, "n_targeted"].to_numpy().max())
+        for name in ["Mens vs None", "Womens vs None"]
+    ]
+    assert max_targeted == [
         int(np.isin(t, [0, 1]).sum()),
         int(np.isin(t, [0, 2]).sum()),
     ]
