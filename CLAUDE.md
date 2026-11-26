@@ -48,7 +48,7 @@ artifacts/           산출물. 코드와 나누고 폴더 이름은 실험·분
 data/                커밋 안 함. raw/*.parquet, uplift.duckdb
 scripts/             데이터 받기와 체크섬(fetch_data.py), DuckDB 적재와 분할(build_db.py, splits.yaml)
 tests/
-  baseline/          채택한 실행의 기준값 파일과 예측. 커밋함
+  baseline/          회귀 기준값 파일. 커밋함
 ```
 
 - 실험 폴더 이름은 ID와 짧은 주제(`EXP-001-meta-learner-compare`)이고, 산출물 폴더 이름은 ID(`EXP-001`)만 쓴다.
