@@ -29,6 +29,8 @@ experiment.md는 질문, 설계, 계획, 결과 해석 네 절로 쓴다.
 
 - 실행 위치: 로컬 또는 Kaggle과 그 이유(`.claude/skills/kaggle-remote-runner/SKILL.md`).
 - 바꿀 파일:
+- 산출물: `export`가 낼 표와 그림. `summary.md`가 인용할 수치가 든 표를 모두 적는다.
+- smoke: 정식 `compute` 전에 확인할 것과 `config.yaml` smoke 절 값.
 - 구현 검증: `tests/CLAUDE.md`의 테스트 도입 순서에서 이 실험에 걸리는 테스트. 테스트가 실패하면 테스트가 아니라 코드를 고친다.
 
 ## 결과 해석

@@ -38,11 +38,11 @@ experiments/         모델 실험. 설정을 바꿔 다시 돌려 비교하는 
   EXP-001-<주제>/
     experiment.md    질문, 설계, 계획, 결과 해석
     config.yaml      pydantic으로 검증
-    run.py           src 호출, DuckDB 기록, artifacts 내보내기만 함(Kaggle 실행은 kaggle-remote-runner 스킬의 예외)
+    run.py           compute(계산과 DuckDB 기록), export(artifacts 내보내기), smoke(표본 확인) 하위 명령(Kaggle 실행은 kaggle-remote-runner 스킬의 예외)
 analyses/            marimo 분석. 한 번 보고 판단하는 일(EDA, 결정에 쓰는 분석)
   ANA-001-<주제>.py
 artifacts/           산출물. 코드와 나누고 폴더 이름은 실험·분석 ID만 씀(data/ 예외)
-  EXP-001/           metrics.json, summary.md, figures/ 커밋. 예측 파일 커밋 안 함
+  EXP-001/           metrics.json, summary.md, figures/, tables/ 커밋. 예측 파일 커밋 안 함
   ANA-001/           figures/, tables/, summary.md 커밋. marimo HTML export 커밋 안 함
   data/              적재 때 만든 명세 요약(profile.json)과 테이블 미리보기(tables.md). 커밋함
 data/                커밋 안 함. raw/*.parquet, uplift.duckdb
