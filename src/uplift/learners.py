@@ -14,18 +14,14 @@ from causalml.inference.meta import (
 from causalml.inference.tree import UpliftRandomForestClassifier
 
 from uplift.oof import oof_predict
-from uplift.policy import CONTROL, MENS, WOMENS, best_action
+from uplift.policy import CONTROL, MAILS, best_action
+from uplift.response import classifier as _clf
 from uplift.response import search_space as lgbm_space
 from uplift.value import PROPENSITY, policy_value
 
-MAILS = (MENS, WOMENS)
 PAIR_PROPENSITY = PROPENSITY / (2 * PROPENSITY)
 FitPredict = Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray]
 Make = Callable[[dict, int], FitPredict]
-
-
-def _clf(params: dict, seed: int) -> lgb.LGBMClassifier:
-    return lgb.LGBMClassifier(**params, random_state=seed, verbose=-1)
 
 
 def _reg(params: dict, seed: int) -> lgb.LGBMRegressor:
@@ -36,6 +32,7 @@ def _pair_p(n: int) -> dict[int, np.ndarray]:
     return {mail: np.full(n, PAIR_PROPENSITY) for mail in MAILS}
 
 
+# causalml 메타 학습기는 클래스마다 fit·predict 시그니처가 달라 하나의 Protocol로 맞출 수 없다
 def _meta(build: Callable[[dict, int], Any], propensity: bool) -> Make:
     def make(params: dict, seed: int) -> FitPredict:
         def fit_predict(x, t, y, x_new):

@@ -98,7 +98,9 @@ def _(budget_plot, differences, judge_budget, out):
     judged = judge_budget(differences, FLOOR)
     differences.to_csv(out / "tables" / "budget_differences.csv", index=False)
     judged.to_csv(out / "tables" / "budget_judgement.csv", index=False)
-    budget_plot(differences, judged).savefig(out / "figures" / "budget_differences.png", dpi=150)
+    budget_plot(
+        differences, judged, "visit: uplift (S-learner) - response model at the same send count"
+    ).savefig(out / "figures" / "budget_differences.png", dpi=150)
     judged
     return
 

@@ -1,6 +1,5 @@
 from collections.abc import Callable
 
-import duckdb
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
@@ -8,14 +7,6 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
 from uplift.policy import N_ARMS
-
-
-def load_folds(con: duckdb.DuckDBPyConnection, seed: int) -> pd.Series:
-    folds = con.execute(
-        "SELECT customer_id, fold FROM folds WHERE seed = $seed ORDER BY customer_id",
-        {"seed": seed},
-    ).df()
-    return pd.Series(folds["fold"].to_numpy(), index=folds["customer_id"], name="fold")
 
 
 def oof_predict(

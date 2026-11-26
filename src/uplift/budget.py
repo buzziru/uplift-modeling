@@ -26,7 +26,7 @@ def budget_differences(
         )
         rows.append(
             {
-                "ratio": ratio,
+                "send_ratio": ratio,
                 "sends": sends,
                 "uplift_value": value.policy_value(ours, treatment, outcome, "hajek"),
                 "response_value": value.policy_value(theirs, treatment, outcome, "hajek"),
@@ -38,7 +38,9 @@ def budget_differences(
 
 
 def judge_budget(differences: pd.DataFrame, floor: float) -> pd.DataFrame:
-    table = differences.groupby("ratio")["estimate"].agg(mean_diff="mean", low="min", high="max")
+    table = differences.groupby("send_ratio")["estimate"].agg(
+        mean_diff="mean", low="min", high="max"
+    )
     table["seed_range"] = table["high"] - table["low"]
     table = table.drop(columns=["low", "high"])
     table["threshold"] = np.maximum(table["seed_range"], floor)

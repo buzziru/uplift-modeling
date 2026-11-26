@@ -146,26 +146,32 @@ def send_ratio_plot(values: pd.DataFrame, references: dict[str, float], title: s
     return fig
 
 
-def budget_plot(differences: pd.DataFrame, judged: pd.DataFrame) -> Figure:
+def budget_plot(differences: pd.DataFrame, judged: pd.DataFrame, title: str) -> Figure:
     fig, ax = plt.subplots(figsize=(7, 4.5))
     sns.lineplot(
         data=differences.assign(seed=differences["seed"].astype(str)),
-        x="ratio",
+        x="send_ratio",
         y="estimate",
         hue="seed",
         marker="o",
         linewidth=0.8,
         ax=ax,
     )
-    for seed, part in differences.groupby("seed"):
-        part = part.sort_values("ratio")
-        ax.fill_between(part["ratio"], part["low"], part["high"], alpha=0.12)
+    for _, part in differences.groupby("seed"):
+        part = part.sort_values("send_ratio")
+        ax.fill_between(part["send_ratio"], part["low"], part["high"], alpha=0.12)
     sns.lineplot(
-        data=judged, x="ratio", y="mean_diff", color="black", linewidth=2, label="seed mean", ax=ax
+        data=judged,
+        x="send_ratio",
+        y="mean_diff",
+        color="black",
+        linewidth=2,
+        label="seed mean",
+        ax=ax,
     )
     sns.lineplot(
         data=judged,
-        x="ratio",
+        x="send_ratio",
         y="threshold",
         color="black",
         linestyle="--",
@@ -173,10 +179,10 @@ def budget_plot(differences: pd.DataFrame, judged: pd.DataFrame) -> Figure:
         label="threshold",
         ax=ax,
     )
-    ax.plot(judged["ratio"], -judged["threshold"], "k--", linewidth=1)
+    ax.plot(judged["send_ratio"], -judged["threshold"], "k--", linewidth=1)
     ax.axhline(0, color="gray", linewidth=0.8)
     ax.set(
-        title="visit: uplift (S-learner) - response model at the same send count",
+        title=title,
         xlabel="send ratio",
         ylabel="Hajek policy value difference",
     )

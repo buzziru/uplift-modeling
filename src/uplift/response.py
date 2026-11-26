@@ -5,9 +5,11 @@ import pandas as pd
 from sklearn.metrics import log_loss
 
 from uplift.oof import oof_predict
-from uplift.policy import MENS, WOMENS
+from uplift.policy import MAILS
 
-MAIL_ARMS = (MENS, WOMENS)
+
+def classifier(params: dict, seed: int) -> lgb.LGBMClassifier:
+    return lgb.LGBMClassifier(**params, random_state=seed, verbose=-1)
 
 
 def arm_models_oof(
@@ -17,7 +19,7 @@ def arm_models_oof(
     folds: np.ndarray,
     params: dict,
     seed: int,
-    arms: tuple[int, ...] = MAIL_ARMS,
+    arms: tuple[int, ...] = MAILS,
 ) -> np.ndarray:
     treatment = np.asarray(treatment)
     outcome = np.asarray(outcome)
@@ -26,7 +28,7 @@ def arm_models_oof(
         pred = np.empty((int(test.sum()), len(arms)))
         for j, arm in enumerate(arms):
             rows = train & (treatment == arm)
-            model = lgb.LGBMClassifier(**params, random_state=seed, verbose=-1)
+            model = classifier(params, seed)
             model.fit(x[rows], outcome[rows])
             pred[:, j] = np.asarray(model.predict_proba(x[test]))[:, 1]
         return pred
@@ -38,7 +40,7 @@ def arm_log_loss(
     pred: np.ndarray,
     treatment: np.ndarray,
     outcome: np.ndarray,
-    arms: tuple[int, ...] = MAIL_ARMS,
+    arms: tuple[int, ...] = MAILS,
 ) -> float:
     treatment = np.asarray(treatment)
     outcome = np.asarray(outcome)

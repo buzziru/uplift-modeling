@@ -11,7 +11,7 @@ from pydantic import BaseModel, PositiveFloat
 
 from uplift import learners, plots, policy, ranking, runs, value
 from uplift.features import feature_matrix
-from uplift.policy import MENS, WOMENS
+from uplift.policy import MAILS
 from uplift.selection import choose_method
 from uplift.train_data import TrainData, from_duckdb, from_parquet
 
@@ -19,7 +19,6 @@ HERE = Path(__file__).parent
 ROOT = HERE.parents[1]
 DB = ROOT / "data" / "uplift.duckdb"
 CODE = [str(ROOT / "src"), str(HERE)]
-MAILS = (MENS, WOMENS)
 
 
 class Smoke(BaseModel):
