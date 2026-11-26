@@ -15,8 +15,8 @@ REASON = (
     "승인 요청 검사(.claude/harness/check_approval.py): 사용자에게 결정을 요청했는데 "
     f'"{PRIOR}" 줄이 없다. 질문마다 정본, 기록 문서, '
     "이 대화의 앞 결정과 대조한다. 앞 결정이나 그 의도로 닫히는 질문은 거두고 "
-    "CLAUDE.md 승인 지점 절의 메인이 정하는 줄대로 처리한다. 닫히지 않는 질문에는 "
-    "CLAUDE.md 승인 지점 절의 앞 결정 줄을 붙인다. 그다음 답변을 다시 쓴다."
+    "`.claude/rules/approvals.md`의 메인이 정하는 줄대로 처리한다. 닫히지 않는 질문에는 "
+    "`.claude/rules/approvals.md`의 앞 결정 줄을 붙인다. 그다음 답변을 다시 쓴다."
 )
 
 

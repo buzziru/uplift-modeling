@@ -1,57 +1,16 @@
-<!-- solo-harness:start -->
-## 하네스
-
-- 메인이 직접 일한다. 기획·작성·수정을 에이전트로 나누지 않는다.
-- 에이전트는 조사, 병렬, 분리된 검증, 권한 분리에만 쓴다.
-- 위임하는 동안 결과에 기대지 않는 일을 하고, 결과는 단위별로 오는 대로 처리한다.
-- 나눌 일이 worker보다 많으면 고정으로 나누지 않고, 끝난 worker가 다음 일을 가져간다.
-- 같은 지시를 두 번 받으면 스킬이나 규칙 후보로 기록한다.
-- 사용자가 고쳐 준 것은 그 자리에서 세션 맥락에 안내된 `record.mjs observe --source conversation`으로 남긴다.
-- 새 종류의 산출물은 앞부분을 먼저 보이고 피드백을 받은 뒤 나머지를 만든다.
-- 평가 대상 파일(`run-evaluation` 스킬에 정의)을 바꾼 작업은 평가를, 모든 작업은 PR 전 검토(`pr-reviewer`)를 `run-evaluation` 스킬대로 받는다.
-- 작은 수정과 결정은 작업 트리나 진행 중인 브랜치에 모으고, 브랜치를 새로 만들거나 PR을 열기 전에 묶을 범위를 사용자와 정한다. 하네스 파일(범위는 아래 변경 이력 줄) 수정은 작업 변경과 다른 브랜치에 모은다. 하네스 PR은 이미 본 실수가 되풀이되지 않게 하는 변경이면 범위를 정한 뒤 쌓아 두지 않고 바로 열고, 그 밖의 변경은 하네스 브랜치에 쌓았다가 작업을 막을 때나 마일스톤을 닫을 때 연다. `experiments/`의 실험 폴더 하나는 묻지 않고 PR 하나로 한다.
-- 되돌리기 어려운 대상은 명령을 막는 대신 대상 쪽(보호 설정, 복구 수단, 보관 위치)에서 지킨다. main은 GitHub branch protection, 프로덕션 배포는 Vercel Git 연동(main 병합 때만), 원본 데이터는 받는 스크립트와 체크섬, 비밀 값(API 키)은 저장소 밖 Doppler에 두고 실행할 때 주입한다.
-- 거부 규칙은 흔한 명령 꼴만 막는 첫 방어선이다. 같은 동작의 다른 명령 꼴을 찾아 규칙을 더하지 않는다.
-- 실수가 되풀이되면 먼저 그 실수가 생기는 자리를 구조로 없앤다(같은 사실을 한 곳에만 두거나 코드·표에서 만들기, 실행 단계를 나눠 다시 할 범위 줄이기). 구조로 없앨 수 없을 때만 탐지 검사를 더한다. 탐지 검사는 같은 꼴의 오류가 서로 다른 작업 두 곳에서 나왔고, 문자열만으로 판정되며, 지금 저장소에서 오탐이 없을 때 오류로 더한다. 알림은 새로 만들지 않고, 같은 오탐을 되풀이하는 알림은 고치거나 지운다. 의미, 과장, 설계와의 대조는 검사로 옮기지 않고 평가와 검토에 둔다.
-- 정본의 내용을 하네스 파일에 옮겨 적지 않는다. 가리켜야 하면 파일 이름만 쓴다. `SPEC.md`는 시작 명세로 고정한 문서라 맞추거나 가리키지 않는다.
-- 규칙을 새로 쓰거나 바꾸기 전에 같은 대상을 정하는 정본과 하네스 파일(범위는 아래 변경 이력 줄)을 먼저 읽는다. 용어나 규칙 표현을 바꾸면 바뀌기 전 표현을 저장소에서 검색해 남은 곳을 같은 커밋에서 고친다.
-- 정의된 용어는 그대로 쓰고, 정의를 가리키거나 뜻을 다시 풀어 쓰지 않는다.
-- 하네스 파일(이 절, `.claude/skills/`, `.claude/rules/`, `.claude/agents/`, `.claude/rubrics/`, 거부 규칙, `.claude/harness/config.json`, `.claude/harness/check_docs.py`, `.claude/harness/check_approval.py`)을 바꾸면 `.claude/harness/CHANGELOG.md`에 행을 더한다. 같은 브랜치에서 이미 행을 더했으면 solo-harness `docs/formats.md` 4절을 따른다.
-
-### 승인 지점
-
-- 사용자에게 묻는다: 문제 정의와 성공 기준(결과 변수 재확인과 금전 가치 변환 방법 포함), 데이터 분할과 검증 전략, 모델 선택, 타겟팅 정책과 비용 가정, 대시보드 화면 구성, 사이트에 쓸 성과 문장, 시험 세트 사용, 공개 배포, 저장소 공개 설정 변경, 해석이 갈리는 지시. 승인 요청에는 선택지별 개념 설명, 근거 수치, 추천안과 "확인한 앞 결정: <위치>, 닫히지 않는 이유: <한 줄>" 줄을 붙인다. Stop hook(`.claude/harness/check_approval.py`)은 그 스크립트가 정한 요청 꼴에 이 줄이 없으면 답변을 한 번 되돌린다.
-- 메인이 정하고 보고에 한 줄로 적는다: 라이브러리 선택, 코드 구조, 하이퍼파라미터 탐색 범위, 시각화 라이브러리, 폴더 구조, 앞 결정의 의도가 덮는 새 사례, 저장소를 읽으면 닫히는 질문. 정한 것은 정본에 반영하고 해당 기록 문서에 항목을 남긴다.
-
-<!-- solo-harness:end -->
-
 ## 프로젝트
 
-- `SPEC.md`는 시작 명세이고 고치지 않는다. 지금 계획은 `docs/plans/`, 문서 체계는 `docs/CLAUDE.md`, 용어는 `docs/glossary.md`다.
-- 폴더 규약은 `analyses/CLAUDE.md`, `docs/CLAUDE.md`, `experiments/CLAUDE.md`, `scripts/CLAUDE.md`, `tests/CLAUDE.md`, 실험 양식은 `experiments/TEMPLATE.md`, Kaggle 실행은 `.claude/skills/kaggle-remote-runner/SKILL.md`다.
+- `SPEC.md`는 시작 명세라 고치지 않는다. 지금 계획은 `docs/plans/`에 있다.
+- 되돌리기 어려운 대상은 명령을 막는 대신 대상 쪽에서 지킨다. main은 GitHub branch protection, 프로덕션 배포는 Vercel Git 연동(main 병합 때만), 원본 데이터는 `scripts/fetch_data.py`의 체크섬으로 지킨다. 비밀 값(API 키)은 저장소 밖 Doppler에 두고 `doppler run -p uplift-modeling -c dev -- <명령>`으로 주입한다.
 
-### 폴더 구조
+## 명령
 
-```
-src/uplift/          계산 코드 전부(데이터, DB, 학습기, 지표, 정책, 그림)
-experiments/         모델 실험. 설정을 바꿔 다시 돌려 비교하는 일
-  TEMPLATE.md        experiment.md 양식과 쓰는 법
-  EXP-001-<주제>/
-    experiment.md    질문, 설계, 계획, 결과 해석
-    config.yaml      pydantic으로 검증
-    run.py           compute, export, smoke 하위 명령(`experiments/CLAUDE.md`)
-analyses/            marimo 분석. 한 번 보고 판단하는 일(EDA, 결정에 쓰는 분석)
-  ANA-001-<주제>.py
-artifacts/           산출물. 코드와 나누고 폴더 이름은 실험·분석 ID만 씀(data/ 예외)
-  EXP-001/           metrics.json, summary.md, figures/, tables/ 커밋. 예측 파일 커밋 안 함
-  ANA-001/           figures/, tables/, summary.md 커밋. marimo HTML export 커밋 안 함
-  data/              적재 때 만든 명세 요약(profile.json)과 테이블 미리보기(tables.md). 커밋함
-data/                커밋 안 함. raw/*.parquet, uplift.duckdb, kaggle/(dataset, kernel 폴더, state.json)
-scripts/             데이터 받기와 체크섬(fetch_data.py), DuckDB 적재와 분할(build_db.py, splits.yaml), Kaggle 실행(kaggle.py)
-tests/
-  baseline/          회귀 기준값 파일. 커밋함
-```
+- PR 전 검사: `.claude/harness/config.json`의 `check` 목록. 테스트 하나는 `uv run pytest tests/test_policy.py -k <이름>`.
+- 데이터 준비: `uv run python scripts/fetch_data.py` 다음 `uv run python scripts/build_db.py`. build_db는 데이터·분할 테이블만 다시 만들고 실험 기록 테이블은 둔다.
+- 실험: `run.py smoke <저장소 밖 임시 폴더>`로 확인한 뒤 `compute`, 출력된 run_id로 `export <run_id>`.
+- 분석: `uv run marimo edit analyses/<파일>.py`. DuckDB는 ANA-000 노트북이나 `artifacts/data/tables.md`로 본다.
 
-- 실험 폴더 이름은 ID와 짧은 주제(`EXP-001-meta-learner-compare`)이고, 산출물 폴더 이름은 ID(`EXP-001`)만 쓴다.
-- DuckDB 파일은 `artifacts/data/tables.md`를 열거나 `uv run marimo edit analyses/ANA-000-data-browse.py`로 본다.
-- 나중에 참고할 결과(그림, 표, 요약)는 `artifacts/<ID>/`에 저장해 커밋한다. marimo는 실행 결과를 파일에 남기지 않기 때문이다. 크고 다시 만들 수 있는 파일(marimo HTML export, 예측)은 커밋하지 않는다.
+## 커밋하는 산출물
+
+- 나중에 참고할 결과(그림, 표, `metrics.json`, `summary.md`)는 `artifacts/<ID>/`에 저장해 커밋한다. 폴더 이름은 ID만 쓴다. marimo는 실행 결과를 파일에 남기지 않기 때문이다.
+- `data/`, 예측 파일, marimo HTML export는 커밋하지 않는다.
