@@ -7,8 +7,8 @@
 | 단위 | 내용 | 앞에 필요한 것 | PR |
 | --- | --- | --- | --- |
 | U1 ANA-002, ANA-003 | ANA-002 분포 EDA(공변량·결과 분포와 변수별 해석, 상관, 군별 분포와 구매 고객 1명당 금액 구간). ANA-003 고객 세그먼트와 메일 반응(구매 상품·지역·채널 교차 구성, 대조군의 세그먼트별 행동, 세그먼트별 효과와 퍼널 분해 가정 확인, 담당자 질문). 2026-11-25 분리. 학습 세트만. 비교 정책 정의를 PROBLEM.md에 반영 | 없음 | PR-A |
-| U2 평가 도구 | IPW 정책 가치와 정책 차이, 부트스트랩 구간, 정책 생성, 처치 쌍별 Qini·AUUC, OOF 실행기(folds 테이블), DuckDB 실행 기록. BACKLOG "다음 작업 PR" 두 행 | 없음 | PR-B |
-| U3 EXP-001 비교 정책 | 무작위 타겟팅, 전체 발송 정책, 반응 모델의 OOF 정책 가치와 비교 정책 사이 차이의 seed 간 범위(U5 판정 규칙에 쓸 값). 빈 `experiments/EXP-001/`을 `EXP-001-<주제>`로 바꿔 씀 | U2 | 실험 PR |
+| U2 평가 도구 | IPW·Hájek·AIPW 정책 가치(AIPW의 outcome model과 cross-fitting 포함)와 정책 차이, 부트스트랩 구간, 정책 생성, 처치 쌍별 Qini·AUUC, OOF 실행기(folds 테이블), DuckDB 실행 기록. BACKLOG "다음 작업 PR" 두 행 | 없음 | PR-B |
+| U3 EXP-001 비교 정책 | 무작위 타겟팅, 전체 발송 정책, 반응 모델의 OOF 정책 가치와 비교 정책 사이 차이의 seed 간 범위(U5 판정 규칙에 쓸 값). 세 추정량의 OOF 구간 폭 비교. 빈 `experiments/EXP-001/`을 `EXP-001-<주제>`로 바꿔 씀 | U2 | 실험 PR |
 | U4 공통 학습기와 Kaggle 연결 | 학습기 인터페이스, causalml 설치 확인(로컬, Kaggle 이미지), dataset 업로드·출력 형식·DuckDB 기록 시험 실행 | U2 | U5 PR에 포함 |
 | U5 EXP-002 1단계 | LightGBM 고정, S·T·X·DR-learner, uplift random forest, class transformation, transformed outcome. 설계 절 먼저 커밋 | U3, U4, 이진 처치 비교 정의 승인(U3 무렵 요청). 늦으면 이진 전용 둘을 나눔 | 실험 PR |
 | 승인 | 1단계 방법론 | U5 | |
