@@ -339,7 +339,13 @@ def test_unmatched_numbers_rounds_scales_percent_and_skips_non_values():
         "ANA-001, 2026-11-26, `ate.csv`, 95% 구간, 검정력 80%, p < 0.001, 기준 0.1, 방문 1회"
     )
     assert check_docs.unmatched_numbers(text, values) == []
-    assert check_docs.unmatched_numbers("효과 0.078, 1.2배, 30%", values) == ["0.078", "1.2", "30%"]
+    assert check_docs.unmatched_numbers("효과 0.078, 1.2배, 30%", values) == ["0.078", "1.2"]
+
+
+def test_unmatched_numbers_skips_integers():
+    text = "학습 세트 44,800명, 18개, 100% 발송, 200 이상, 30%"
+    assert check_docs.unmatched_numbers(text, [0.5]) == []
+    assert check_docs.unmatched_numbers("비율 12.5%, 효과 0.25", [0.5]) == ["12.5%", "0.25"]
 
 
 def test_check_summary_matches_numbers_against_cited_tables_only(tmp_path, monkeypatch):
@@ -359,26 +365,23 @@ def test_check_summary_matches_numbers_against_cited_tables_only(tmp_path, monke
     assert check_docs.check_summary("artifacts/EXP-009/summary.md") == []
 
 
-def test_check_summary_skips_header_before_first_section(tmp_path, monkeypatch):
+def test_summaries_fail_on_decimal_mismatch(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(check_docs, "ROOT", tmp_path)
     folder = tmp_path / "artifacts" / "EXP-009"
     (folder / "tables").mkdir(parents=True)
     (folder / "tables" / "a.csv").write_text("x\n0.5\n", encoding="utf-8")
-    (folder / "summary.md").write_text(
-        "# 요약\n\n학습 세트 44,800명, 부트스트랩 1,000회.\n\n## 결론 0.5\n\n값 0.5와 0.7.\n",
-        encoding="utf-8",
+    summary = folder / "summary.md"
+    summary.write_text(
+        "학습 세트 44,800명.\n\n## 결론 0.5\n\n값 0.5, 100% 발송.\n", encoding="utf-8"
     )
-    assert check_docs.check_summary("artifacts/EXP-009/summary.md") == [
-        "tables/에 없는 수치 1건: artifacts/EXP-009/summary.md (0.7)"
-    ]
-    (folder / "summary.md").write_text("## 결론 0.7\n\n값 0.5.\n", encoding="utf-8")
-    assert check_docs.check_summary("artifacts/EXP-009/summary.md") == [
-        "tables/에 없는 수치 1건: artifacts/EXP-009/summary.md (0.7)"
-    ]
-    (folder / "summary.md").write_text("값 0.5와 0.7.\n", encoding="utf-8")
-    assert check_docs.check_summary("artifacts/EXP-009/summary.md") == [
-        "tables/에 없는 수치 1건: artifacts/EXP-009/summary.md (0.7)"
-    ]
+    monkeypatch.setattr(check_docs.sys, "argv", ["x", "--summary", "artifacts/EXP-009/summary.md"])
+    assert check_docs.summaries() == 0
+    summary.write_text("## 결론 0.5\n\n값 0.7.\n", encoding="utf-8")
+    assert check_docs.summaries() == 1
+    assert (
+        "오류: tables/에 없는 수치 1건: artifacts/EXP-009/summary.md (0.7)"
+        in capsys.readouterr().out
+    )
 
 
 def test_table_values_reads_numbers_in_column_labels(tmp_path):

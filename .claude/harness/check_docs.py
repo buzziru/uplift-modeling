@@ -309,6 +309,8 @@ def json_leaves(data: object) -> list[object]:
 def unmatched_numbers(text: str, values: list[float]) -> list[str]:
     missing = []
     for token in NUMBER.findall(NOT_VALUE.sub(" ", text)):
+        if "." not in token:
+            continue
         digits = token.rstrip("%").replace(",", "")
         x = abs(float(digits))
         tol = 0.5 * 10 ** -len(digits.partition(".")[2]) + 1e-9
@@ -323,10 +325,8 @@ def check_summary(path: str) -> list[str]:
     if not (folder / "tables").is_dir():
         return []
     every = table_values(folder)
-    text = (ROOT / path).read_text(encoding="utf-8")
-    first = re.search(r"^## ", text, re.MULTILINE)
     missing = []
-    for block in re.split(r"\n\s*\n|\n(?=- )", text[first.start() :] if first else text):
+    for block in re.split(r"\n\s*\n|\n(?=- )", (ROOT / path).read_text(encoding="utf-8")):
         cited = sorted(set(TABLE_REF.findall(block)))
         values = [v for name in cited for v in table_values(folder, name)] if cited else every
         missing += unmatched_numbers(block, values)
@@ -337,10 +337,10 @@ def check_summary(path: str) -> list[str]:
 
 def summaries() -> int:
     paths = [a for a in sys.argv[2:]] or tracked("artifacts/*/summary.md")
-    for p in paths:
-        for w in check_summary(Path(p).as_posix()):
-            print(f"알림: {w}")
-    return 0
+    errors = [e for p in paths for e in check_summary(Path(p).as_posix())]
+    for e in errors:
+        print(f"오류: {e}")
+    return 1 if errors else 0
 
 
 def hook() -> None:
@@ -365,7 +365,7 @@ def hook() -> None:
     if file_path in record_files():
         warnings += check_history()
     if SUMMARY.fullmatch(path):
-        warnings += check_summary(path)
+        errors += check_summary(path)
     lines = [f"오류: {e}" for e in errors] + [f"알림: {w}" for w in warnings]
     if not lines:
         return
@@ -435,7 +435,7 @@ def branch() -> int:
     for p in git_text(
         "diff", "--name-only", "--diff-filter=d", "origin/main...HEAD", "--", "artifacts/*/summary.md"
     ).split():
-        warnings += check_summary(p)
+        errors += check_summary(p)
     if "+++ b/SPEC.md" in diff:
         warnings.append("SPEC.md는 시작 명세로 고정한 문서다. 바꾼 이유를 보고에 적는다")
     errors += check_canon(
