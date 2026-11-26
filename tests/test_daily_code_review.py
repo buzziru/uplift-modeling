@@ -25,10 +25,9 @@ def test_code_diffs_keeps_python_code_paths():
 
 
 def test_fill_puts_earlier_groups_first():
-    kept, omitted = review.fill(
-        [("a", [{"path": "x", "t": "1234"}], "t"), ("b", [{"path": "y", "t": "12"}], "t")], 5
-    )
-    assert (kept, omitted) == ({"a": [{"path": "x", "t": "1234"}], "b": []}, ["b y"])
+    first, second = {"path": "x", "t": "1234"}, {"path": "y", "t": "12"}
+    kept, omitted = review.fill([("a", [first]), ("b", [second])], review.size(first))
+    assert (kept, omitted) == ({"a": [first], "b": []}, ["b y"])
 
 
 @pytest.fixture
@@ -89,3 +88,10 @@ def test_ask_with_fallback_picks_model(monkeypatch, first, model, failure):
 def test_owned_drops_other_authors():
     prs = [{"number": 1, "author": {"login": "o"}}, {"number": 2, "author": {"login": "x"}}]
     assert [p["number"] for p in review.owned(prs, "o")] == [1]
+
+
+def test_review_input_stays_under_limit(repo, monkeypatch):
+    monkeypatch.setattr(review, "MAX_CHARS", 400)
+    diffs = [{"pr": 7, "path": "src/uplift/a.py", "diff": "+" + "x" * 150}]
+    data, omitted = review.review_input([{"number": 7, "title": "t"}], diffs, repo, [])
+    assert (review.size(data) <= 400, omitted != []) == (True, True)

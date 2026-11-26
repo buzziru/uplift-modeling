@@ -17,7 +17,7 @@ NO_FINDINGS = "NO_FINDINGS"
 CODE_DIRS = ("src/", "scripts/", "experiments/", "analyses/", "tests/", ".github/scripts/")
 CONTEXT_GLOBS = ("src/uplift/*.py", "scripts/*.py", "experiments/*/run.py")
 MAX_CHARS = 300_000  # 같은 방식의 meet-rag 일일 리뷰에서 시험한 상한
-MAX_TOKENS = 32000
+MAX_TOKENS = 64000  # 첫 실행에서 사고에 약 3만 토큰을 써 32000에서 답이 잘렸다
 
 
 def gh(*args: str) -> str:
@@ -44,14 +44,18 @@ def numbered(path: Path) -> str:
     return "\n".join(f"{i}\t{line}" for i, line in enumerate(lines, 1))
 
 
-def fill(groups: list[tuple[str, list[dict], str]], limit: int) -> tuple[dict, list[str]]:
-    """앞 그룹부터, 그룹 안에서는 짧은 것부터 상한까지 넣는다. 뺀 항목은 이름으로 돌려준다."""
+def size(value: object) -> int:
+    return len(json.dumps(value, ensure_ascii=False))
+
+
+def fill(groups: list[tuple[str, list[dict]]], limit: int) -> tuple[dict, list[str]]:
+    """앞 그룹부터, 그룹 안에서는 짧은 것부터 JSON 길이 상한까지 넣는다. 뺀 항목은 이름으로 돌려준다."""
     room, kept, omitted = limit, {}, []
-    for name, items, field in groups:
+    for name, items in groups:
         kept[name] = []
-        for item in sorted(items, key=lambda x: len(x[field])):
-            if len(item[field]) <= room:
-                room -= len(item[field])
+        for item in sorted(items, key=size):
+            if size(item) <= room:
+                room -= size(item)
                 kept[name].append(item)
             else:
                 omitted.append(f"{name} {item['path']}")
@@ -66,22 +70,20 @@ def review_input(
         {str(p.relative_to(root)).replace("\\", "/") for g in CONTEXT_GLOBS for p in root.glob(g)}
         - set(changed)
     )
-    kept, omitted = fill(
-        [
-            ("diffs", diffs, "diff"),
-            ("changed_files", [{"path": p, "text": numbered(root / p)} for p in changed], "text"),
-            ("context_files", [{"path": p, "text": numbered(root / p)} for p in context], "text"),
-        ],
-        MAX_CHARS,
-    )
-    data = {
+    base = {
         "prs": prs,
         "criteria": (root / CRITERIA).read_text(encoding="utf-8"),
-        **kept,
         "open_review_issues": open_issues,
-        "omitted": omitted,
     }
-    return data, omitted
+    groups = [
+        ("diffs", diffs),
+        ("changed_files", [{"path": p, "text": numbered(root / p)} for p in changed]),
+        ("context_files", [{"path": p, "text": numbered(root / p)} for p in context]),
+    ]
+    all_omitted = [f"{name} {item['path']}" for name, items in groups for item in items]
+    skeleton = base | {name: [] for name, _ in groups} | {"omitted": all_omitted}
+    kept, omitted = fill(groups, MAX_CHARS - size(skeleton))
+    return base | kept | {"omitted": omitted}, omitted
 
 
 def issue_body(text: str, model: str, failure: str | None, omitted: list[str]) -> str | None:
