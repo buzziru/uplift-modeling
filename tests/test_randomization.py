@@ -12,14 +12,21 @@ from uplift.randomization import (
     srm_test,
 )
 
+EQUAL = pd.Series({0: 1, 1: 1, 2: 1})
 
-def test_srm_test_passes_design_ratio_and_flags_mismatch():
-    ratio = pd.Series({0: 1, 1: 1, 2: 1})
-    ok = srm_test(pd.Series({0: 1000, 1: 1010, 2: 990}), ratio)
-    bad = srm_test(pd.Series({0: 1000, 1: 1200, 2: 800}), ratio)
-    assert not ok["mismatch"]
-    assert bad["mismatch"]
-    assert ok["expected"] == {0: 1000.0, 1: 1000.0, 2: 1000.0}
+
+@pytest.mark.parametrize(
+    ("counts", "mismatch"),
+    [({0: 1000, 1: 1010, 2: 990}, False), ({0: 1000, 1: 1200, 2: 800}, True)],
+    ids=["balanced", "skewed"],
+)
+def test_srm_test_flags_mismatch(counts, mismatch):
+    assert srm_test(pd.Series(counts), EQUAL)["mismatch"] is mismatch
+
+
+def test_srm_test_expected_follows_ratio():
+    out = srm_test(pd.Series({0: 1000, 1: 1010, 2: 990}), EQUAL)
+    assert out["expected"] == {0: 1000.0, 1: 1000.0, 2: 1000.0}
 
 
 def test_smd_table_numeric_matches_formula():
@@ -31,24 +38,40 @@ def test_smd_table_numeric_matches_formula():
     assert not row["balanced"]
 
 
-def test_smd_table_categorical_has_one_row_per_level_and_treatment():
+@pytest.fixture
+def zip_smd():
     x = pd.DataFrame({"zip": ["A", "B", "A", "A", "B", "B", "A", "B", "A"]})
-    t = pd.Series([0, 0, 0, 1, 1, 1, 2, 2, 2])
-    out = smd_table(x, t)
-    assert set(zip(out["treatment"], out["level"])) == {(1, "A"), (1, "B"), (2, "A"), (2, "B")}
-    a1 = out[(out["treatment"] == 1) & (out["level"] == "A")]["smd"].item()
-    b1 = out[(out["treatment"] == 1) & (out["level"] == "B")]["smd"].item()
-    assert a1 == pytest.approx(-b1)
+    return smd_table(x, pd.Series([0, 0, 0, 1, 1, 1, 2, 2, 2]))
 
 
-def test_ate_diff_effect_and_interval():
+def test_smd_table_row_per_level_treatment(zip_smd):
+    cells = set(zip(zip_smd["treatment"], zip_smd["level"], strict=True))
+    assert cells == {(1, "A"), (1, "B"), (2, "A"), (2, "B")}
+
+
+def test_smd_table_binary_levels_symmetric(zip_smd):
+    smd = zip_smd[zip_smd["treatment"] == 1].set_index("level")["smd"]
+    assert smd["A"] == pytest.approx(-smd["B"])
+
+
+@pytest.fixture
+def ate_row():
     y = pd.Series([0, 0, 1, 1, 1, 1, 0, 1])
     t = pd.Series([0, 0, 0, 0, 1, 1, 1, 1])
-    row = ate_diff(y, t).iloc[0]
-    assert row["effect"] == pytest.approx(0.25)
+    return ate_diff(y, t).iloc[0]
+
+
+def test_ate_diff_effect_is_mean_diff(ate_row):
+    assert ate_row["effect"] == pytest.approx(0.25)
+
+
+def test_ate_diff_se_unpooled(ate_row):
     se = np.sqrt(pd.Series([1, 1, 0, 1]).var() / 4 + pd.Series([0, 0, 1, 1]).var() / 4)
-    assert row["se"] == pytest.approx(se)
-    assert row["ci_low"] < row["effect"] < row["ci_high"]
+    assert ate_row["se"] == pytest.approx(se)
+
+
+def test_ate_diff_ci_brackets_effect(ate_row):
+    assert ate_row["ci_low"] < ate_row["effect"] < ate_row["ci_high"]
 
 
 def test_precision_at_test_size_scales_with_test_size():

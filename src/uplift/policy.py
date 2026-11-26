@@ -2,6 +2,7 @@ import numpy as np
 
 CONTROL, MENS, WOMENS = 0, 1, 2
 N_ARMS = 3
+MAILS = (MENS, WOMENS)
 
 
 def fixed(choice: np.ndarray) -> np.ndarray:

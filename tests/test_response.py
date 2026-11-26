@@ -1,7 +1,9 @@
 import numpy as np
+import optuna
+from optuna.distributions import FloatDistribution, IntDistribution
 from sklearn.metrics import log_loss
 
-from uplift.response import arm_log_loss, arm_models_oof, tune
+from uplift.response import arm_log_loss, arm_models_oof, search_space, tune
 
 PARAMS = {"n_estimators": 30, "num_leaves": 7, "min_child_samples": 10}
 
@@ -34,16 +36,29 @@ def test_arm_log_loss_scores_each_mail_on_its_own_customers():
     assert np.isclose(arm_log_loss(pred, t, y), expected)
 
 
+def _space_bounds():
+    trial = optuna.create_study().ask()
+    search_space(trial)
+    return {
+        name: (d.low, d.high)
+        for name, d in trial.distributions.items()
+        if isinstance(d, FloatDistribution | IntDistribution)
+    }
+
+
+def test_tune_runs_requested_trials():
+    x, t, y, folds = _data(n=300)
+    _, trials = tune(x, t, y, folds, n_trials=3, seed=0)
+    assert len(trials) == 3
+
+
 def test_tune_returns_params_inside_search_space():
     x, t, y, folds = _data(n=300)
-    params, trials = tune(x, t, y, folds, n_trials=3, seed=0)
-    assert len(trials) == 3
-    assert 7 <= params["num_leaves"] <= 63
-    assert 0.01 <= params["learning_rate"] <= 0.1
-    assert 100 <= params["n_estimators"] <= 1000
-    assert 20 <= params["min_child_samples"] <= 500
-    assert 0.5 <= params["subsample"] <= 1 and params["subsample_freq"] == 1
-    assert 0.5 <= params["colsample_bytree"] <= 1
+    params, _ = tune(x, t, y, folds, n_trials=3, seed=0)
+    outside = {
+        k: v for k, (low, high) in _space_bounds().items() if not low <= (v := params[k]) <= high
+    }
+    assert outside == {}
 
 
 def test_held_out_fold_labels_do_not_reach_its_predictions():

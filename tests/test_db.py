@@ -33,12 +33,16 @@ def raw() -> pd.DataFrame:
     )
 
 
-def test_build_tables_assigns_row_order_ids_and_treatments(raw):
-    tables = build_tables(raw)
-    assert tables["customers"]["customer_id"].tolist() == [0, 1, 2]
-    assert tables["assignments"]["treatment_id"].tolist() == [0, 1, 2]
-    assert len(tables["customers"]) == len(tables["assignments"]) == len(tables["outcomes"])
-    assert "segment" not in tables["customers"].columns
+def test_build_tables_ids_follow_row_order(raw):
+    assert build_tables(raw)["customers"]["customer_id"].tolist() == [0, 1, 2]
+
+
+def test_build_tables_maps_treatment_id(raw):
+    assert build_tables(raw)["assignments"]["treatment_id"].tolist() == [0, 1, 2]
+
+
+def test_build_tables_drops_segment(raw):
+    assert "segment" not in build_tables(raw)["customers"].columns
 
 
 def test_build_tables_keeps_rows_aligned_by_customer_id(raw):
@@ -66,23 +70,58 @@ def test_write_db_round_trip(raw, tmp_path):
     assert n == (3,)
 
 
-def test_profile_counts_by_treatment(raw):
+@pytest.fixture
+def prof(raw):
     tables = build_tables(raw)
     tables["splits"] = pd.DataFrame({"customer_id": [0, 1, 2], "split": ["train", "train", "test"]})
-    p = profile(tables)
-    assert p["splits"]["test/Womens E-Mail"] == {"n": 1, "visit": 1, "conversion": 1}
-    assert p["rows"]["customers"] == 3
-    assert p["by_treatment"]["Womens E-Mail"]["n"] == 1
-    assert p["by_treatment"]["Womens E-Mail"]["spend_mean"] == 29.99
-    assert p["by_treatment"]["Mens E-Mail"]["visit_rate"] == 1.0
-    assert p["missing"]["recency"] == 0
-    assert p["numeric_range"]["recency"] == {"min": 1, "max": 12}
-    assert p["categories"]["zip_code"] == ["Rural", "Suburban", "Urban"]
-    assert p["binary_rate"]["womens"] == round(2 / 3, 4)
-    assert p["dtypes"]["customers"]["recency"] == "int64"
-    assert p["boundary_counts"]["history_min"] == {"value": 30.0, "count": 1}
-    assert p["boundary_counts"]["spend_positive_min"] == {"value": 29.99, "count": 1}
-    assert p["boundary_counts"]["spend_max"] == {"value": 29.99, "count": 1}
+    return profile(tables)
+
+
+def test_profile_counts_split_cell(prof):
+    assert prof["splits"]["test/Womens E-Mail"] == {"n": 1, "visit": 1, "conversion": 1}
+
+
+@pytest.mark.parametrize(
+    ("treatment", "key", "value"),
+    [
+        ("Womens E-Mail", "n", 1),
+        ("Womens E-Mail", "spend_mean", 29.99),
+        ("Mens E-Mail", "visit_rate", 1.0),
+    ],
+)
+def test_profile_summarises_treatment(prof, treatment, key, value):
+    assert prof["by_treatment"][treatment][key] == value
+
+
+def test_profile_counts_table_rows(prof):
+    assert prof["rows"]["customers"] == 3
+
+
+def test_profile_counts_missing_values(prof):
+    assert prof["missing"]["recency"] == 0
+
+
+def test_profile_describes_columns(prof):
+    described = {
+        "range": prof["numeric_range"]["recency"],
+        "zip": prof["categories"]["zip_code"],
+        "womens": prof["binary_rate"]["womens"],
+        "dtype": prof["dtypes"]["customers"]["recency"],
+    }
+    assert described == {
+        "range": {"min": 1, "max": 12},
+        "zip": ["Rural", "Suburban", "Urban"],
+        "womens": round(2 / 3, 4),
+        "dtype": "int64",
+    }
+
+
+def test_profile_counts_boundary_values(prof):
+    assert prof["boundary_counts"] == {
+        "history_min": {"value": 30.0, "count": 1},
+        "spend_positive_min": {"value": 29.99, "count": 1},
+        "spend_max": {"value": 29.99, "count": 1},
+    }
 
 
 def test_tables_markdown_lists_every_table(raw):

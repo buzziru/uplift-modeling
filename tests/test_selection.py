@@ -30,8 +30,7 @@ def test_floor_applies_when_pair_range_is_small():
         _scores({"s": [0.170, 0.170, 0.170], "t": [0.175, 0.175, 0.175]}), ORDER, 0.0038
     )
     row = table.set_index("method").loc["s"]
-    assert row["seed_range"] == 0 and row["threshold"] == 0.0038
-    assert chosen == "t"
+    assert (row["seed_range"], row["threshold"], chosen) == (0, 0.0038, "t")
 
 
 def test_pair_range_widens_threshold_beyond_floor():

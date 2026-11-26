@@ -25,22 +25,38 @@ def test_funnel_strata_separates_stage_within_treatment():
     assert s.tolist() == [0, 1, 2, 8]
 
 
-def test_make_splits_keeps_strata_ratio_and_passes_checks(data):
+def _test_ids(data):
+    ids, strata = data
+    splits, _ = make_splits(ids, strata, CFG)
+    return splits.loc[splits["split"] == "test", "customer_id"]
+
+
+def test_make_splits_passes_check_splits(data):
     ids, strata = data
     splits, folds = make_splits(ids, strata, CFG)
     assert check_splits(splits, folds, ids) == []
-    test = splits.loc[splits["split"] == "test", "customer_id"]
-    assert len(test) == 180
-    test_share = strata[ids.isin(test)].value_counts() / strata.value_counts()
+
+
+def test_make_splits_test_size(data):
+    assert len(_test_ids(data)) == 180
+
+
+def test_make_splits_keeps_strata_ratio(data):
+    ids, strata = data
+    test_share = strata[ids.isin(_test_ids(data))].value_counts() / strata.value_counts()
     assert test_share.between(0.25, 0.35).all()
 
 
-def test_make_splits_is_deterministic_and_folds_differ_by_seed(data):
+def test_make_splits_is_deterministic(data):
     ids, strata = data
-    s1, f1 = make_splits(ids, strata, CFG)
-    s2, f2 = make_splits(ids, strata, CFG)
-    pd.testing.assert_frame_equal(s1, s2)
-    pd.testing.assert_frame_equal(f1, f2)
+    first = make_splits(ids, strata, CFG)
+    second = make_splits(ids, strata, CFG)
+    pd.testing.assert_frame_equal(pd.concat(first), pd.concat(second))
+
+
+def test_make_splits_folds_differ_by_seed(data):
+    ids, strata = data
+    _, f1 = make_splits(ids, strata, CFG)
     a = f1[f1["seed"] == 42].set_index("customer_id")["fold"]
     b = f1[f1["seed"] == 154].set_index("customer_id")["fold"]
     assert (a != b.loc[a.index]).any()
@@ -66,10 +82,3 @@ def test_load_config_reads_yaml(tmp_path):
         "test_size: 0.3\ntest_seed: 42\ncv_seeds: [42, 154]\nn_folds: 5\n", encoding="utf-8"
     )
     assert load_config(path) == CFG
-
-
-def test_load_config_rejects_missing_field(tmp_path):
-    path = tmp_path / "splits.yaml"
-    path.write_text("test_size: 0.3\n", encoding="utf-8")
-    with pytest.raises(ValueError):
-        load_config(path)

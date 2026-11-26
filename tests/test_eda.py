@@ -21,7 +21,8 @@ from uplift.eda import (
     segment_profile,
     share_table,
     spearman_matrix,
-    stacked_by_segment,
+    stacked_effects,
+    stacked_means,
     threshold_effects,
 )
 
@@ -59,11 +60,16 @@ def test_outcome_summary_buyer_stats_use_only_positive_spend():
     assert out.loc[0, "visit_rate"] == pytest.approx(2 / 3)
 
 
-def test_cramers_v_is_one_for_identical_and_zero_for_independent():
-    a = pd.Series(["x", "y"] * 50)
-    assert cramers_v(a, a) == pytest.approx(1.0)
-    b = pd.Series(["p"] * 50 + ["q"] * 50)
-    assert cramers_v(a, b) == pytest.approx(0.0)
+CRAMER_A = pd.Series(["x", "y"] * 50)
+
+
+@pytest.mark.parametrize(
+    ("b", "v"),
+    [(CRAMER_A, 1.0), (pd.Series(["p"] * 50 + ["q"] * 50), 0.0)],
+    ids=["identical", "independent"],
+)
+def test_cramers_v_boundary_value(b, v):
+    assert cramers_v(CRAMER_A, b) == pytest.approx(v)
 
 
 def test_cramers_v_matrix_is_symmetric():
@@ -72,14 +78,24 @@ def test_cramers_v_matrix_is_symmetric():
     assert np.allclose(m, m.T)
 
 
-def test_bootstrap_mean_ci_covers_mean_and_adds_pairwise_difference():
+@pytest.fixture(scope="module")
+def mean_ci():
     groups = {"a": np.array([1.0, 2.0, 3.0, 4.0]), "b": np.array([10.0, 10.0, 10.0])}
-    out = bootstrap_mean_ci(groups, n_boot=2000).set_index("group")
-    assert out.loc["a", "mean"] == pytest.approx(2.5)
-    assert out.loc["a", "ci_low"] <= 2.5 <= out.loc["a", "ci_high"]
-    assert out.loc["b", "ci_low"] == pytest.approx(10.0)
-    assert out.loc["a - b", "mean"] == pytest.approx(-7.5)
-    assert out.loc["a - b", "ci_high"] < 0
+    return bootstrap_mean_ci(groups, n_boot=2000).set_index("group")
+
+
+def test_bootstrap_mean_ci_covers_group_mean(mean_ci):
+    row = mean_ci.loc["a"]
+    assert (row["mean"], row["ci_low"] <= 2.5 <= row["ci_high"]) == (pytest.approx(2.5), True)
+
+
+def test_bootstrap_mean_ci_constant_group(mean_ci):
+    assert mean_ci.loc["b", "ci_low"] == pytest.approx(10.0)
+
+
+def test_bootstrap_mean_ci_adds_pairwise_diff(mean_ci):
+    row = mean_ci.loc["a - b"]
+    assert (row["mean"], row["ci_high"] < 0) == (pytest.approx(-7.5), True)
 
 
 def test_product_segment_labels_each_combination():
@@ -159,9 +175,12 @@ def test_funnel_ratio_ci_point_is_ratio_of_effects(trial):
     )
 
 
-def test_threshold_effects_one_row_per_threshold_and_treatment(trial):
+def test_threshold_effects_row_per_cell(trial):
+    assert len(threshold_effects(trial, [50.0, 150.0])) == 4
+
+
+def test_threshold_effects_zero_above_max(trial):
     out = threshold_effects(trial, [50.0, 150.0])
-    assert len(out) == 4
     assert np.abs(out.loc[out["threshold"] == 150.0, "effect"].to_numpy()).max() == 0
 
 
@@ -201,11 +220,12 @@ def test_profile_above_floor_uses_level_minimum():
     assert out.loc["both", "level_median_ratio"] == 1.0
 
 
-def test_stacked_by_segment_labels_rows(trial):
-    means = stacked_by_segment(trial, ["seg"], ["visit"], "means")
-    effects = stacked_by_segment(trial, ["seg"], ["visit", "spend"], "effects")
-    assert set(means["label"]) == {"seg: a", "seg: b"}
-    assert len(effects) == 12
+def test_stacked_means_labels_rows(trial):
+    assert set(stacked_means(trial, ["seg"], ["visit"])["label"]) == {"seg: a", "seg: b"}
+
+
+def test_stacked_effects_row_per_outcome(trial):
+    assert len(stacked_effects(trial, ["seg"], ["visit", "spend"])) == 12
 
 
 def test_buyer_sample_size_scales_by_conversion(trial):

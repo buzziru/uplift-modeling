@@ -1,4 +1,4 @@
-method,mean_width,ratio_to_ipw,ratio_to_base,chosen
+method,mean_width,ratio_to_ipw,ratio_to_base,selected
 ipw,0.010668526785714335,1.0,1.1023640686356588,False
 hajek,0.009677861506242887,0.9071413233176678,1.0,True
 aipw,0.009522504105907445,0.8925791064853051,0.983947135404322,False

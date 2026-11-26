@@ -14,9 +14,11 @@ order:
   - dr_learner
   - uplift_rf
 feature_part: t_learner_segment
+feature_base: t_learner
 response_run: cfb0d1dade18
 run_on: kaggle
 smoke:
   sample_size: 3000
   n_trials: 2
   n_boot: 20
+  seed: 0
