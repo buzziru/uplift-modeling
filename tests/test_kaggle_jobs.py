@@ -41,6 +41,6 @@ def test_state_round_trip_and_kernel_files(tmp_path):
     write_kernel(jobs[0], tmp_path / "k")
     entry = (tmp_path / "k" / "entry.py").read_text(encoding="utf-8")
     assert 'SHA = "abc123"' in entry and "--part s_learner" in entry
-    assert "/kaggle/input/uplift-hillstrom-train" in entry
+    assert 'rglob("train.parquet")' in entry
     meta = (tmp_path / "k" / "kernel-metadata.json").read_text(encoding="utf-8")
     assert '"is_private": "true"' in meta

@@ -10,6 +10,7 @@ ACTIVE = ("pushed", "running")
 DONE = ("complete", "error", "unknown")
 
 ENTRY = """import subprocess
+from pathlib import Path
 
 SHA = "{sha}"
 EXP = "{exp}"
@@ -20,11 +21,13 @@ def sh(cmd: str) -> None:
     subprocess.run(cmd, shell=True, check=True)
 
 
+DATA = next(Path("/kaggle/input").rglob("train.parquet")).parent
+print("data", DATA)
 sh("pip install -q uv")
 sh(f"git clone -q https://github.com/{user}/uplift-modeling.git /tmp/repo && git -C /tmp/repo checkout -q {{SHA}}")
 sh(
     f"cd /tmp/repo && uv run --frozen python experiments/{{EXP}}/run.py compute"
-    f" --data /kaggle/input/{dataset} --db /kaggle/working/run.duckdb {{ARGS}}"
+    f" --data {{DATA}} --db /kaggle/working/run.duckdb {{ARGS}}"
 )
 """
 
@@ -85,7 +88,7 @@ def write_kernel(job: Job, folder: Path) -> None:
         "dataset_sources": [f"{USER}/{DATASET}"],
     }
     (folder / "kernel-metadata.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
-    entry = ENTRY.format(sha=job.sha, exp=job.exp, args=job.args, user=USER, dataset=DATASET)
+    entry = ENTRY.format(sha=job.sha, exp=job.exp, args=job.args, user=USER)
     (folder / "entry.py").write_text(entry, encoding="utf-8")
 
 
