@@ -46,6 +46,7 @@ RECORD_REF = re.compile(
     r"docs/(?:" + "|".join(RECORDS) + r")\.md"
     r"(?:#[^\s)`]+|`?(?!에 항목)(?:\s*\"[^\"\n]+\")?[^|\n`]{0,20}?(?<!\d)(?:절(?!차)|항목))"
 )
+PLAN_REF = re.compile(r"docs/plans/[\w.-]+\.md")
 HISTORY_LIMIT = 0.2
 TITLE_REF = re.compile(r"`[^`]+\.md` [\"'][^\"'\n]+[\"'] 절")
 GLOSSARY_POINTER = re.compile(r"\(`docs/glossary\.md`[,)]")
@@ -55,7 +56,10 @@ POSITION_REF = re.compile(
     r"(?<![가-힣])(?:첫|마지막|앞|위|아래|다음) (?:절|행|문단)"
     r"(?:(?![가-힣])|(?=[은는이가을를의에와과도만로으부까처]))"
 )
-MERGED_ITEM = re.compile(r"\S {2,}- \S")
+MERGED_ITEM = re.compile(r"(?:\S {2,}|[.!?] ?)- \S")
+CODE_DIRS = ("src/", "scripts/", "experiments/", "analyses/")
+PENDING_LINE = "- 정본: 아직 없음"
+NO_CANON = "정본 칸: 반영 없음"
 CLEFT = re.compile(r"[가-힣]+[한된던운은는] 것은 [^.\n]{0,60}?(?:이다|였다|이었다)\.")
 NO_ALTERNATIVE = re.compile(r"^- 기각한 대안: 없음", re.MULTILINE)
 CITE_GROUP = re.compile(r"\(([^()]*\d{4}[^()]*)\)")
@@ -116,7 +120,9 @@ def record_files() -> list[Path]:
 
 
 def check_inbound(text: str, path: str) -> list[str]:
-    return [f'기록 문서 인용: {path} "{m.group(0)}"' for m in RECORD_REF.finditer(text)]
+    errors = [f'기록 문서 인용: {path} "{m.group(0)}"' for m in RECORD_REF.finditer(text)]
+    errors += [f'단계 계획 인용: {path} "{m.group(0)}"' for m in PLAN_REF.finditer(text)]
+    return errors
 
 
 def history_ratio(text: str) -> float:
@@ -172,13 +178,14 @@ def check_copies(new_text: str, path: str) -> tuple[list[str], list[str]]:
         return [], []
     errors, warnings = [], []
     for f in scope_files():
-        same_file = rel(f) == path
+        if rel(f) == path:
+            continue
         olds = sentences(f.read_text(encoding="utf-8"))
         for s in sentences(new_text):
             matches = [o for o in olds if similarity(s, o) >= SIMILAR]
-            if len(matches) <= (1 if same_file else 0):
+            if not matches:
                 continue
-            other = s if same_file else matches[0]
+            other = matches[0]
             if is_record(rel(f)) and is_canon(path):
                 continue
             if is_record(rel(f)):
@@ -200,29 +207,19 @@ def check_removed(old_text: str, new_text: str) -> list[str]:
     return warnings
 
 
-def check_redefine(new_text: str, path: str) -> list[str]:
-    warnings = []
-    others = "\n".join(f.read_text(encoding="utf-8") for f in scope_files() if rel(f) != path)
-    for term in re.findall(
-        r"^\s*(?:- )?([가-힣A-Za-z ]{2,12}?)(?:은|는) [^\n]*?이다[.:]",
-        new_text,
-        re.MULTILINE,
-    ):
-        if others.count(term.strip()) >= 2:
-            warnings.append(f'이미 쓰는 낱말을 새로 정의함: "{term.strip()}" ({path})')
-    return warnings
-
-
 def check_style(new_text: str, path: str) -> list[str]:
     warnings = [f'위치 참조: {path} "{m.group(0)}"' for m in POSITION_REF.finditer(new_text)]
-    warnings += [
-        f'목록 두 항목이 한 줄에 붙음: {path} "{m.group(0)}"'
-        for m in MERGED_ITEM.finditer(new_text)
-    ]
     warnings += [f'분열문: {path} "{m.group(0)}"' for m in CLEFT.finditer(new_text)]
     if path.startswith("docs/"):
         warnings += [f"기각한 대안이 없음: {path}" for _ in NO_ALTERNATIVE.finditer(new_text)]
     return warnings
+
+
+def check_merged(new_text: str, path: str) -> list[str]:
+    return [
+        f'목록 두 항목이 한 줄에 붙음: {path} "{m.group(0)}"'
+        for m in MERGED_ITEM.finditer(new_text)
+    ]
 
 
 def check_blank_runs(text: str, path: str) -> list[str]:
@@ -249,10 +246,11 @@ def run(old_text: str, new_text: str, path: str) -> tuple[list[str], list[str]]:
     errors = [] if is_record(path) else check_refs(checked)
     if path == PENDING_FILE and new_text.strip():
         errors.append(f"{PENDING_FILE}: 반영 대기 목록은 check_docs.py --pending으로 뽑는다")
+    errors += check_merged(new_text, path)
     copy_errors, warnings = check_copies(new_text, path)
     errors += copy_errors
     warnings += check_removed(old_text, new_text)
-    warnings += check_redefine(new_text, path) + check_style(new_text, path)
+    warnings += check_style(new_text, path)
     return errors, warnings
 
 
@@ -421,12 +419,33 @@ def branch() -> int:
         warnings += check_summary(p)
     if "+++ b/SPEC.md" in diff:
         warnings.append("SPEC.md는 시작 명세로 고정한 문서다. 바꾼 이유를 보고에 적는다")
-    warnings += [f"반영 대기: {item}" for item in pending_items()]
-    for w in warnings:
-        print(f"알림: {w}")
+    errors += check_canon(
+        git_text("diff", "--name-only", "origin/main...HEAD").split(),
+        git_text("diff", "-U0", "origin/main...HEAD", "--", *map(rel, record_files())),
+        git_text("log", "--format=%B", "origin/main..HEAD"),
+    )
     for e in errors:
         print(f"오류: {e}")
+    for w in warnings:
+        print(f"알림: {w}")
     return 1 if errors else 0
+
+
+def check_canon(changed: list[str], record_diff: str, messages: str) -> list[str]:
+    if not any(p.startswith(CODE_DIRS) for p in changed):
+        return []
+    if any(line.startswith("-" + PENDING_LINE) for line in record_diff.splitlines()):
+        return []
+    if any(line.strip().startswith(NO_CANON) for line in messages.splitlines()):
+        return []
+    items = pending_items()
+    if not items:
+        return []
+    head = (
+        "코드를 바꿨는데 기록 문서의 정본 칸을 하나도 고치지 않았다. 아래 항목 가운데 "
+        f'반영한 것의 정본 칸을 고치고, 반영한 것이 없으면 커밋 메시지에 "{NO_CANON}" 줄을 둔다'
+    )
+    return [head] + [f"반영 대기: {item}" for item in items]
 
 
 def git_text(*args: str) -> str:
@@ -447,9 +466,9 @@ def pending_items() -> list[str]:
         for line in f.read_text(encoding="utf-8").splitlines():
             if line.startswith("## "):
                 title = line[3:].strip()
-            elif line.startswith("- 정본: 아직 없음"):
+            elif line.startswith(PENDING_LINE):
                 items.append(
-                    f"{rel(f)} | {title} | {line.removeprefix('- 정본: 아직 없음').strip(' .')}"
+                    f"{rel(f)} | {title} | {line.removeprefix(PENDING_LINE).strip(' .')}"
                 )
     return items
 
