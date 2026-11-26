@@ -19,7 +19,7 @@
     },
     "base": "hajek",
     "aipw_ratio": 0.983947135404322,
-    "chosen": "hajek",
+    "estimator": "hajek",
     "hajek_vs_ipw_disagree": 0,
     "aipw_vs_base_disagree": 0
   },

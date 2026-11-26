@@ -16,3 +16,4 @@ smoke:
   sample_size: 3000
   n_trials: 2
   n_boot: 20
+  seed: 0
