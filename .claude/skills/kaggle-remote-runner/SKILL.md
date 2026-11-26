@@ -1,106 +1,38 @@
 ---
 name: kaggle-remote-runner
-description: 로컬에서 개발한 실험의 본학습, HPO, GPU 실행을 Kaggle kernel에 올려 돌리고 출력을 받아 DuckDB에 실행으로 기록하는 절차. 실험을 Kaggle에서 돌릴지 정할 때, 학습 세트 dataset을 올리거나 버전을 낼 때, kernel을 push하고 상태·로그를 보고 출력을 받을 때 쓴다. Kaggle CLI 명령의 옵션은 Kaggle/kaggle-cli 저장소 `skills/`를 참고했다.
+description: 로컬에서 개발한 실험의 본학습, HPO, GPU 실행을 Kaggle kernel에 올려 돌리고 출력을 받아 DuckDB에 실행으로 기록하는 절차. 실험을 Kaggle에서 돌릴지 정할 때, 학습 세트 dataset을 올리거나 버전을 낼 때, scripts/kaggle.py로 kernel을 push하고 상태를 보고 출력을 합칠 때 쓴다. Kaggle CLI 명령의 옵션은 Kaggle/kaggle-cli 저장소 `skills/`를 참고했다.
 ---
 
 # Kaggle 원격 실행
 
-로컬이 개발 환경이고 Kaggle은 실행기다. Kaggle 실행도 실험 하나의 실행이므로 `experiments/TEMPLATE.md` 양식을 그대로 따른다.
+로컬이 개발 환경이고 Kaggle은 실행기다. Kaggle 실행도 실험 하나의 실행이므로 `experiments/TEMPLATE.md` 양식을 그대로 따른다. Kaggle 실행은 `scripts/kaggle.py`가 맡는다. 하위 명령이 무엇을 확인하고 어디에 쓰는지는 그 파일과 `src/uplift/kaggle_jobs.py`가, kernel 안에서 도는 `run.py compute`의 옵션은 `experiments/CLAUDE.md`가 정본이다. 이 스킬은 순서와 스크립트가 막지 않는 것만 적는다.
 
 ## 어디서 돌리나
 
 - 로컬: 작은 실험과 디버깅, EDA, 데이터 검증, feature engineering, 모델 평가와 분석. 시험 세트 평가도 로컬에서 한다.
 - Kaggle: 모델의 본학습과 HPO는 모두 Kaggle kernel에서 돌린다. 기본은 CPU kernel이고, LightGBM이 여기에 든다. XGBoost, CatBoost처럼 GPU로 학습 시간이 줄어드는 모델만 GPU kernel을 쓴다.
 - Kaggle에는 학습 세트와 `folds`만 비공개 dataset으로 올리고 시험 세트는 올리지 않는다. 원격 HPO가 시험 세트를 읽을 수 없게 하기 위해서다.
-- kernel은 GitHub에 푸시한 커밋을 받아 `uv.lock`대로 환경을 만들어 돈다. Kaggle에는 DuckDB 파일이 없으므로 `run.py`가 DuckDB 대신 출력 폴더에 쓰고, 받아 온 출력을 로컬 스크립트가 DuckDB에 실행으로 적는다.
-
-## 지키는 것
-
-올리는 데이터와 돌리는 커밋의 범위는 위 절을 따른다. 거기서 나오는 실행 규칙은 다음과 같다.
-
-- kernel을 push하기 전에, GitHub에 푸시한 커밋에 `experiment.md`의 질문과 설계 절이 있는지 본다. 없으면 kernel을 push하지 않는다. kernel이 푸시한 커밋에서만 돌므로, 이 확인 하나로 설계 절이 결과보다 먼저 커밋된다.
-- dataset 폴더에 시험 세트 파일이 있으면 올리지 않는다.
-- dataset과 kernel은 비공개로 둔다. 공개(`datasets create -u`, `"is_private": "false"`)는 공개 배포라 사용자에게 묻는다. `delete` 명령도 묻는다.
-- 실패한 실행을 같은 코드로 다시 push하지 않는다. 로그로 원인을 찾고 로컬에서 작은 표본으로 재현해 고친 뒤 push한다.
-
-## kernel 종류
-
-어느 모델을 어느 kernel에서 돌릴지는 "어디서 돌리나" 절이 정한다. 종류에 따라 다른 것은 셋이다.
-
-| | CPU kernel | GPU kernel |
-| --- | --- | --- |
-| `kernel-metadata.json`의 `enable_gpu` | `"false"` | `"true"` |
-| push | `--accelerator` 없이 | `--accelerator NvidiaTeslaT4` |
-| push 전 확인 | 없음 | `K quota`의 GPU 남은 시간이 `--timeout`보다 큰지. `quota`는 GPU와 TPU의 주간 한도만 보인다 |
-
-GPU kernel은 `uv.lock`에 든 라이브러리 휠의 GPU 지원에 기댄다. 모델 라이브러리마다 첫 GPU 실행에서는 로그로 GPU가 실제로 쓰였는지(라이브러리가 장치를 잡았다는 출력, `nvidia-smi`) 확인하고, 안 쓰였으면 CPU kernel과 같은 시간을 GPU 한도로 쓰는 셈이라 멈추고 보고한다.
 
 ## 준비(한 번)
 
-1. CLI 설치: `uv tool install kaggle --with six`. Kaggle CLI 2.2.5는 `six` 의존성이 빠져 있어 함께 넣는다.
-2. 인증: Kaggle에서 API 토큰을 만들어 Doppler 프로젝트 `uplift-modeling`(config `dev`)에 `KAGGLE_API_TOKEN`과 `KAGGLE_USERNAME`으로 넣는다. 토큰을 파일(`~/.kaggle/`)이나 저장소에 두지 않는다. 사용자가 할 일이다.
-3. 명령은 모두 Doppler로 감싸 돌린다. 아래에서 `K`는 `doppler run -p uplift-modeling -c dev -- kaggle`을 줄인 것이다.
-4. 확인: `K quota`가 GPU 남은 시간을 보이면 된다.
+1. 인증: Kaggle에서 API 토큰을 만들어 Doppler 프로젝트 `uplift-modeling`(config `dev`)에 `KAGGLE_API_TOKEN`과 `KAGGLE_USERNAME`으로 넣는다. 토큰을 파일(`~/.kaggle/`)이나 저장소에 두지 않는다. 사용자가 할 일이다.
+2. CLI는 따로 설치하지 않는다. `scripts/kaggle.py`가 Doppler로 감싼 `uvx --with six kaggle`을 부른다. Kaggle CLI 2.2.5는 `six` 의존성이 빠져 있어 함께 넣는다.
+3. CLI를 직접 부를 때(로그, quota, `--help`)는 `doppler run -p uplift-modeling -c dev -- uvx --with six kaggle`로 감싼다. 아래에서 `K`는 이것을 줄인 것이다.
 
-옵션이 헷갈리면 `K <group> <command> --help`로 설치된 CLI를 본다.
+## 순서
 
-## 학습 세트 dataset
+1. dataset: 처음이면 `uv run python scripts/kaggle.py dataset`, 분할이나 fold가 바뀌었으면 `uv run python scripts/kaggle.py dataset --version-message "<분할 시드, 행 수, 커밋>"`.
+2. 실험 커밋을 origin에 push한다. kernel은 push한 커밋을 받아 돈다.
+3. `uv run python scripts/kaggle.py push <실험 폴더 이름> [--part <이름>] [--args "<compute 옵션>"]`. `--part`는 여러 번 줄 수 있고, 줄 때마다 kernel이 하나씩 생긴다. kernel 폴더는 `data/kaggle/<slug>/`이고 작업 상태는 `data/kaggle/state.json`에 쌓인다.
+4. `uv run python scripts/kaggle.py watch`로 모든 작업이 끝날 때까지 상태를 본다. 동시 CPU 세션 상한에 걸려 queued로 남은 kernel은 watch가 자리가 날 때 push한다. 로그는 `K kernels logs <USER>/<slug>`로 본다.
+5. `uv run python scripts/kaggle.py pull`로 끝난 kernel의 출력을 받아 메인 DuckDB에 합친다. 출력에 찍힌 `run_id`로 `run.py export`를 돈다.
 
-작업 폴더는 `data/kaggle/dataset/`다(`data/`는 커밋하지 않는다).
+## 지키는 것
 
-1. 처음: `K datasets init -p data/kaggle/dataset`로 `dataset-metadata.json`을 만들고 `id`를 `<KAGGLE_USERNAME>/uplift-hillstrom-train`으로, `title`을 기본값에서 `uplift-hillstrom-train`으로 고친다. DuckDB에서 `splits`가 학습인 고객의 분석용 행(`customers`, `assignments`, `outcomes`)과 `folds` 테이블(`src/uplift/split.py`)을 Parquet로 내보내 같은 폴더에 둔다. 시험 세트 고객은 넣지 않는다. 내보낼 열은 첫 Kaggle 실험(M2)에서 정한다.
-2. 올리기: `K datasets create -p data/kaggle/dataset -t -q`. `-t`는 Parquet를 CSV로 바꾸지 않게 한다. `-u`를 붙이지 않는다.
-3. 분할이나 fold가 바뀌면 `K datasets version -p data/kaggle/dataset -t -q -m "<분할 시드, 행 수, 커밋>"`.
-4. `K datasets status <id>`가 ready인지 본 뒤 kernel을 push한다.
+스크립트가 막지 않는 것이다.
 
-## kernel 실행
+- dataset과 kernel은 비공개로 둔다. 공개(`datasets create -u`, `"is_private": "false"`)는 공개 배포라 사용자에게 묻는다. `delete` 명령도 묻는다.
+- 실패한 실행을 같은 코드로 다시 push하지 않는다. 로그로 원인을 찾고 로컬에서 `run.py smoke`로 재현해 고친 뒤 push한다.
+- `scripts/kaggle.py`는 CPU kernel만 만든다. GPU kernel을 쓸 모델이 생기면 그 작업에서 스크립트에 GPU 설정(`enable_gpu`, push의 `--accelerator NvidiaTeslaT4`)과 push 전 `K quota` 확인을 더한다. 모델 라이브러리마다 첫 GPU 실행에서는 로그로 GPU가 실제로 쓰였는지(라이브러리가 장치를 잡았다는 출력, `nvidia-smi`) 확인하고, 안 쓰였으면 CPU kernel과 같은 시간을 GPU 한도로 쓰는 셈이라 멈추고 보고한다.
 
-작업 폴더는 `data/kaggle/<EXP-ID>/`다. 두 파일을 둔다.
-
-`kernel-metadata.json`:
-
-```json
-{
-  "id": "<KAGGLE_USERNAME>/<exp-id-소문자>",
-  "title": "<exp-id-소문자>",
-  "code_file": "entry.py",
-  "language": "python",
-  "kernel_type": "script",
-  "is_private": "true",
-  "enable_gpu": "<kernel 종류 절의 값>",
-  "enable_internet": "true",
-  "dataset_sources": ["<KAGGLE_USERNAME>/uplift-hillstrom-train"]
-}
-```
-
-`title`과 `id`의 slug는 같아야 한다(제목을 소문자로 바꾸고 공백을 `-`로 바꾼 것이 slug다).
-
-`entry.py`: 커밋을 받아 `uv.lock`대로 환경을 만들고 실험의 `run.py`를 돈다. Kaggle은 `/kaggle/working` 전체를 kernel 출력으로 저장하므로, 저장소와 가상환경은 그 밖(`/tmp/repo`)에 만들고 `/kaggle/working`에는 `run.py` 출력만 둔다. `uv`가 `.python-version`(3.12)을 맞추므로 Kaggle 이미지의 Python 버전에 기대지 않는다.
-
-```python
-import subprocess
-
-SHA = "<푸시한 커밋>"
-EXP = "<실험 폴더 이름>"
-DATA = "/kaggle/input/uplift-hillstrom-train"
-
-
-def sh(cmd: str) -> None:
-    subprocess.run(cmd, shell=True, check=True)
-
-
-sh("pip install -q uv")
-sh(f"git clone -q https://github.com/buzziru/uplift-modeling.git /tmp/repo && git -C /tmp/repo checkout -q {SHA}")
-sh(f"cd /tmp/repo && uv run --frozen python experiments/{EXP}/run.py --data {DATA} --out /kaggle/working")
-```
-
-`run.py`가 `--data`, `--out`을 받아 설정, 지표, 예측을 출력 폴더에 쓰는 형식과, 받아 온 출력을 DuckDB에 실행으로 적는 스크립트는 첫 Kaggle 실험(M2)에서 만들고 이 스킬과 `experiments/CLAUDE.md`에 적는다.
-
-순서:
-
-1. 커밋을 푸시하고 `entry.py`의 `SHA`에 넣는다.
-2. kernel 종류 절의 push 전 확인을 한다. 모자라면 push하지 않고 보고한다.
-3. `K kernels push -p data/kaggle/<EXP-ID> -t <초>`에 kernel 종류 절의 push 옵션을 붙인다. 출력에 찍힌 kernel 버전을 적어 둔다.
-4. `K kernels status <id>`를 몇 분 간격으로 본다. 로그는 `K kernels logs <id>`로 보고, 계속 볼 때는 `--follow --interval 30` 이상으로 둔다.
-5. 끝나면 `K kernels output <id>/<버전> -p data/kaggle/<EXP-ID>/output/v<버전>`로 받는다.
-6. 받은 출력을 "어디서 돌리나" 절과 `experiments/CLAUDE.md`대로 DuckDB에 실행으로 기록한다.
+옵션이 헷갈리면 `uv run python scripts/kaggle.py <하위 명령> --help`와 `K <group> <command> --help`로 본다.
