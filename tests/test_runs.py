@@ -2,9 +2,11 @@ import subprocess
 
 import duckdb
 import pandas as pd
+import pydantic
 import pytest
 
 from uplift.runs import (
+    common_config,
     load_run_config,
     load_scores,
     load_table,
@@ -110,3 +112,67 @@ def test_load_scores_pivots_arms_in_given_order():
     assert scores.loc[1].tolist() == [0.2, 0.1]
     with pytest.raises(KeyError):
         load_scores(con, "r", "other", (1, 2))
+
+
+def _scores_con():
+    con = duckdb.connect()
+    preds = pd.DataFrame(
+        {
+            "model_id": "m",
+            "customer_id": [1, 1, 2, 2],
+            "treatment_id": [1, 2, 1, 2],
+            "fold": 0,
+            "score": [0.1, 0.2, 0.3, 0.4],
+        }
+    )
+    record_predictions(con, "r", preds)
+    return con
+
+
+def test_load_scores_rejects_missing_arm():
+    with pytest.raises(KeyError, match="3"):
+        load_scores(_scores_con(), "r", "m", (1, 3))
+
+
+def test_load_scores_orders_and_requires_given_customers():
+    con = _scores_con()
+    assert load_scores(con, "r", "m", (1, 2), pd.Index([2, 1])).index.tolist() == [2, 1]
+    with pytest.raises(KeyError, match="1명"):
+        load_scores(con, "r", "m", (1, 2), pd.Index([1, 9]))
+
+
+def test_record_metrics_rejects_missing_column():
+    with pytest.raises(KeyError, match="fold"):
+        record_metrics(
+            duckdb.connect(),
+            "r",
+            pd.DataFrame({"model_id": ["m"], "metric": ["x"], "value": [1.0]}),
+        )
+
+
+class _Cfg(pydantic.BaseModel):
+    seed: int
+
+
+def _runs_with(configs):
+    con = duckdb.connect()
+    return con, [record_run(con, "EXP", c) for c in configs]
+
+
+def test_common_config_maps_parts_to_runs():
+    con, ids = _runs_with([{"seed": 1, "part": "a"}, {"seed": 1, "part": "b"}])
+    cfg, by_part = common_config(con, ids, _Cfg)
+    assert cfg.seed == 1 and by_part == {"a": ids[0], "b": ids[1]}
+
+
+@pytest.mark.parametrize(
+    ("configs", "message"),
+    [
+        ([{"seed": 1, "part": "a"}, {"seed": 2, "part": "b"}], "서로 다르다"),
+        ([{"seed": 1, "part": "a"}, {"seed": 1, "part": "a"}], "여럿"),
+    ],
+)
+def test_common_config_rejects_mixed_settings_and_repeated_parts(configs, message):
+    con, ids = _runs_with(configs)
+    with pytest.raises(ValueError, match=message):
+        common_config(con, ids, _Cfg)

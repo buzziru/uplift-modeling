@@ -7,7 +7,7 @@ import duckdb
 import optuna
 import pandas as pd
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, PositiveFloat
 
 from uplift import learners, plots, policy, ranking, runs, value
 from uplift.features import feature_matrix
@@ -35,8 +35,8 @@ class Config(BaseModel):
     hpo_seed: int
     n_trials: int
     n_boot: int
-    floor: float
-    order: list[str]
+    floor: PositiveFloat
+    order: list[learners.Method]
     feature_part: str
     response_run: str
     run_on: Literal["local", "kaggle"]
@@ -51,8 +51,10 @@ def parts(cfg: Config) -> list[str]:
     return [*cfg.order, cfg.feature_part]
 
 
-def part_setup(cfg: Config, part: str) -> tuple[str, Literal["flags", "segment"]]:
-    return ("t_learner", "segment") if part == cfg.feature_part else (part, "flags")
+def part_setup(cfg: Config, part: str) -> tuple[learners.Method, Literal["flags", "segment"]]:
+    if part == cfg.feature_part:
+        return "t_learner", "segment"
+    return next(m for m in cfg.order if m == part), "flags"
 
 
 def compute(cfg: Config, data: TrainData, rec: duckdb.DuckDBPyConnection, part: str) -> str:
@@ -139,8 +141,8 @@ def same_send(
     for s in cfg.seeds:
         uplift = runs.load_scores(rec, run_id, f"{part}_s{s}", MAILS)
         response = runs.load_scores(
-            data_con, cfg.response_run, f"response_lgbm_s{s}", MAILS
-        ).reindex(uplift.index)
+            data_con, cfg.response_run, f"response_lgbm_s{s}", MAILS, uplift.index
+        )
         df = frame.loc[uplift.index]
         chosen = policy.best_action(uplift.to_numpy())
         sends = int((chosen.argmax(axis=1) != policy.CONTROL).sum())
@@ -159,11 +161,10 @@ def export(
     data_con: duckdb.DuckDBPyConnection,
     run_ids: list[str],
     out: Path,
-    cfg: Config,
 ) -> None:
     (out / "tables").mkdir(parents=True, exist_ok=True)
     (out / "figures").mkdir(parents=True, exist_ok=True)
-    by_part = {runs.load_run_config(rec, r)["part"]: r for r in run_ids}
+    cfg, by_part = runs.common_config(rec, run_ids, Config)
     tables = {
         name: pd.concat([runs.load_table(rec, r, name) for r in run_ids], ignore_index=True)
         for name in ["policy_values", "ranking", "hpo_trials"]
@@ -245,12 +246,12 @@ def main() -> None:
             print(compute(cfg, data, rec, args.part))
     elif args.command == "export":
         with duckdb.connect(str(DB), read_only=True) as con:
-            export(con, con, args.run_ids, ROOT / "artifacts" / cfg.experiment_id, cfg)
+            export(con, con, args.run_ids, ROOT / "artifacts" / cfg.experiment_id)
     else:
         with duckdb.connect(str(DB), read_only=True) as data_con, duckdb.connect() as rec:
             data = from_duckdb(data_con).sample(cfg.smoke.sample_size)
             run_ids = [compute(cfg, data, rec, part) for part in parts(cfg)]
-            export(rec, data_con, run_ids, args.out, cfg)
+            export(rec, data_con, run_ids, args.out)
 
 
 if __name__ == "__main__":

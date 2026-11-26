@@ -9,19 +9,23 @@ import duckdb
 
 from uplift import runs
 from uplift.kaggle_jobs import (
+    ACTIVE,
     DATASET,
     DONE,
     MANIFEST,
     USER,
     Job,
     free_slots,
+    kaggle,
     load_jobs,
     parse_status,
     parse_version,
+    read_manifest,
     save_jobs,
     slot_limited,
     slug_for,
     to_pull,
+    update_status,
     write_kernel,
     write_manifest,
 )
@@ -30,12 +34,6 @@ from uplift.train_data import from_duckdb, to_parquet
 ROOT = Path(__file__).resolve().parents[1]
 DATA = Path(os.environ.get("UPLIFT_DATA", ROOT / "data"))
 STATE = DATA / "kaggle" / "state.json"
-K = ["doppler", "run", "-p", "uplift-modeling", "-c", "dev", "--", "uvx", "--with", "six", "kaggle"]
-
-
-def kaggle(*args: str) -> str:
-    done = subprocess.run([*K, *args], check=False, capture_output=True, text=True)
-    return done.stdout + done.stderr
 
 
 def git(*args: str) -> str:
@@ -77,7 +75,7 @@ def fill(jobs: list[Job]) -> None:
     for job in [j for j in jobs if j.status == "queued"][: free_slots(jobs)]:
         folder = DATA / "kaggle" / job.slug
         write_kernel(job, folder)
-        out = kaggle("kernels", "push", "-p", str(folder))
+        out = kaggle("kernels", "push", "-p", str(folder), check=False)
         if slot_limited(out):
             break
         version = parse_version(out)
@@ -95,7 +93,7 @@ def check_dataset() -> dict[str, str]:
     if not local.exists():
         raise RuntimeError("로컬 dataset manifest가 없다. scripts/kaggle.py dataset부터")
     remote_dir = DATA / "kaggle" / "dataset-remote"
-    out = kaggle(
+    kaggle(
         "datasets",
         "download",
         f"{USER}/{DATASET}",
@@ -105,16 +103,15 @@ def check_dataset() -> dict[str, str]:
         str(remote_dir),
         "--force",
     )
-    remote = remote_dir / MANIFEST
-    if not remote.exists():
-        raise RuntimeError(f"Kaggle dataset에 manifest가 없다: {out}")
-    expected = json.loads(local.read_text(encoding="utf-8"))
-    if json.loads(remote.read_text(encoding="utf-8")) != expected:
+    expected = read_manifest(local)
+    if read_manifest(remote_dir / MANIFEST) != expected:
         raise RuntimeError("Kaggle dataset 최신 버전이 로컬 dataset과 다르다")
     return expected
 
 
 def push(exp: str, parts: list[str], args: str) -> None:
+    if not (ROOT / "experiments" / exp / "run.py").exists():
+        raise ValueError(f"experiments/{exp}/run.py가 없다")
     sha = check_pushable(exp)
     manifest = check_dataset()
     jobs = load_jobs(STATE)
@@ -128,14 +125,13 @@ def push(exp: str, parts: list[str], args: str) -> None:
 def watch(interval: int) -> None:
     jobs = load_jobs(STATE)
     while any(j.status not in DONE for j in jobs):
-        for job in [j for j in jobs if j.status in ("pushed", "running")]:
-            status = parse_status(kaggle("kernels", "status", f"{USER}/{job.slug}"))
-            if status is None:
-                job.misses += 1
-                status = "unknown" if job.misses >= 3 else job.status
-            if status != job.status:
-                job.status = status
-                print(time.strftime("%H:%M:%S"), job.slug, status, flush=True)
+        for job in [j for j in jobs if j.status in ACTIVE]:
+            before = job.status
+            update_status(
+                job, parse_status(kaggle("kernels", "status", f"{USER}/{job.slug}", check=False))
+            )
+            if job.status != before:
+                print(time.strftime("%H:%M:%S"), job.slug, job.status, flush=True)
         fill(jobs)
         save_jobs(STATE, jobs)
         if any(j.status not in DONE for j in jobs):

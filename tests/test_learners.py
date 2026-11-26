@@ -1,7 +1,9 @@
+from typing import get_args
+
 import numpy as np
 import pytest
 
-from uplift.learners import METHODS, tune, uplift_oof
+from uplift.learners import METHODS, Method, tune, uplift_oof
 
 SMALL = {"n_estimators": 60, "num_leaves": 7, "min_child_samples": 20, "learning_rate": 0.1}
 SMALL_URF = {"n_estimators": 20, "max_depth": 4, "min_samples_leaf": 50, "max_features": 3}
@@ -33,3 +35,7 @@ def test_tune_returns_fixed_params_of_the_method_space():
     assert len(trials) == 2
     assert params["subsample_freq"] == 1
     assert 7 <= params["num_leaves"] <= 63
+
+
+def test_method_type_lists_every_learner():
+    assert get_args(Method) == tuple(METHODS)

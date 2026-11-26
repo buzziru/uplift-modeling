@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Literal
 
 import lightgbm as lgb
 import numpy as np
@@ -98,7 +98,17 @@ def urf_space(trial: optuna.trial.BaseTrial) -> dict:
     }
 
 
-METHODS: dict[str, tuple[Make, Callable[[optuna.trial.BaseTrial], dict]]] = {
+Method = Literal[
+    "s_learner",
+    "t_learner",
+    "x_learner",
+    "dr_learner",
+    "uplift_rf",
+    "class_transformation",
+    "transformed_outcome",
+]
+
+METHODS: dict[Method, tuple[Make, Callable[[optuna.trial.BaseTrial], dict]]] = {
     "s_learner": (
         _meta(lambda p, s: BaseSClassifier(learner=_clf(p, s), control_name=CONTROL), False),
         lgbm_space,
@@ -127,7 +137,7 @@ METHODS: dict[str, tuple[Make, Callable[[optuna.trial.BaseTrial], dict]]] = {
 
 
 def uplift_oof(
-    method: str,
+    method: Method,
     params: dict,
     seed: int,
     x: np.ndarray,
@@ -142,7 +152,7 @@ def uplift_oof(
 
 
 def tune(
-    method: str,
+    method: Method,
     x: np.ndarray,
     treatment: np.ndarray,
     outcome: np.ndarray,

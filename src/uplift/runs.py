@@ -7,6 +7,7 @@ from pathlib import Path
 
 import duckdb
 import pandas as pd
+from pydantic import BaseModel
 
 RUNS_DDL = """
 CREATE TABLE IF NOT EXISTS runs (
@@ -78,9 +79,16 @@ def _insert(con: duckdb.DuckDBPyConnection, table: str, ddl: str, rows: pd.DataF
     con.unregister("new_rows")
 
 
+def _columns(rows: pd.DataFrame, columns: list) -> pd.DataFrame:
+    missing = [c for c in columns if c not in rows.columns]
+    if missing:
+        raise KeyError(f"열이 없다: {missing}")
+    return rows.reindex(columns=columns)
+
+
 def record_metrics(con: duckdb.DuckDBPyConnection, run_id: str, metrics: pd.DataFrame) -> None:
-    rows = metrics.assign(run_id=run_id).reindex(
-        columns=["run_id", "model_id", "metric", "fold", "value"]
+    rows = _columns(
+        metrics.assign(run_id=run_id), ["run_id", "model_id", "metric", "fold", "value"]
     )
     _insert(con, "metrics", METRICS_DDL, rows)
 
@@ -93,7 +101,7 @@ def record_predictions(
         con,
         "predictions",
         PREDICTIONS_DDL,
-        predictions.assign(run_id=run_id).reindex(columns=columns),
+        _columns(predictions.assign(run_id=run_id), columns),
     )
 
 
@@ -115,7 +123,11 @@ def load_table(con: duckdb.DuckDBPyConnection, run_id: str, name: str) -> pd.Dat
 
 
 def load_scores(
-    con: duckdb.DuckDBPyConnection, run_id: str, model_id: str, arms: tuple[int, ...]
+    con: duckdb.DuckDBPyConnection,
+    run_id: str,
+    model_id: str,
+    arms: tuple[int, ...],
+    customers: pd.Index | None = None,
 ) -> pd.DataFrame:
     rows = con.execute(
         "SELECT customer_id, treatment_id, score FROM predictions WHERE run_id = ? AND model_id = ?",
@@ -123,8 +135,29 @@ def load_scores(
     ).df()
     if rows.empty:
         raise KeyError(f"{run_id}에 {model_id} 예측이 없다")
-    wide = rows.pivot(index="customer_id", columns="treatment_id", values="score")
-    return wide.reindex(columns=list(arms))
+    wide = _columns(
+        rows.pivot(index="customer_id", columns="treatment_id", values="score"), list(arms)
+    )
+    if customers is None:
+        return wide
+    missing = customers.difference(wide.index)
+    if len(missing):
+        raise KeyError(f"{run_id} {model_id}에 고객 {len(missing)}명의 예측이 없다")
+    return wide.loc[customers]
+
+
+def common_config[M: BaseModel](
+    con: duckdb.DuckDBPyConnection, run_ids: list[str], model: type[M], part_key: str = "part"
+) -> tuple[M, dict[str, str]]:
+    raw = {r: load_run_config(con, r) for r in run_ids}
+    configs = {r: model(**c) for r, c in raw.items()}
+    dumps = {json.dumps(c.model_dump(), sort_keys=True) for c in configs.values()}
+    if len(dumps) > 1:
+        raise ValueError(f"실행들의 설정이 서로 다르다: {run_ids}")
+    parts = [raw[r][part_key] for r in run_ids]
+    if len(set(parts)) < len(parts):
+        raise ValueError(f"같은 {part_key}의 실행이 여럿이다: {parts}")
+    return configs[run_ids[0]], dict(zip(parts, run_ids, strict=True))
 
 
 def load_run_config(con: duckdb.DuckDBPyConnection, run_id: str) -> dict:
