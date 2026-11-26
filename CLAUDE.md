@@ -1,6 +1,5 @@
 ## 프로젝트
 
-- `SPEC.md`는 시작 명세라 고치지 않는다. 지금 계획은 `docs/plans/`에 있다.
 - 되돌리기 어려운 대상은 명령을 막는 대신 대상 쪽에서 지킨다. main은 GitHub branch protection, 프로덕션 배포는 Vercel Git 연동(main 병합 때만), 원본 데이터는 `scripts/fetch_data.py`의 체크섬으로 지킨다. 비밀 값(API 키)은 저장소 밖 Doppler에 두고 `doppler run -p uplift-modeling -c dev -- <명령>`으로 주입한다.
 
 ## 명령
