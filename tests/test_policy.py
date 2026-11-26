@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -26,6 +27,10 @@ def test_top_k_sends_exactly_k(n, data):
     assert int((policy.argmax(axis=1) != CONTROL).sum()) == k
 
 
-def test_best_action_picks_largest_uplift_and_control_when_none_positive():
-    uplift = np.array([[0.1, 0.3], [0.2, -0.1], [-0.1, -0.2], [0.0, 0.0]])
-    assert best_action(uplift).argmax(axis=1).tolist() == [WOMENS, MENS, CONTROL, CONTROL]
+@pytest.mark.parametrize(
+    ("uplift", "arm"),
+    [([0.1, 0.3], WOMENS), ([0.2, -0.1], MENS), ([-0.1, -0.2], CONTROL), ([0.0, 0.0], CONTROL)],
+    ids=["womens", "mens", "all_negative", "all_zero"],
+)
+def test_best_action_picks_arm(uplift, arm):
+    assert best_action(np.array([uplift])).argmax(axis=1).tolist() == [arm]

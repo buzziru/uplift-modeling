@@ -17,9 +17,15 @@ def test_fold_array_follows_frame_order():
     assert data.fold_array(7).tolist() == [0, 2, 1]
 
 
-def test_sample_keeps_matching_folds_and_parquet_round_trip(tmp_path):
+def test_sample_keeps_matching_folds():
     small = _data().sample(2)
     assert set(small.folds["customer_id"]) == set(small.frame["customer_id"])
-    to_parquet(small, tmp_path)
+
+
+def test_parquet_round_trip(tmp_path):
+    data = _data()
+    to_parquet(data, tmp_path)
     back = from_parquet(tmp_path)
-    pd.testing.assert_frame_equal(back.frame, small.frame)
+    pd.testing.assert_frame_equal(
+        pd.concat([back.frame, back.folds]), pd.concat([data.frame, data.folds])
+    )

@@ -9,7 +9,8 @@ SPEC = importlib.util.spec_from_file_location(
     "check_approval",
     Path(__file__).resolve().parents[1] / ".claude" / "harness" / "check_approval.py",
 )
-assert SPEC and SPEC.loader
+if SPEC is None or SPEC.loader is None:
+    raise ImportError("check_approval.py를 불러오지 못했다")
 check_approval = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(check_approval)
 
@@ -28,17 +29,21 @@ SPEC.loader.exec_module(check_approval)
         "진행할까요?\n`확인한 앞 결정` 줄을 쓴다.",
     ],
 )
-def test_needs_review_flags_requests_without_prior_decision(message):
+def test_needs_review_flags_request(message):
     assert check_approval.needs_review(message)
+
+
+def test_needs_review_passes_request_with_prior_decision():
+    message = (
+        "## 정해 주실 것\n- 시험 세트 사용\n  확인한 앞 결정: CLAUDE.md 승인 지점 절, "
+        "닫히지 않는 이유: 시험 세트 사용은 승인 지점이다"
+    )
+    assert not check_approval.needs_review(message)
 
 
 @pytest.mark.parametrize(
     "message",
     [
-        (
-            "## 정해 주실 것\n- 시험 세트 사용\n  확인한 앞 결정: CLAUDE.md 승인 지점 절, "
-            "닫히지 않는 이유: 시험 세트 사용은 승인 지점이다"
-        ),
         "승인 요청 Stop hook을 더했다.",
         "## 승인 요청 hook 추가\n본문",
         "**승인 요청 검사**를 더했다.",
@@ -51,7 +56,7 @@ def test_needs_review_flags_requests_without_prior_decision(message):
         "모든 검사를 통과했다.",
     ],
 )
-def test_needs_review_passes_reports_and_mentions(message):
+def test_needs_review_ignores_non_request(message):
     assert not check_approval.needs_review(message)
 
 
@@ -71,5 +76,5 @@ def test_main_passes_when_stop_hook_active(monkeypatch, capsys):
     assert run_main(monkeypatch, capsys, payload) == ""
 
 
-def test_main_passes_without_message(monkeypatch, capsys):
+def test_main_passes_missing_message(monkeypatch, capsys):
     assert run_main(monkeypatch, capsys, {"stop_hook_active": False}) == ""

@@ -19,16 +19,20 @@ from uplift.runs import (
 )
 
 
-def test_record_run_and_metrics():
+def test_record_run_stores_experiment():
     con = duckdb.connect()
-    run_id = record_run(con, "EXP-001", {"seed": 42})
+    record_run(con, "EXP-001", {"seed": 42})
+    assert con.execute("SELECT experiment_id FROM runs").fetchone() == ("EXP-001",)
+
+
+def test_record_metrics_stores_values():
+    con = duckdb.connect()
     record_metrics(
         con,
-        run_id,
+        "r1",
         pd.DataFrame({"model_id": ["m"], "metric": ["ipw"], "fold": [None], "value": [0.2]}),
     )
-    assert con.execute("SELECT experiment_id FROM runs").fetchone() == ("EXP-001",)
-    assert con.execute("SELECT run_id, value FROM metrics").fetchall() == [(run_id, 0.2)]
+    assert con.execute("SELECT run_id, value FROM metrics").fetchall() == [("r1", 0.2)]
 
 
 def test_record_predictions_appends_rows_with_run_id():
@@ -50,17 +54,26 @@ def test_record_predictions_appends_rows_with_run_id():
     assert out == [("r1", 2), ("r2", 2)]
 
 
-def test_record_table_round_trip_and_config():
+def test_record_table_round_trip():
     con = duckdb.connect()
-    run_id = record_run(con, "EXP-001", {"n_boot": 5})
     table = pd.DataFrame(
         {"seed": [42, 154], "comparison": ["a - b", "c - d"], "width": [0.1, 1 / 3]}
     )
-    record_table(con, run_id, "diffs", table)
-    pd.testing.assert_frame_equal(load_table(con, run_id, "diffs"), table)
+    record_table(con, "r1", "diffs", table)
+    pd.testing.assert_frame_equal(load_table(con, "r1", "diffs"), table)
+
+
+def test_load_run_config_returns_config():
+    con = duckdb.connect()
+    run_id = record_run(con, "EXP-001", {"n_boot": 5})
     assert load_run_config(con, run_id) == {"n_boot": 5}
+
+
+def test_load_table_missing_raises():
+    con = duckdb.connect()
+    record_table(con, "r1", "diffs", pd.DataFrame({"a": [1]}))
     with pytest.raises(KeyError):
-        load_table(con, run_id, "missing")
+        load_table(con, "r1", "missing")
 
 
 def test_require_clean_stops_on_uncommitted_change(tmp_path, monkeypatch):
@@ -134,11 +147,14 @@ def test_load_scores_rejects_missing_arm():
         load_scores(_scores_con(), "r", "m", (1, 3))
 
 
-def test_load_scores_orders_and_requires_given_customers():
-    con = _scores_con()
-    assert load_scores(con, "r", "m", (1, 2), pd.Index([2, 1])).index.tolist() == [2, 1]
+def test_load_scores_follows_customer_order():
+    scores = load_scores(_scores_con(), "r", "m", (1, 2), pd.Index([2, 1]))
+    assert scores.index.tolist() == [2, 1]
+
+
+def test_load_scores_missing_customer_raises():
     with pytest.raises(KeyError, match="1명"):
-        load_scores(con, "r", "m", (1, 2), pd.Index([1, 9]))
+        load_scores(_scores_con(), "r", "m", (1, 2), pd.Index([1, 9]))
 
 
 def test_record_metrics_rejects_missing_column():
@@ -159,20 +175,19 @@ def _runs_with(configs):
     return con, [record_run(con, "EXP", c) for c in configs]
 
 
-def test_common_config_maps_parts_to_runs():
+def test_common_config_maps_parts():
     con, ids = _runs_with([{"seed": 1, "part": "a"}, {"seed": 1, "part": "b"}])
     cfg, by_part = common_config(con, ids, _Cfg)
-    assert cfg.seed == 1 and by_part == {"a": ids[0], "b": ids[1]}
+    assert (cfg, by_part) == (_Cfg(seed=1), {"a": ids[0], "b": ids[1]})
 
 
-@pytest.mark.parametrize(
-    ("configs", "message"),
-    [
-        ([{"seed": 1, "part": "a"}, {"seed": 2, "part": "b"}], "서로 다르다"),
-        ([{"seed": 1, "part": "a"}, {"seed": 1, "part": "a"}], "여럿"),
-    ],
-)
-def test_common_config_rejects_mixed_settings_and_repeated_parts(configs, message):
-    con, ids = _runs_with(configs)
-    with pytest.raises(ValueError, match=message):
+def test_common_config_rejects_mixed_settings():
+    con, ids = _runs_with([{"seed": 1, "part": "a"}, {"seed": 2, "part": "b"}])
+    with pytest.raises(ValueError, match="서로 다르다"):
+        common_config(con, ids, _Cfg)
+
+
+def test_common_config_rejects_repeated_part():
+    con, ids = _runs_with([{"seed": 1, "part": "a"}, {"seed": 1, "part": "a"}])
+    with pytest.raises(ValueError, match="여럿"):
         common_config(con, ids, _Cfg)

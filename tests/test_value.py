@@ -1,6 +1,8 @@
+import functools
 from itertools import permutations
 
 import numpy as np
+import pandas as pd
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
@@ -33,19 +35,27 @@ def estimates(method, pred=None):
     return np.array(values)
 
 
-def test_six_customer_example_over_all_assignments():
-    ipw = estimates("ipw")
-    assert len(ipw) == 90
-    assert ipw.mean() == pytest.approx(5 / 6)
-    assert ipw.std() == pytest.approx(0.538, abs=1e-3)
-    hajek = estimates("hajek")
-    assert len(hajek) == 81
-    assert hajek.mean() == pytest.approx(0.841, abs=1e-3)
-    assert hajek.std() == pytest.approx(0.245, abs=1e-3)
-    for pred, sd in [(PRED, 0.203), (np.full(6, 0.5), 0.284), (np.zeros(6), 0.538)]:
-        aipw = estimates("aipw", pred)
-        assert aipw.mean() == pytest.approx(5 / 6)
-        assert aipw.std() == pytest.approx(sd, abs=1e-3)
+def _summary(values):
+    return {"n": len(values), "mean": values.mean(), "std": values.std()}
+
+
+@pytest.mark.parametrize(
+    ("method", "expected"),
+    [
+        ("ipw", {"n": 90, "mean": 5 / 6, "std": 0.538}),
+        ("hajek", {"n": 81, "mean": 0.841, "std": 0.245}),
+    ],
+)
+def test_six_customer_example_over_all_assignments(method, expected):
+    assert _summary(estimates(method)) == pytest.approx(expected, abs=1e-3)
+
+
+@pytest.mark.parametrize(
+    ("pred", "std"), [(PRED, 0.203), (np.full(6, 0.5), 0.284), (np.zeros(6), 0.538)]
+)
+def test_aipw_six_customer_example(pred, std):
+    aipw = estimates("aipw", pred)
+    assert (aipw.mean(), aipw.std()) == pytest.approx((5 / 6, std), abs=1e-3)
 
 
 @settings(max_examples=50, deadline=None)
@@ -86,15 +96,24 @@ def planted(n=60_000, seed=0):
     return t, y, p
 
 
-def test_estimators_recover_planted_policy_value_and_aipw_is_narrower():
+@functools.cache
+def _planted_table():
     t, y, p = planted()
     policy = top_k(p[:, 1:] - p[:, :1], k=len(t) // 2)
     truth = (policy * p).sum(axis=1).mean()
-    table = compare_methods(policy, t, y, p, n_boot=1000)
+    return compare_methods(policy, t, y, p, n_boot=1000), truth
+
+
+def test_estimator_intervals_cover_planted_policy_value():
+    table, truth = _planted_table()
     assert bool(((table["low"] <= truth) & (truth <= table["high"])).all())
+
+
+@pytest.mark.parametrize("method", ["hajek", "aipw"])
+def test_estimator_se_below_ipw(method):
+    table, _ = _planted_table()
     se = dict(zip(table["method"], table["se"], strict=True))
-    assert se["aipw"] < se["ipw"]
-    assert se["hajek"] < se["ipw"]
+    assert se[method] < se["ipw"]
 
 
 def test_difference_interval_covers_planted_difference():
@@ -107,25 +126,36 @@ def test_difference_interval_covers_planted_difference():
 
 
 def test_aipw_requires_mu():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="mu"):
         policy_value(uniform(3), np.array([0, 1, 2]), np.ones(3), "aipw")
 
 
 def _widths(ipw, hajek, aipw):
-    import pandas as pd
-
     return pd.DataFrame({"ipw": ipw, "hajek": hajek, "aipw": aipw})
 
 
-def test_choose_estimator_prefers_hajek_unless_aipw_is_ten_percent_narrower():
-    assert choose_estimator(_widths([1.0, 1.0], [0.9, 0.9], [0.85, 0.85]), 0.1)["chosen"] == "hajek"
-    assert choose_estimator(_widths([1.0, 1.0], [0.9, 0.9], [0.81, 0.81]), 0.1)["chosen"] == "aipw"
-    assert choose_estimator(_widths([1.0, 1.0], [1.1, 1.1], [0.95, 0.95]), 0.1)["chosen"] == "ipw"
+@pytest.mark.parametrize(
+    ("hajek", "aipw", "estimator"),
+    [
+        ([0.9, 0.9], [0.85, 0.85], "hajek"),
+        ([0.9, 0.9], [0.81, 0.81], "aipw"),
+        ([1.1, 1.1], [0.95, 0.95], "ipw"),
+    ],
+    ids=["hajek_base", "aipw_margin_met", "ipw_base"],
+)
+def test_choose_estimator_picks(hajek, aipw, estimator):
+    assert choose_estimator(_widths([1.0, 1.0], hajek, aipw), 0.1)["estimator"] == estimator
 
 
-def test_choose_estimator_counts_rows_that_disagree_with_the_mean():
+def test_choose_estimator_counts_disagreement():
     result = choose_estimator(_widths([1.0, 1.0, 1.0], [0.8, 0.8, 1.1], [0.6, 0.95, 0.95]), 0.1)
-    assert result["base"] == "hajek"
-    assert result["hajek_vs_ipw_disagree"] == 1
-    assert result["chosen"] == "hajek"
-    assert result["aipw_vs_base_disagree"] == 1
+    counts = {
+        k: result[k]
+        for k in ("base", "estimator", "hajek_vs_ipw_disagree", "aipw_vs_base_disagree")
+    }
+    assert counts == {
+        "base": "hajek",
+        "estimator": "hajek",
+        "hajek_vs_ipw_disagree": 1,
+        "aipw_vs_base_disagree": 1,
+    }

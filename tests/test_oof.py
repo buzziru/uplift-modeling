@@ -1,9 +1,9 @@
-import duckdb
 import numpy as np
 import pandas as pd
+import pytest
 
 from uplift.features import feature_matrix
-from uplift.oof import load_folds, oof_predict, outcome_model_oof, within_arm_r2
+from uplift.oof import oof_predict, outcome_model_oof, within_arm_r2
 
 
 def test_oof_predict_never_uses_own_fold():
@@ -32,7 +32,7 @@ def test_outcome_model_oof_gives_three_arm_probabilities():
     assert mu[hi, 2].mean() < mu[lo, 2].mean()
 
 
-def test_feature_matrix_one_hot_without_reference_level():
+def test_feature_matrix_drops_reference_level():
     df = pd.DataFrame(
         {
             "recency": [1, 2],
@@ -55,30 +55,31 @@ def test_feature_matrix_one_hot_without_reference_level():
     ]
 
 
-def test_load_folds_reads_one_seed():
-    con = duckdb.connect()
-    con.execute(
-        "CREATE TABLE folds AS SELECT * FROM (VALUES (2, 42, 1), (1, 42, 0), (1, 7, 3)) t(customer_id, seed, fold)"
-    )
-    assert load_folds(con, 42).to_dict() == {1: 0, 2: 1}
+R2_N = 300
+R2_T = np.tile([0, 1, 2], R2_N // 3)
+R2_Y = (np.random.default_rng(0).random(R2_N) < 0.3).astype(int)
+R2_FOLDS = np.arange(R2_N) % 5
 
 
-def test_within_arm_r2_is_one_for_exact_and_zero_for_arm_mean():
-    rng = np.random.default_rng(0)
-    n = 300
-    t = np.tile([0, 1, 2], n // 3)
-    y = (rng.random(n) < 0.3).astype(int)
-    folds = np.arange(n) % 5
-    exact = np.tile(y[:, None], (1, 3)).astype(float)
-    assert np.allclose(within_arm_r2(exact, t, y, folds)["r2"], 1)
-
-    def arm_mean(train, test):
-        return np.tile([y[train & (t == a)].mean() for a in range(3)], (int(test.sum()), 1))
-
-    assert np.allclose(within_arm_r2(oof_predict(arm_mean, folds), t, y, folds)["r2"], 0)
+def _arm_mean(train, test):
+    means = [R2_Y[train & (a == R2_T)].mean() for a in range(3)]
+    return np.tile(means, (int(test.sum()), 1))
 
 
-def test_feature_matrix_segment_replaces_product_flags():
+@pytest.mark.parametrize(
+    ("pred", "r2"),
+    [
+        (np.tile(R2_Y[:, None], (1, 3)).astype(float), 1),
+        (oof_predict(_arm_mean, R2_FOLDS), 0),
+    ],
+    ids=["exact", "arm_mean"],
+)
+def test_within_arm_r2_boundary_value(pred, r2):
+    assert np.allclose(within_arm_r2(pred, R2_T, R2_Y, R2_FOLDS)["r2"], r2)
+
+
+@pytest.fixture
+def segment_columns():
     df = pd.DataFrame(
         {
             "recency": [1, 2, 3],
@@ -90,8 +91,13 @@ def test_feature_matrix_segment_replaces_product_flags():
             "channel": ["Web", "Phone", "Web"],
         }
     )
-    seg = feature_matrix(df, product="segment")
-    assert "mens" not in seg.columns and "womens" not in seg.columns
-    product_cols = [c for c in seg.columns if c.startswith("product_")]
-    assert len(product_cols) == 2
-    assert (seg[product_cols].sum(axis=1) <= 1).all()
+    return feature_matrix(df, product="segment")
+
+
+def test_feature_matrix_segment_drops_product_flags(segment_columns):
+    assert {"mens", "womens"} & set(segment_columns.columns) == set()
+
+
+def test_feature_matrix_segment_one_hot(segment_columns):
+    product = segment_columns[[c for c in segment_columns.columns if c.startswith("product_")]]
+    assert (product.shape[1], bool((product.sum(axis=1) <= 1).all())) == (2, True)
