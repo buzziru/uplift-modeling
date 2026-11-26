@@ -33,7 +33,7 @@ def estimates(method, pred=None):
     return np.array(values)
 
 
-def test_six_customer_example_matches_study_table():
+def test_six_customer_example_over_all_assignments():
     ipw = estimates("ipw")
     assert len(ipw) == 90
     assert ipw.mean() == pytest.approx(5 / 6)
