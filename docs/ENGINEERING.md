@@ -186,14 +186,28 @@
 - 정본: `scripts/kaggle.py`, `src/uplift/kaggle_jobs.py`, `src/uplift/runs.py`(`merge_records`), `experiments/CLAUDE.md`
 - 승인: 메인 결정이라 승인 대상이 아니다.
 
-## 2026-11-26 코드 리뷰는 PR마다 하지 않고 매일 자정 GitHub Actions로 병합된 코드를 보고 이슈로 남긴다
+## 2026-11-26 코드 리뷰는 PR마다 하지 않고 매일 자정에 병합된 코드를 보고 이슈로 남긴다
 
 - 결정:
-  - 매일 00:00 KST에 직전 성공 실행 이후 병합된 저장소 소유자의 PR 코드를 `.claude/rules/code-review.md` 기준으로 리뷰해 `code-review` 라벨 이슈 하나를 만든다. 지적이 없으면 이슈를 만들지 않는다.
+  - 매일 00:00 KST에 직전 성공 실행 이후 병합된 저장소 소유자의 PR 코드를 `.claude/rules/code-review.md` 기준으로 리뷰해 `code-review` 라벨 이슈 하나를 만든다. 지적이 없고 크기 상한으로 뺀 항목도 없으면 이슈를 만들지 않는다.
   - 코드 리뷰 지적은 이 이슈에만 두고 BACKLOG에 옮기지 않는다. 사용자가 하루를 시작하며 처리를 지시하고, 고치는 PR이 이슈를 닫는다.
-  - 호출은 Messages API 한 번이고 도구를 주지 않는다. 지적 대상은 그날 바뀐 줄이고, 계산 코드 전체를 맥락으로 함께 넣어 호출처와 중복을 볼 수 있게 한다. 열린 코드 리뷰 이슈를 입력에 넣어 같은 지적을 되풀이하지 않는다.
-  - 인증은 Anthropic 워크로드 ID federation이다. 저장소에 API 키를 두지 않고, federation 규칙의 subject를 `main` 브랜치로 묶는다.
-- 근거: 사용자 결정(2026-11-26). PR 전 검토에 코드 기준을 넣으면 PR마다 검토 시간이 쌓인다. 같은 방식(meet-rag 일일 종합의 코드 리뷰 절)의 실행 시간이 하루 몇 분 안이었다. 이 저장소에서 가장 큰 PR #24의 diff와 계산 코드 전체를 넣으면 입력은 약 19만 6천 자로, 상한 30만 자 안에 든다.
-- 기각한 대안: PR 전 검토(`pr-reviewer`)에 코드 기준을 더하는 안. PR마다 검토 시간이 늘고, 코드 품질 지적은 병합을 막을 만큼 급하지 않다. meet-rag 프롬프트를 그대로 쓰는 안. 그 프롬프트는 구조와 이름을 지적하지 않아 이번 목적과 반대다.
-- 정본: `.github/workflows/daily-code-review.yml`, `.github/scripts/daily_code_review.py`, `.github/prompts/daily-code-review.md`
+- 근거: 사용자 결정(2026-11-26). PR 전 검토에 코드 기준을 넣으면 PR마다 검토 시간이 쌓인다. 같은 방식인 meet-rag 일일 종합은 2026-11-04\~11-08의 다섯 번 실행이 8초\~4분 50초 걸렸다(`gh run list -R buzziru/meet-rag --workflow daily-pr-digest.yml`).
+- 기각한 대안: PR 전 검토(`pr-reviewer`)에 코드 기준을 더하는 안. PR마다 검토 시간이 늘고, 코드 품질 지적은 병합을 막을 만큼 급하지 않다.
+- 정본: 아직 없음. 리뷰 주기와 이슈 생성은 `.github/workflows/daily-code-review.yml`과 `.github/scripts/daily_code_review.py`에 반영했고, 이슈를 BACKLOG에 옮기지 않고 PR로 닫는 절차는 다음 하네스 PR에서 `run-evaluation` 스킬에 반영한다.
 - 승인: 2026-11-26
+
+## 2026-11-26 일일 코드 리뷰는 도구 없이 Messages API를 한 번 부르고, 바뀐 줄을 계산 코드 전체와 함께 넣는다
+
+- 결정: 리뷰는 도구 없이 Messages API를 한 번 부른다. 지적 대상은 그날 바뀐 줄이고, 바뀐 파일 전체와 나머지 계산 코드를 맥락으로 함께 넣어 호출처와 중복을 볼 수 있게 한다. 열린 코드 리뷰 이슈를 입력에 넣어 같은 지적을 되풀이하지 않는다. 기준 문서는 프롬프트에 옮겨 적지 않고 입력으로 넣는다.
+- 근거: 메인 결정(2026-11-26). 이 저장소에서 가장 큰 PR #24의 diff와 계산 코드 전체를 넣으면 입력은 약 19만 6천 자로 상한 30만 자 안에 든다(커밋 `352533f`의 `review_input`에 `gh pr diff 24`를 넣어 잰 값). 그래서 도구로 파일을 찾아 읽지 않아도 판정에 필요한 코드를 모두 줄 수 있다.
+- 기각한 대안: diff만 넣는 안. 호출처가 없는 검사(C1)와 중복(C4)을 판정할 수 없다. 도구를 주는 에이전트 실행(`claude-code-action`). meet-rag ADR-0047에서 도구 범위와 토큰 노출 문제로 이미 Messages API 호출로 바꿨다. meet-rag 프롬프트를 그대로 쓰는 안. 그 프롬프트는 구조와 이름을 지적하지 않아 이번 목적과 반대다.
+- 정본: `.github/scripts/daily_code_review.py`, `.github/prompts/daily-code-review.md`
+- 승인: 메인 결정이라 승인 대상이 아니다.
+
+## 2026-11-26 일일 코드 리뷰의 인증은 워크로드 ID federation으로 하고 subject를 main에 묶는다
+
+- 결정: GitHub OIDC 토큰을 Anthropic 토큰으로 교환하는 워크로드 ID federation을 쓴다. 저장소에 API 키를 두지 않고, federation 규칙의 subject를 이 저장소의 `main` 브랜치로 묶는다. 규칙·조직·서비스 계정·워크스페이스 ID는 실행 로그에서 가려지도록 Actions secret에 둔다.
+- 근거: 메인 결정(2026-11-26). 비밀 값을 저장소 밖에 두는 원칙(CLAUDE.md 하네스 절)과 맞고, meet-rag에서 같은 설정으로 돌고 있다. subject를 `main`에 묶으면 예약·수동 실행만 토큰을 받는다.
+- 기각한 대안: API 키를 Actions secret에 두는 안. 오래 쓰는 키가 저장소 설정에 남는다. Doppler에서 실행할 때 주입하는 안. Actions에 Doppler 서비스 토큰이라는 다른 오래 쓰는 비밀 값을 두게 된다.
+- 정본: `.github/workflows/daily-code-review.yml`
+- 승인: 메인 결정이라 승인 대상이 아니다.

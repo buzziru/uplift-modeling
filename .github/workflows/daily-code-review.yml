@@ -1,5 +1,4 @@
 # 직전 성공 실행 이후(처음에는 지난 24시간) 병합된 저장소 소유자의 PR 코드를 .claude/rules/code-review.md 기준으로 리뷰해 이슈 하나로 남긴다.
-# 코드 리뷰 지적은 이 이슈에만 두고, 사용자가 하루를 시작하며 처리를 지시한다(2026-11-26 사용자 결정).
 # 인증은 Anthropic 워크로드 ID federation이다. ID 네 개는 실행 로그에서 가려지도록 저장소 Actions secret에 둔다.
 name: daily-code-review
 

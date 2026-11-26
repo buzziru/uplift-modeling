@@ -64,9 +64,15 @@ class FakeAPIError(Exception):
 
 
 @pytest.mark.parametrize(
-    ("first", "failure"), [("refusal", "거절"), (FakeAPIError, "API 오류(FakeAPIError)")]
+    ("first", "model", "failure"),
+    [
+        ("end_turn", "main", None),
+        ("refusal", "fallback", "거절"),
+        (FakeAPIError, "fallback", "API 오류(FakeAPIError)"),
+    ],
+    ids=["main_ok", "refusal", "api_error"],
 )
-def test_ask_with_fallback_uses_fallback_model(monkeypatch, first, failure):
+def test_ask_with_fallback_picks_model(monkeypatch, first, model, failure):
     monkeypatch.setenv("MODEL", "main")
     monkeypatch.setenv("FALLBACK_MODEL", "fallback")
 
@@ -77,4 +83,9 @@ def test_ask_with_fallback_uses_fallback_model(monkeypatch, first, failure):
 
     monkeypatch.setattr(review, "ask", fake_ask)
     response, got = review.ask_with_fallback(None, "{}", FakeAPIError)
-    assert (response.model, got) == ("fallback", failure)
+    assert (response.model, got) == (model, failure)
+
+
+def test_owned_drops_other_authors():
+    prs = [{"number": 1, "author": {"login": "o"}}, {"number": 2, "author": {"login": "x"}}]
+    assert [p["number"] for p in review.owned(prs, "o")] == [1]

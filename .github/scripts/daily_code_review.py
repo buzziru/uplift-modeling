@@ -26,6 +26,10 @@ def gh(*args: str) -> str:
     ).stdout
 
 
+def owned(prs: list[dict], owner: str) -> list[dict]:
+    return [p for p in prs if p["author"]["login"] == owner]
+
+
 def code_diffs(number: int, diff: str) -> list[dict]:
     out = []
     for part in re.split(r"(?m)^(?=diff --git )", diff):
@@ -120,13 +124,16 @@ def main() -> None:
     import anthropic
 
     repo, owner, day = os.environ["GITHUB_REPOSITORY"], os.environ["OWNER"], os.environ["DAY"]
-    prs, diffs = [], []
-    for number in os.environ["PR_NUMBERS"].split():
-        pr = json.loads(gh("pr", "view", number, "-R", repo, "--json", "number,title,author"))
-        if pr["author"]["login"] != owner:
-            continue
-        prs.append({"number": pr["number"], "title": pr["title"]})
-        diffs += code_diffs(pr["number"], gh("pr", "diff", number, "-R", repo))
+    views = [
+        json.loads(gh("pr", "view", n, "-R", repo, "--json", "number,title,author"))
+        for n in os.environ["PR_NUMBERS"].split()
+    ]
+    prs = [{"number": p["number"], "title": p["title"]} for p in owned(views, owner)]
+    diffs = [
+        d
+        for p in prs
+        for d in code_diffs(p["number"], gh("pr", "diff", str(p["number"]), "-R", repo))
+    ]
     if not diffs:
         print("병합된 코드 변경이 없어 리뷰하지 않는다")
         return
