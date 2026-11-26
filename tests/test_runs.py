@@ -12,6 +12,7 @@ from uplift.runs import (
     record_run,
     record_table,
     require_clean,
+    stage,
 )
 
 
@@ -78,3 +79,42 @@ def test_require_clean_stops_on_uncommitted_change(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError):
         require_clean(["run.py"])
     require_clean(["other"])
+
+
+def test_stage_reuses_parent_only_when_settings_and_files_unchanged(tmp_path, monkeypatch):
+    def git(*args):
+        subprocess.run(
+            ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
+        )
+
+    git("init")
+    (tmp_path / "hpo.py").write_text("a", encoding="utf-8")
+    git("add", "hpo.py")
+    git("commit", "-m", "init")
+    monkeypatch.chdir(tmp_path)
+    con = duckdb.connect()
+    calls = []
+
+    def compute():
+        calls.append(1)
+        return pd.DataFrame({"v": [len(calls)]})
+
+    parent = record_run(con, "EXP", {"stages": {"hpo": {"n_trials": 50}}})
+    stage(con, parent, "hpo", compute, ["hpo.py"], {"n_trials": 50})
+    child = record_run(con, "EXP", {"stages": {"hpo": {"n_trials": 50}}})
+    reused = stage(con, child, "hpo", compute, ["hpo.py"], {"n_trials": 50}, parent=parent)
+    assert len(calls) == 1 and reused["v"].tolist() == [1]
+    assert load_table(con, child, "hpo")["v"].tolist() == [1]
+
+    other = record_run(con, "EXP", {"stages": {"hpo": {"n_trials": 10}}})
+    stage(con, other, "hpo", compute, ["hpo.py"], {"n_trials": 10}, parent=parent)
+    assert len(calls) == 2
+
+    (tmp_path / "hpo.py").write_text("b", encoding="utf-8")
+    git("commit", "-am", "change")
+    changed = record_run(con, "EXP", {"stages": {"hpo": {"n_trials": 50}}})
+    stage(con, changed, "hpo", compute, ["hpo.py"], {"n_trials": 50}, parent=parent)
+    assert len(calls) == 3
