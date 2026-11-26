@@ -1,8 +1,3 @@
-"""Hillstrom 원본 CSV를 받아 체크섬을 확인하고 Parquet로 저장한다.
-
-실행: uv run python scripts/fetch_data.py
-"""
-
 import hashlib
 import sys
 import urllib.request

@@ -1,5 +1,3 @@
-"""무작위 배정 점검(SRM, SMD)과 처치별 평균 차이(ATE)."""
-
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -11,7 +9,6 @@ Z80 = stats.norm.ppf(0.8)
 
 
 def srm_test(counts: pd.Series, expected_ratio: pd.Series) -> dict:
-    """그룹 크기를 설계 비율과 카이제곱 적합도 검정으로 비교한다."""
     expected = expected_ratio / expected_ratio.sum() * counts.sum()
     chi2, p = stats.chisquare(counts, expected.loc[counts.index])
     return {
@@ -28,7 +25,6 @@ def _smd(x1: pd.Series, x0: pd.Series) -> float:
 
 
 def smd_table(covariates: pd.DataFrame, treatment: pd.Series, control: int = 0) -> pd.DataFrame:
-    """처치군마다 대조군과의 SMD를 공변량별로 구한다. 범주형은 범주마다 비율의 SMD를 구한다."""
     rows = []
     x0_all = covariates[treatment == control]
     for t in sorted(set(treatment) - {control}):
@@ -53,7 +49,6 @@ def smd_table(covariates: pd.DataFrame, treatment: pd.Series, control: int = 0) 
 
 
 def ate_diff(outcome: pd.Series, treatment: pd.Series, control: int = 0) -> pd.DataFrame:
-    """처치군마다 대조군과의 평균 차이, 표준오차, 95% 신뢰구간을 구한다."""
     y0 = outcome[treatment == control]
     rows = []
     for t in sorted(set(treatment) - {control}):
@@ -79,7 +74,6 @@ def ate_diff(outcome: pd.Series, treatment: pd.Series, control: int = 0) -> pd.D
 def precision_at_test_size(
     outcome: pd.Series, treatment: pd.Series, test_counts: pd.Series, control: int = 0
 ) -> pd.DataFrame:
-    """시험 세트 크기에서 처치군 대 대조군 차이의 표준오차, 95% 구간 반폭, 검정력 80% 최소 효과와 두 군의 행 수."""
     var = pd.Series(outcome.groupby(treatment).var())
     rows = []
     for t in sorted(set(treatment) - {control}):
@@ -98,10 +92,6 @@ def precision_at_test_size(
 
 
 def funnel_ratios(effect: pd.DataFrame, control: pd.DataFrame) -> pd.DataFrame:
-    """효과의 비(구매 증가 / 방문 증가, 매출 증가 / 구매 증가)와 대조군의 같은 비율.
-
-    effect는 비교마다 visit, conversion, spend 효과를 열로 둔 표, control은 대조군 고객의 결과다.
-    """
     out = pd.DataFrame(
         {
             "conversion_per_visit": effect["conversion"] / effect["visit"],

@@ -1,8 +1,3 @@
-"""data/raw/hillstrom.parquet를 DuckDB에 적재하고 분할을 만들고 명세용 요약을 내보낸다.
-
-실행: uv run python scripts/build_db.py (먼저 scripts/fetch_data.py)
-"""
-
 import json
 from pathlib import Path
 

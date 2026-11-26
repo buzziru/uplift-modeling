@@ -1,5 +1,3 @@
-"""분석 그림(seaborn)."""
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -9,7 +7,6 @@ from matplotlib.ticker import NullFormatter, ScalarFormatter
 
 
 def smd_plot(smd: pd.DataFrame, threshold: float) -> Figure:
-    """공변량(범주형은 범주)별 |SMD|를 처치 정의마다 점으로 찍고 기준선을 긋는다."""
     df = smd.assign(
         label=(
             smd["covariate"] + smd["level"].map(lambda v: "" if pd.isna(v) else f" = {v}")

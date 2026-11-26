@@ -1,5 +1,3 @@
-"""원본 Hillstrom 데이터를 분석 테이블로 나누고 DuckDB에 적재한다."""
-
 from pathlib import Path
 
 import duckdb
@@ -40,10 +38,6 @@ BINARY_COLUMNS = ["mens", "womens", "newbie"]
 
 
 def build_tables(raw: pd.DataFrame) -> dict[str, pd.DataFrame]:
-    """원본 한 테이블을 고객, 처치, 배정, 결과 테이블로 나눈다.
-
-    원본에는 고객 ID가 없으므로 원본 CSV의 행 순서를 customer_id로 쓴다.
-    """
     df = raw.reset_index(drop=True).replace(CATEGORY_FIXES)
     customer_id = pd.Series(range(len(df)), name="customer_id")
     ids = dict(zip(TREATMENTS["name"], TREATMENTS["treatment_id"]))
@@ -65,7 +59,6 @@ def build_tables(raw: pd.DataFrame) -> dict[str, pd.DataFrame]:
 
 
 def category_fix_counts(raw: pd.DataFrame) -> dict:
-    """CATEGORY_FIXES로 바뀌는 원본 값마다 행 수."""
     return {
         col: {old: int(pd.Series(raw[col] == old).sum()) for old in fixes}
         for col, fixes in CATEGORY_FIXES.items()
@@ -73,7 +66,6 @@ def category_fix_counts(raw: pd.DataFrame) -> dict:
 
 
 def check_tables(tables: dict[str, pd.DataFrame]) -> list[str]:
-    """키, 허용값과 범위, 퍼널 규칙을 확인하고 위반을 돌려준다."""
     customers, outcomes = tables["customers"], tables["outcomes"]
     errors = []
     ids = customers["customer_id"]
@@ -105,7 +97,6 @@ def check_tables(tables: dict[str, pd.DataFrame]) -> list[str]:
 
 
 def load_frame(con: duckdb.DuckDBPyConnection, split: str | None = None) -> pd.DataFrame:
-    """고객 특성, 배정, 결과를 customer_id로 이은 분석용 표를 읽는다."""
     filter_split = (
         ""
         if split is None
@@ -125,7 +116,6 @@ def load_frame(con: duckdb.DuckDBPyConnection, split: str | None = None) -> pd.D
 
 
 def write_db(tables: dict[str, pd.DataFrame], path: Path) -> None:
-    """테이블을 DuckDB 파일에 쓴다. 같은 이름의 테이블은 바꾼다."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with duckdb.connect(str(path)) as con:
         for name, table in tables.items():
@@ -135,7 +125,6 @@ def write_db(tables: dict[str, pd.DataFrame], path: Path) -> None:
 
 
 def profile(tables: dict[str, pd.DataFrame]) -> dict:
-    """데이터 명세에 인용할 요약을 만든다."""
     customers = {c: tables["customers"][c].to_numpy() for c in CUSTOMER_COLUMNS}
     joined = (
         tables["assignments"]
@@ -183,13 +172,11 @@ def profile(tables: dict[str, pd.DataFrame]) -> dict:
 
 
 def _boundary(values: pd.Series, side: str) -> dict:
-    """최솟값이나 최댓값과 그 값을 가진 행 수. 잘린 값(하한, 상한)을 찾는 데 쓴다."""
     v = values.min() if side == "min" else values.max()
     return {"value": float(v), "count": int((values == v).sum())}
 
 
 def tables_markdown(tables: dict[str, pd.DataFrame], head: int = 5) -> str:
-    """테이블마다 열과 타입, 행 수, 앞 몇 행을 마크다운으로 만든다. DuckDB 파일을 열지 않고 보기 위한 것이다."""
     parts = [
         "# DuckDB 테이블 미리보기",
         "",
