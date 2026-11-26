@@ -4,6 +4,7 @@ import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
 from io import StringIO
+from pathlib import Path
 
 import duckdb
 import pandas as pd
@@ -160,3 +161,33 @@ def stage(
     table = compute()
     record_table(con, run_id, name, table)
     return table
+
+
+RECORD_TABLES = {
+    "runs": RUNS_DDL,
+    "metrics": METRICS_DDL,
+    "predictions": PREDICTIONS_DDL,
+    "run_tables": RUN_TABLES_DDL,
+}
+
+
+def merge_records(con: duckdb.DuckDBPyConnection, source: Path) -> list[str]:
+    con.execute(f"ATTACH '{source.as_posix()}' AS src (READ_ONLY)")
+    try:
+        run_ids = [r[0] for r in con.execute("SELECT run_id FROM src.runs").fetchall()]
+        known = {r[0] for r in con.execute(RUNS_DDL + "; SELECT run_id FROM runs").fetchall()}
+        if known & set(run_ids):
+            raise RuntimeError(f"이미 합친 실행이다: {sorted(known & set(run_ids))}")
+        present = {
+            r[0]
+            for r in con.execute(
+                "SELECT table_name FROM duckdb_tables() WHERE database_name = 'src'"
+            ).fetchall()
+        }
+        for table, ddl in RECORD_TABLES.items():
+            con.execute(ddl)
+            if table in present:
+                con.execute(f"INSERT INTO {table} SELECT * FROM src.{table}")
+    finally:
+        con.execute("DETACH src")
+    return run_ids

@@ -1,17 +1,17 @@
 import argparse
 import json
 from pathlib import Path
+from typing import Literal
 
 import duckdb
-import numpy as np
 import optuna
 import pandas as pd
 import yaml
 from pydantic import BaseModel
 
 from uplift import oof, plots, policy, ranking, response, runs, value
-from uplift.db import load_frame
 from uplift.features import feature_matrix
+from uplift.train_data import TrainData, from_duckdb, from_parquet
 
 HERE = Path(__file__).parent
 ROOT = HERE.parents[1]
@@ -36,6 +36,7 @@ class Config(BaseModel):
     aipw_margin: float
     differences: list[tuple[str, str]]
     seed_range_difference: tuple[str, str]
+    run_on: Literal["local", "kaggle"]
     smoke: Smoke
 
 
@@ -43,19 +44,10 @@ def load_config() -> Config:
     return Config(**yaml.safe_load((HERE / "config.yaml").read_text(encoding="utf-8")))
 
 
-def compute(
-    cfg: Config,
-    data: duckdb.DuckDBPyConnection,
-    rec: duckdb.DuckDBPyConnection,
-    sample_size: int | None = None,
-) -> str:
+def compute(cfg: Config, data: TrainData, rec: duckdb.DuckDBPyConnection) -> str:
     optuna.logging.set_verbosity(optuna.logging.WARNING)
-    df = load_frame(data, "train")
-    folds = {s: oof.load_folds(data, s).loc[df["customer_id"]].to_numpy() for s in cfg.seeds}
-    if sample_size is not None:
-        keep = np.sort(np.random.default_rng(0).choice(len(df), sample_size, replace=False))
-        df = df.iloc[keep].reset_index(drop=True)
-        folds = {s: f[keep] for s, f in folds.items()}
+    df = data.frame
+    folds = {s: data.fold_array(s) for s in cfg.seeds}
     features = feature_matrix(df)
     x = features.to_numpy()
     t = df["treatment_id"].to_numpy()
@@ -199,23 +191,41 @@ def export(con: duckdb.DuckDBPyConnection, run_id: str, out: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("compute")
+    comp = sub.add_parser("compute")
+    comp.add_argument("--data", type=Path)
+    comp.add_argument("--db", type=Path)
+    comp.add_argument("--smoke", action="store_true")
     sub.add_parser("export").add_argument("run_id")
     sub.add_parser("smoke").add_argument("out", type=Path)
     args = parser.parse_args()
     cfg = load_config()
+    smoke = args.command == "smoke" or (args.command == "compute" and args.smoke)
+    if smoke:
+        cfg.n_trials, cfg.n_boot = cfg.smoke.n_trials, cfg.smoke.n_boot
 
     if args.command == "compute":
+        if args.data is None and cfg.run_on == "kaggle":
+            raise RuntimeError("이 실험은 Kaggle에서 compute한다: scripts/kaggle.py push")
+        if args.smoke and args.db is None:
+            raise RuntimeError("smoke 설정의 compute는 --db로 따로 기록한다")
         runs.require_clean(CODE)
-        with duckdb.connect(str(DB)) as con:
-            print(compute(cfg, con, con))
+        if args.data is None:
+            with duckdb.connect(str(DB), read_only=True) as con:
+                data = from_duckdb(con)
+        else:
+            data = from_parquet(args.data)
+        if smoke:
+            data = data.sample(cfg.smoke.sample_size)
+        with duckdb.connect(str(args.db or DB)) as rec:
+            print(compute(cfg, data, rec))
     elif args.command == "export":
         with duckdb.connect(str(DB), read_only=True) as con:
             export(con, args.run_id, ROOT / "artifacts" / cfg.experiment_id)
     else:
-        cfg.n_trials, cfg.n_boot = cfg.smoke.n_trials, cfg.smoke.n_boot
-        with duckdb.connect(str(DB), read_only=True) as data, duckdb.connect() as rec:
-            export(rec, compute(cfg, data, rec, cfg.smoke.sample_size), args.out)
+        with duckdb.connect(str(DB), read_only=True) as con:
+            data = from_duckdb(con).sample(cfg.smoke.sample_size)
+        with duckdb.connect() as rec:
+            export(rec, compute(cfg, data, rec), args.out)
 
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@ import pytest
 from uplift.runs import (
     load_run_config,
     load_table,
+    merge_records,
     record_metrics,
     record_predictions,
     record_run,
@@ -118,3 +119,15 @@ def test_stage_reuses_parent_only_when_settings_and_files_unchanged(tmp_path, mo
     changed = record_run(con, "EXP", {"stages": {"hpo": {"n_trials": 50}}})
     stage(con, changed, "hpo", compute, ["hpo.py"], {"n_trials": 50}, parent=parent)
     assert len(calls) == 3
+
+
+def test_merge_records_copies_runs_once(tmp_path):
+    source = tmp_path / "run.duckdb"
+    with duckdb.connect(str(source)) as src:
+        run_id = record_run(src, "EXP", {"a": 1})
+        record_table(src, run_id, "t", pd.DataFrame({"v": [1]}))
+    con = duckdb.connect()
+    assert merge_records(con, source) == [run_id]
+    assert load_table(con, run_id, "t")["v"].tolist() == [1]
+    with pytest.raises(RuntimeError):
+        merge_records(con, source)
