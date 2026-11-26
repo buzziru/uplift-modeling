@@ -5,7 +5,7 @@
 | 층 | 파일 | 담는 것 |
 | --- | --- | --- |
 | 정본(결정) | 코드, 설정, 테스트 | 결정 |
-| 정본(작업 규약) | 폴더의 `CLAUDE.md`, 스킬, `experiments/TEMPLATE.md` | 작업 규약과 실험 양식 |
+| 정본(작업 규약) | 폴더의 `CLAUDE.md`, `.claude/rules/`, 스킬, `experiments/TEMPLATE.md` | 작업 규약과 실험 양식 |
 | 시작 명세 | `SPEC.md`(고정) | 프로젝트를 시작할 때 정한 요구 사항과 계획. 고치지 않고, 처음 계획과 실제 진행을 비교하는 자료로 쓴다 |
 | 단계 계획 | `docs/plans/`(`ROADMAP.md`와 마일스톤별 계획) | 지금의 마일스톤, 단계별 범위, 완료 기준, 미결 사항, 작업 분해, 단위별 메모, 아이디어. 기록 문서에 둘 결정은 다시 적지 않는다 |
 | 기록 문서 | `docs/`의 PROBLEM, DATA, MODELING, EVALUATION, POLICY, DASHBOARD, ENGINEERING, NARRATIVE | 결정 당시의 결정, 근거, 기각한 대안, 반영 위치 |
