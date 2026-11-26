@@ -26,6 +26,7 @@
 - 기각한 대안: 원본 한 테이블에 예측과 지표 열을 덧붙이는 안. 실행이 늘 때마다 열이 늘고 실행 간 비교 쿼리가 어려워진다.
 - 정본: `src/uplift/db.py`, `scripts/build_db.py`. 실험 기록 테이블 다섯 개(`experiments`부터 `metrics`까지)의 열은 초안이고, M2 첫 실험에서 만들며 확정한다.
 - 승인: 2026-11-23
+- 바뀐 이력: 2026-11-26, "실험 기록 테이블은 runs, metrics, predictions, run_tables로 만든다"로 바뀜
 
 ## 2026-11-23 원본은 MineThatData 원 출처 CSV를 받고 받을 때만 SHA-256으로 확인한다
 
@@ -46,7 +47,6 @@
 - 기각한 대안: 고객 특성 열을 합쳐 해시로 ID를 만드는 안. 특성이 같은 고객이 여러 명이면 ID가 겹친다.
 - 정본: `scripts/build_db.py`
 - 승인: 2026-11-23
-
 
 ## 2026-11-24 적재 때 키, 허용값과 범위, 퍼널, 분할 규칙을 확인하고 어긋나면 적재를 멈춘다
 
@@ -148,3 +148,19 @@
 
 - `history` 최솟값 29.99에 7,947행이 몰려 있다. 지난 1년 구매 금액의 하한으로 보인다.
 - `spend`는 구매 고객의 최솟값 29.99가 136행, 최댓값 499.0이 12행이다. 499.0은 위쪽을 자른 값으로 보이고, 그렇다면 큰 구매의 금액이 낮게 기록돼 `spend` 효과를 약간 낮게 본다. 원 출처 설명에서 확인하지 못해 추정으로 둔다.
+
+## 2026-11-26 실험 기록 테이블은 runs, metrics, predictions, run_tables로 만든다
+
+- 결정: 첫 실험(EXP-001)에서 실험 기록 테이블의 열을 아래로 확정한다. `experiments`, `models` 테이블은 만들지 않는다. 실험은 `runs.experiment_id`, 모델 설정은 `runs.config`와 `model_id` 이름으로 잇는다.
+
+  | 테이블 | 열 | 담는 것 |
+  | --- | --- | --- |
+  | `runs` | run_id, experiment_id, created_at, config, git_commit | 실행 하나의 설정과 코드 커밋 |
+  | `metrics` | run_id, model_id, metric, fold, value | 지표. OOF 전체 값은 fold가 비어 있다 |
+  | `predictions` | run_id, model_id, customer_id, treatment_id, fold, score | 고객별 처치별 예측 |
+  | `run_tables` | run_id, name, data | 실행의 결과 표(JSON). `artifacts/<ID>/`를 다시 계산 없이 내보낼 때 읽는다 |
+
+- 근거: "분석 데이터는 데이터 구조와 분석 목적에 따라 테이블로 나눈다"의 초안을 바꾼다. 예측 열 이름은 `uplift_score`에서 `score`로 바꿨다. EXP-001 반응 모델은 uplift가 아니라 메일별 방문 확률을 낸다. `predictions`에 `run_id`를 더해 같은 `model_id`를 다시 실행해도 실행별로 나뉜다. `run_tables`는 계산과 내보내기를 나누려고 더했다(EXP-001에서 산출물을 고치려고 전체 계산을 다시 돈 일). `experiments`, `models`는 쓰는 쿼리가 아직 없다.
+- 기각한 대안: 결과 표를 parquet 파일로 두는 안. 실행 기록의 정본이 DuckDB 파일 하나라는 규약과 어긋난다.
+- 정본: `src/uplift/runs.py`
+- 승인: 메인 결정이라 승인 대상이 아니다. 2026-11-26 보고에 적었다.
