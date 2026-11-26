@@ -1,5 +1,3 @@
-"""학습·시험 분할과 학습 세트의 seed별 CV fold. 설정은 scripts/splits.yaml."""
-
 from pathlib import Path
 
 import numpy as np
@@ -21,14 +19,12 @@ def load_config(path: Path) -> SplitConfig:
 
 
 def funnel_strata(df: pd.DataFrame) -> pd.Series:
-    """처치 x 퍼널 단계(0 방문 안 함, 1 방문만, 2 구매)를 층 하나로 묶는다."""
     return pd.Series(df["treatment_id"] * 3 + df["visit"] + df["conversion"])
 
 
 def make_splits(
     customer_id: pd.Series, strata: pd.Series, cfg: SplitConfig
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """시험 세트는 test_seed로 한 번 나누고, 학습 세트에만 cv_seeds마다 fold를 매긴다."""
     train_id, test_id = train_test_split(
         customer_id, test_size=cfg.test_size, random_state=cfg.test_seed, stratify=strata
     )
@@ -50,7 +46,6 @@ def make_splits(
 
 
 def check_splits(splits: pd.DataFrame, folds: pd.DataFrame, customer_id: pd.Series) -> list[str]:
-    """모든 고객이 학습·시험 중 하나에만 들고, 학습 고객만 seed마다 fold 하나에 드는지 본다."""
     errors = []
     if not splits["customer_id"].is_unique or set(splits["customer_id"]) != set(customer_id):
         errors.append("splits가 고객마다 한 행이 아님")
