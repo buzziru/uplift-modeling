@@ -35,7 +35,7 @@ def test_needs_review_flags_request(message):
 
 def test_needs_review_passes_request_with_prior_decision():
     message = (
-        "## 정해 주실 것\n- 시험 세트 사용\n  확인한 앞 결정: CLAUDE.md 승인 지점 절, "
+        "## 정해 주실 것\n- 시험 세트 사용\n  확인한 앞 결정: `.claude/rules/approvals.md`, "
         "닫히지 않는 이유: 시험 세트 사용은 승인 지점이다"
     )
     assert not check_approval.needs_review(message)
@@ -47,7 +47,7 @@ def test_needs_review_passes_request_with_prior_decision():
         "승인 요청 Stop hook을 더했다.",
         "## 승인 요청 hook 추가\n본문",
         "**승인 요청 검사**를 더했다.",
-        "CLAUDE.md 승인 지점 절의 승인 요청 문장을 고쳤다.",
+        "`.claude/rules/approvals.md`의 승인 요청 문장을 고쳤다.",
         "반응 모델은 visit 기준으로 정했다.",
         "패턴 `정해 주세요`를 감지한다.",
         '"할까요?" 꼴은 감지한다.',

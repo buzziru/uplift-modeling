@@ -20,5 +20,7 @@
     "주제": [
       "uplift"
     ]
-  }
+  },
+  "context": "plugin",
+  "library": []
 }
