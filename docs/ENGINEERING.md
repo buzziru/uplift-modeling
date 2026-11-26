@@ -101,6 +101,7 @@
 - 기각한 대안: Colab. 실행을 명령줄에서 올리고 상태와 출력을 받는 공식 CLI를 확인하지 못해, 로컬 스크립트로 실행을 묶기 어렵다. Kaggle CLI는 kernel push, status, logs, output을 제공한다. 로컬 실행 시간(30분)으로 로컬과 Kaggle을 가르는 안. 로컬 자원이 부족해 짧은 학습도 다른 작업을 막는다.
 - 정본: `.claude/skills/kaggle-remote-runner/SKILL.md`
 - 승인: 2026-11-24
+- 바뀐 이력: 2026-11-26, "Kaggle 실행은 scripts/kaggle.py가 맡고, kernel의 compute 기록을 로컬 DuckDB에 합친다"로 바뀜
 
 ## 2026-11-24 결정의 정본은 코드, 설정, 폴더 규약에 두고, docs/의 분야 문서는 기여 기록으로 쓴다
 
@@ -173,3 +174,14 @@
 - 기각한 대안: 앞 규약대로 EXP-001 실행을 채택해 지표와 예측을 `tests/baseline/`에 커밋하는 안. 예측만으로는 CI가 정책 가치를 다시 계산할 수 없고, 계산하게 하려면 고객별 처치와 `visit`을 함께 커밋해야 한다.
 - 정본: `tests/CLAUDE.md` 테스트 도입 순서, `experiments/CLAUDE.md`
 - 승인: 2026-11-26
+
+## 2026-11-26 Kaggle 실행은 scripts/kaggle.py가 맡고, kernel의 compute 기록을 로컬 DuckDB에 합친다
+
+- 결정:
+  - `scripts/kaggle.py`가 학습 세트 dataset 올리기, kernel 만들기와 push, 상태 보기, 출력 받기를 맡는다. dataset에는 데이터 파일 해시(manifest)를 넣고 kernel이 시작할 때 대조한다.
+  - kernel은 로컬과 같은 `run.py compute`를 `--data`(dataset)와 `--db`(kernel 출력 폴더의 DuckDB 파일)로 돈다. `pull`이 받은 DuckDB 파일의 실행 기록을 메인 DuckDB에 합친다. smoke 실행은 합치지 않는다.
+  - 실험 `config.yaml`의 `run_on`이 `kaggle`이면 로컬 compute를 멈춘다.
+- 근거: 메인 결정(2026-11-26). 2026-11-24 Kaggle 항목이 첫 Kaggle 실험(M2)으로 미룬 출력 형식과 합치는 스크립트를 정한다. Kaggle에서도 DuckDB 파일에 쓰면 로컬과 같은 기록 코드를 쓰고, 합칠 때 표를 그대로 옮긴다. EXP-002의 kernel 여덟 개를 이렇게 돌려 합쳤다.
+- 기각한 대안: `run.py`가 Kaggle에서 출력 폴더에 따로 쓰고 로컬 스크립트가 DuckDB에 다시 적는 안(2026-11-24 항목의 계획). 기록 형식이 두 벌이 된다.
+- 정본: `scripts/kaggle.py`, `src/uplift/kaggle_jobs.py`, `src/uplift/runs.py`(`merge_records`), `experiments/CLAUDE.md`
+- 승인: 메인 결정이라 승인 대상이 아니다.

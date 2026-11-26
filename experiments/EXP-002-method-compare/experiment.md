@@ -37,7 +37,7 @@
 ## 계획
 
 - 실행 위치: Kaggle CPU kernel. 방법마다 kernel 하나(`scripts/kaggle.py push --part <방법>`)와 특성 비교 kernel 하나, 모두 여덟 개. batch CPU kernel은 동시에 다섯 개까지라 나머지는 대기열에 둔다.
-- 바꿀 파일: 이 폴더의 `config.yaml`, `run.py`, `src/uplift/features.py`(구매 상품 세그먼트 특성), 테스트.
+- 바꿀 파일: 이 폴더의 `config.yaml`, `run.py`, `src/uplift/features.py`(구매 상품 세그먼트 특성), `src/uplift/selection.py`(판정 규칙), 테스트. 학습기와 Kaggle 실행 코드(`src/uplift/learners.py`, `kaggle_jobs.py`, `train_data.py`, `runs.py`, `scripts/kaggle.py`)와 EXP-001 `run.py`의 `--data`·`--db` 대응은 U4에서 같은 브랜치에 더했다.
 - 산출물: `export <run_id>...`가 방법별 실행을 모아 낸다. `tables/`의 `method_scores.csv`(방법별 seed 점수와 평균), `pair_thresholds.csv`(1위와의 $\bar d$, $R$, 문턱, 가를 수 있는지), `method_choice.csv`(선택), `policy_values.csv`(구간), `response_same_send.csv`(같은 발송 수의 반응 모델과의 차이), `ranking.csv`(쌍별 Qini), `feature_compare.csv`, `hpo_trials.csv`, `metrics.json`, `figures/`.
 - smoke: 여덟 part가 모두 표본에서 돌고, export가 위 표를 모두 내는지.
 - 구현 검증: unit test(판정 규칙의 경우별 결과, 특성 함수, part 선택). 효과를 심은 합성 데이터 test는 `tests/test_learners.py`.

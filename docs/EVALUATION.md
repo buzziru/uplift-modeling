@@ -63,5 +63,13 @@
 - 결정: 학습 세트 OOF 모델 선택과 시험 세트 판정의 `visit` 정책 가치와 정책 차이는 Hájek 추정량으로 잰다.
 - 근거: EXP-001 판정 규칙(설계 절, 결과보다 먼저 커밋)을 그대로 적용했다. 정책 차이 셋과 seed 셋의 아홉 구간 폭 평균은 IPW 0.0107, Hájek 0.0097, AIPW 0.0095이고, AIPW는 Hájek의 0.984배라 10% 문턱에 닿지 않았다(`artifacts/EXP-001/tables/estimator_choice.csv`, 학습 세트 44,800명, 부트스트랩 1,000회). outcome model의 처치군 안 R²가 0.023\~0.029라(`artifacts/EXP-001/tables/outcome_r2.csv`) AIPW가 Hájek보다 좁아지는 몫이 작다. "정책 가치는 IPW, Hájek, AIPW로 구현하고 U3의 구간 폭 비교로 모델 선택과 시험 세트 판정의 추정량을 정한다"에서 미룬 선택을 닫는다.
 - 기각한 대안: IPW. 아홉 폭 모두에서 Hájek보다 넓었다. AIPW. 폭 차이가 문턱보다 작은데 outcome model을 따로 학습하고 관리해야 한다.
-- 정본: 아직 없음. U5 모델 선택 코드와 시험 세트 판정 스크립트에 반영한다.
+- 정본: 아직 없음. 모델 선택은 `experiments/EXP-002-method-compare/run.py`에 반영했고, 시험 세트 판정 스크립트에 반영한다.
 - 승인: 2026-11-26(판정 규칙 승인)
+
+## 2026-11-26 1단계 방법론은 세 seed 평균 정책 가치로 고르고, 1위와 가를 수 없으면 단순한 방법을 고른다
+
+- 결정: 점수는 방법마다 고른 정책의 OOF Hájek 정책 가치의 세 seed 평균이다. 1위와의 평균 차이가 max(그 쌍의 seed별 차이 범위, 0.0038)보다 작으면 가를 수 없다고 보고, 1위와 가를 수 없는 방법 가운데 단순한 순서(S-learner, T-learner, class transformation, transformed outcome, X-learner, DR-learner, uplift random forest)의 첫 방법을 고른다.
+- 근거: 사용자 결정(2026-11-26). 0.0038은 EXP-001의 seed 간 범위다(`artifacts/EXP-001/tables/seed_range.csv`). seed 셋의 범위는 그 자체가 크게 흔들려, 하한이 범위가 우연히 작게 나오는 경우를 막는다.
+- 기각한 대안: 문턱을 그 쌍의 범위만으로 두는 안. 범위가 실제 흔들림보다 작게 나오면 학습 운을 방법 차이로 판정한다. 문턱을 0.0038로 고정하는 안. 한쪽만 학습하는 비교에서 잰 값이라 두 방법이 모두 학습하는 비교의 흔들림보다 작을 수 있다.
+- 정본: `src/uplift/selection.py`(`choose_method`), `experiments/EXP-002-method-compare/config.yaml`(`floor`, `order`)
+- 승인: 2026-11-26
