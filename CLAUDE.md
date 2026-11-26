@@ -7,7 +7,7 @@
 
 - PR 전 검사: `.claude/harness/config.json`의 `check` 목록. 테스트 하나는 `uv run pytest tests/test_policy.py -k <이름>`.
 - 데이터 준비: `uv run python scripts/fetch_data.py` 다음 `uv run python scripts/build_db.py`. build_db는 데이터·분할 테이블만 다시 만들고 실험 기록 테이블은 둔다.
-- 실험: `uv run python experiments/<실험 폴더>/run.py smoke <저장소 밖 임시 폴더>`로 확인한 뒤 같은 `run.py`로 `compute`를 돌리고, 출력된 run_id로 `export <run_id>`를 돈다.
+- 실험: `uv run python experiments/<실험 폴더>/run.py smoke <저장소 밖 임시 폴더>`로 확인한 뒤 같은 `run.py`로 `compute`를 돌리고, 출력된 run_id로 `export <run_id>`를 돌린다.
 - 분석: `uv run marimo edit analyses/<파일>.py`. DuckDB는 ANA-000 노트북이나 `artifacts/data/tables.md`로 본다.
 
 ## 커밋하는 산출물
