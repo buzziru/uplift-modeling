@@ -3,6 +3,7 @@ import subprocess
 import uuid
 from datetime import UTC, datetime
 from io import StringIO
+from pathlib import Path
 
 import duckdb
 import pandas as pd
@@ -113,8 +114,51 @@ def load_table(con: duckdb.DuckDBPyConnection, run_id: str, name: str) -> pd.Dat
     return pd.read_json(StringIO(row[0]), orient="records")
 
 
+def load_scores(
+    con: duckdb.DuckDBPyConnection, run_id: str, model_id: str, arms: tuple[int, ...]
+) -> pd.DataFrame:
+    rows = con.execute(
+        "SELECT customer_id, treatment_id, score FROM predictions WHERE run_id = ? AND model_id = ?",
+        [run_id, model_id],
+    ).df()
+    if rows.empty:
+        raise KeyError(f"{run_id}에 {model_id} 예측이 없다")
+    wide = rows.pivot(index="customer_id", columns="treatment_id", values="score")
+    return wide.reindex(columns=list(arms))
+
+
 def load_run_config(con: duckdb.DuckDBPyConnection, run_id: str) -> dict:
     row = con.execute("SELECT config FROM runs WHERE run_id = ?", [run_id]).fetchone()
     if row is None:
         raise KeyError(f"{run_id} 실행이 없다")
     return json.loads(row[0])
+
+
+RECORD_TABLES = {
+    "runs": RUNS_DDL,
+    "metrics": METRICS_DDL,
+    "predictions": PREDICTIONS_DDL,
+    "run_tables": RUN_TABLES_DDL,
+}
+
+
+def merge_records(con: duckdb.DuckDBPyConnection, source: Path) -> list[str]:
+    con.execute(f"ATTACH '{source.as_posix()}' AS src (READ_ONLY)")
+    try:
+        run_ids = [r[0] for r in con.execute("SELECT run_id FROM src.runs").fetchall()]
+        known = {r[0] for r in con.execute(RUNS_DDL + "; SELECT run_id FROM runs").fetchall()}
+        if known & set(run_ids):
+            raise RuntimeError(f"이미 합친 실행이다: {sorted(known & set(run_ids))}")
+        present = {
+            r[0]
+            for r in con.execute(
+                "SELECT table_name FROM duckdb_tables() WHERE database_name = 'src'"
+            ).fetchall()
+        }
+        for table, ddl in RECORD_TABLES.items():
+            con.execute(ddl)
+            if table in present:
+                con.execute(f"INSERT INTO {table} SELECT * FROM src.{table}")
+    finally:
+        con.execute("DETACH src")
+    return run_ids

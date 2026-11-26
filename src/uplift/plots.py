@@ -144,3 +144,56 @@ def send_ratio_plot(values: pd.DataFrame, references: dict[str, float], title: s
     ax.legend(loc="best", fontsize=8)
     fig.tight_layout()
     return fig
+
+
+def budget_plot(differences: pd.DataFrame, judged: pd.DataFrame) -> Figure:
+    fig, ax = plt.subplots(figsize=(7, 4.5))
+    sns.lineplot(
+        data=differences.assign(seed=differences["seed"].astype(str)),
+        x="ratio",
+        y="estimate",
+        hue="seed",
+        marker="o",
+        linewidth=0.8,
+        ax=ax,
+    )
+    for seed, part in differences.groupby("seed"):
+        part = part.sort_values("ratio")
+        ax.fill_between(part["ratio"], part["low"], part["high"], alpha=0.12)
+    sns.lineplot(
+        data=judged, x="ratio", y="mean_diff", color="black", linewidth=2, label="seed mean", ax=ax
+    )
+    sns.lineplot(
+        data=judged,
+        x="ratio",
+        y="threshold",
+        color="black",
+        linestyle="--",
+        linewidth=1,
+        label="threshold",
+        ax=ax,
+    )
+    ax.plot(judged["ratio"], -judged["threshold"], "k--", linewidth=1)
+    ax.axhline(0, color="gray", linewidth=0.8)
+    ax.set(
+        title="visit: uplift (S-learner) - response model at the same send count",
+        xlabel="send ratio",
+        ylabel="Hajek policy value difference",
+    )
+    ax.legend(loc="best", fontsize=8)
+    fig.tight_layout()
+    return fig
+
+
+def method_score_plot(scores: pd.DataFrame, order: list[str], reference: float) -> Figure:
+    fig, ax = plt.subplots(figsize=(7, 4.5))
+    sns.stripplot(data=scores, y="method", x="value", order=order, ax=ax, size=6, alpha=0.7)
+    means = {m: float(scores.loc[scores["method"] == m, "value"].mean()) for m in order}
+    ax.scatter(
+        list(means.values()), range(len(order)), marker="|", s=400, color="black", label="mean"
+    )
+    ax.axvline(reference, linestyle="--", color="gray", linewidth=1, label="all_mens")
+    ax.set(xlabel="OOF visit policy value (Hajek)", ylabel="", title="Method scores by seed")
+    ax.legend(loc="best", fontsize=8)
+    fig.tight_layout()
+    return fig

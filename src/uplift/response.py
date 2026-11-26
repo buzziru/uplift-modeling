@@ -50,7 +50,7 @@ def arm_log_loss(
     )
 
 
-def search_space(trial: optuna.Trial) -> dict:
+def search_space(trial: optuna.trial.BaseTrial) -> dict:
     return {
         "num_leaves": trial.suggest_int("num_leaves", 7, 63, log=True),
         "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.1, log=True),

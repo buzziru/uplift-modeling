@@ -16,7 +16,7 @@
   - 결합 후보는 두 가지다. 같은 방법론에서 서로 다른 알고리즘을 결합하거나, 서로 다른 방법론을 결합한다. 결합 가중치는 OOF 예측의 Qini나 AUUC로 정한다. Qini·AUUC는 모델 선택 기준으로 쓰지 않고 순위 품질 보고에 쓴다. 결합 모델도 단일 모델과 같은 후보로 보고 같은 기준으로 고른다.
 - 근거: 사용자 지시(2026-11-23). 아직 결과 수치는 없다.
 - 기각한 대안: 방법론과 base learner 알고리즘의 모든 조합을 한 번에 비교하는 안. 사용자가 순서를 나눠 정했고, 조합 수가 방법론 수와 알고리즘 수의 곱으로 늘어 CV 실행이 그만큼 많아진다.
-- 정본: 아직 없음. M2 실험의 설계 절과 설정에 반영한다.
+- 정본: 아직 없음. 1단계는 `experiments/EXP-002-method-compare/`(설계 절, `config.yaml`)에 반영했고, 2단계 실험의 설계 절과 설정에 반영한다.
 - 승인: 2026-11-23
 
 ## 2026-11-24 고객별 증분 금액은 퍼널 분해와 두 부분 모델로 따로 만들어 비교하고, 모델 선택에는 쓰지 않는다
@@ -39,7 +39,7 @@
 - 결정: 1단계는 방법론마다 같은 예산의 가벼운 HPO를 하고 trial은 seed 42 하나로 평가한다. 2단계는 정한 방법론 안에서 넓게 탐색한다.
 - 근거: 메인 결정(2026-11-25). 기본값끼리만 비교하면 설정값에 민감한 방법이 불리해진다. 같은 예산을 주면 방법 사이 비교가 공정하다. 넓은 탐색은 후보가 하나로 줄어든 2단계에서 한다.
 - 기각한 대안: 기본값끼리 비교하는 안. 설정에 민감한 방법이 불리하다. 1단계부터 넓게 탐색하는 안. 방법론 일곱 개마다 탐색 비용이 커진다.
-- 정본: 아직 없음. M2 실험의 설계 절과 설정에 반영한다.
+- 정본: 아직 없음. 1단계는 `src/uplift/learners.py`(`tune`)와 `experiments/EXP-002-method-compare/config.yaml`(`n_trials`, `hpo_seed`)에 반영했고, 2단계 실험의 설정에 반영한다.
 - 승인: 메인 결정이라 승인 대상이 아니다. 2026-11-25 보고에 적었다.
 
 ## 2026-11-25 S·T·X·DR-learner와 uplift random forest는 causalml로, class transformation과 transformed outcome은 직접 구현한다
@@ -47,7 +47,7 @@
 - 결정: S·T·X·DR-learner와 uplift random forest는 `causalml`로, class transformation과 transformed outcome은 직접 구현한다.
 - 근거: 메인 결정(2026-11-25). `causalml`은 이미 의존성에 있고 다섯 방법을 제공한다. 나머지 둘은 결과 변수를 바꾸는 짧은 변환 코드다.
 - 기각한 대안: 모든 방법을 직접 구현하는 안. 구현과 검증 비용이 크다.
-- 정본: 아직 없음. M2 학습기 코드에 반영한다.
+- 정본: `src/uplift/learners.py`
 - 승인: 메인 결정이라 승인 대상이 아니다. 2026-11-25 보고에 적었다.
 
 ## 2026-11-25 IPW 정책 가치의 배정 확률은 설계값 1/3을 쓴다
@@ -63,5 +63,21 @@
 - 결정: class transformation과 transformed outcome은 남성용 대 미발송, 여성용 대 미발송을 각각 학습해 메일별 uplift 둘을 내고, 다른 방법과 같은 정책 규칙으로 정책을 만든다.
 - 근거: 사용자 결정(2026-11-26). "방법론을 먼저 같은 base learner로 비교해 정하고, 그다음 base learner 알고리즘을 비교한다"가 M2 승인 지점으로 미룬 이진 정의를 닫는다. 쌍마다 처치 확률이 1/2이라 class transformation을 재가중 없이 쓴다. 메일별 uplift 둘을 내므로 다른 방법과 같은 정책 규칙과 정책 가치로 비교할 수 있다. 쌍마다 학습 세트의 2/3(군마다 14,915\~14,970명, `artifacts/ANA-002/tables/outcome_by_treatment.csv`)를 쓴다.
 - 기각한 대안: 메일 전체 대 미발송. 처치 확률이 2/3라 class transformation에 재가중이 필요하고, 어느 메일을 보낼지 따로 정해야 해 고객별 메일 선택을 다른 방법과 같은 조건으로 비교하지 못한다. 한 쌍만 학습하는 안. 세 처치 정책을 만들지 못해 정책 가치로 다른 방법과 비교할 수 없다.
-- 정본: 아직 없음. EXP-002 설계 절과 설정에 반영한다.
+- 정본: `src/uplift/learners.py`
+- 승인: 2026-11-26
+
+## 2026-11-26 uplift random forest의 HPO 탐색 범위는 LightGBM과 따로 둔다
+
+- 결정: LightGBM을 쓰는 여섯 방법은 EXP-001 반응 모델의 탐색 범위를, uplift random forest는 자체 탐색 범위를 쓴다.
+- 근거: 메인 결정(2026-11-26). uplift random forest는 base learner가 없어 LightGBM 파라미터를 받지 않는다.
+- 기각한 대안: uplift random forest만 기본값으로 두는 안. 설정에 민감한 방법이 불리해진다는 1단계 HPO 항목의 이유와 같다.
+- 정본: `src/uplift/learners.py`(`urf_space`), `src/uplift/response.py`(`search_space`)
+- 승인: 메인 결정이라 승인 대상이 아니다.
+
+## 2026-11-26 1단계 방법론은 S-learner다
+
+- 결정: M2 1단계 방법론은 S-learner다.
+- 근거: EXP-002 판정 규칙(설계 절, 결과보다 먼저 커밋)을 그대로 적용했다. 일곱 방법 모두 1위 transformed outcome과의 평균 차이(0.0007\~0.0022)가 문턱(0.0038\~0.0052)보다 작아, 단순한 순서의 첫 방법을 골랐다(`artifacts/EXP-002/tables/pair_thresholds.csv`, 학습 세트 44,800명, seed 셋). 어느 방법의 고른 정책도 전체 남성용 발송(0.1828)보다 낫다고 말할 수 없다(`artifacts/EXP-002/tables/policy_values.csv`). 예산 제약에서도 S-learner 정책이 같은 발송 수의 반응 모델 정책을 `visit`에서 이기는 발송 비율이 없다(`artifacts/ANA-004/tables/budget_judgement.csv`).
+- 기각한 대안: 1위 transformed outcome. 1위와의 차이를 학습 운과 가를 수 없다. seed를 늘려 다시 재는 안. 방법마다 Kaggle 실행이 늘고, 2단계에서 다시 넓게 탐색한다.
+- 정본: 아직 없음. 2단계 실험의 설정에 반영한다.
 - 승인: 2026-11-26
