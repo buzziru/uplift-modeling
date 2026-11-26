@@ -119,7 +119,7 @@ def _(df, mo, out, profile_above_floor):
             mo.md(f"### history {both_min:.0f} 이상인 고객만 비교"),
             mo.ui.table(above_floor.round(3)),
             mo.md(f"""
-    - 하한을 맞추면 중앙값이 둘 다 산 고객 {q.loc["both", "history_median"]:.0f}, 남성 상품만 {q.loc["mens_only", "history_median"]:.0f}, 여성 상품만 {q.loc["womens_only", "history_median"]:.0f}로, 세 배가 넘던 차이가 {q.loc["mens_only", "level_median_ratio"]:.1f}배로 줄어든다. 차이의 대부분은 하한에서 나왔다.
+    - 하한을 맞추면 중앙값이 둘 다 산 고객 {q.loc["both", "history_median"]:.0f}, 남성 상품만 {q.loc["mens_only", "history_median"]:.0f}, 여성 상품만 {q.loc["womens_only", "history_median"]:.0f}로, 둘 다 산 고객이 남성 상품만 산 고객의 {q.loc["mens_only", "level_median_ratio"]:.1f}배다. 차이의 대부분은 하한에서 나왔다.
     - Multichannel 비율도 {q.loc["both", "multichannel_share"]:.0%} 대 {q.loc["mens_only", "multichannel_share"]:.0%}로 비슷해진다. A3에서 보는 Multichannel과 둘 다 산 고객의 관계도 두 세그먼트가 같은 200 하한을 가진 데서 나온 것일 수 있다.
     - 그래서 "둘 다 사는 고객은 가족을 위해 사서 더 많이 산다"는 가설은 이 데이터로 뒷받침되지 않는다. 남는 차이는 작고, 가족 구매와 한 사람의 잦은 구매를 가를 변수도 없다.
     - 시사점: 구매 상품 세그먼트를 모델 입력이나 세그먼트 규칙에 쓸 때, `both`의 효과에는 200 하한이 섞인다. 규칙이 `both`를 고르면 `history`를 맞춘 비교로 다시 확인한다.
@@ -218,7 +218,7 @@ def _(df, interval_plot, mo, out, segments, stacked_by_segment):
 
     - Rural 고객의 방문율이 {bv["zip_code: Rural"]:.3f}로 Suburban({bv["zip_code: Suburban"]:.3f}), Urban({bv["zip_code: Urban"]:.3f})보다 높다. A4에서 지역이 다른 특성과 겹치지 않았으므로, 이 차이는 구매액이나 채널로 설명되지 않는다. 가까운 매장이 적어 온라인을 더 찾는다는 해석과 맞지만 데이터로 확인할 수는 없다.
     - 고객 1명당 `spend`는 세 지역의 구간이 겹친다.
-    - 시사점: 평소 방문율은 uplift 모델이 고객을 고르는 기준이 아니다. uplift 모델은 메일로 늘어나는 몫(C절)으로 고른다. 평소 방문율은 메일을 받았을 때의 방문 확률로 고르는 방식(반응 확률로 고르기)이 왜 다른 고객을 고르는지 설명할 때 쓴다. Rural 고객은 평소 방문율이 높지만 `visit` 효과는 다른 지역보다 크지 않아(C1), 두 방식의 선택이 갈라지는 후보다.
+    - 시사점: 평소 방문율은 uplift 모델이 고객을 고르는 기준이 아니다. uplift 모델은 메일로 늘어나는 몫(C절)으로 고른다. 평소 방문율은 메일을 받았을 때의 방문 확률로 고르는 방식(응답 확률로 고르기)이 왜 다른 고객을 고르는지 설명할 때 쓴다. Rural 고객은 평소 방문율이 높지만 `visit` 효과는 다른 지역보다 크지 않아(C1), 두 방식의 선택이 갈라지는 후보다.
 
     ### B3. 신규 고객과 구매액에 따라 다른가
 
@@ -385,7 +385,7 @@ def _(mo):
     | --- | --- | --- |
     | 구매 상품(`mens`, `womens`)과 메일 종류의 짝이 고객별 효과 차이를 가장 크게 만든다 | C1 | M2 모델의 변수 중요도, M3 세그먼트 규칙 |
     | `visit` 기준 고른 정책은 대부분 남성용을 골라 전체 발송 정책과의 차이가 작다 | C1, D1 | M2 첫 실험에서 재는 seed 간 범위와 고른 정책의 정책 가치 차이 |
-    | Rural 고객은 평소 방문율이 높지만 `visit` 효과는 크지 않아, 반응 확률로 고를 때와 효과로 고를 때 선택이 갈라진다 | B2, C1 | M2 비교 정책과 uplift 모델의 고객 선택 비교 |
+    | Rural 고객은 평소 방문율이 높지만 `visit` 효과는 크지 않아, 응답 확률로 고를 때와 효과로 고를 때 선택이 갈라진다 | B2, C1 | M2 비교 정책과 uplift 모델의 고객 선택 비교 |
     | 신규 고객은 `visit` 효과는 기존 고객과 비슷하지만 `spend` 효과가 더 크다 | C1 | M2 금액 모델, M3 이익 최대화형 정책 |
     | 메일이 결과를 줄이는 고객은 세그먼트 단위에서 보이지 않는다 | C1 | M3 Sleeping Dogs 점검(고객별 예측) |
     | 모델이 예측한 uplift의 세그먼트 평균이 이 노트북의 세그먼트 효과와 맞는다 | C1 | M2 모델 점검 |

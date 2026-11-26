@@ -1,0 +1,17 @@
+experiment_id: EXP-001
+outcome: visit
+seeds: [42, 154, 1592]
+hpo_seed: 42
+n_trials: 50
+send_ratios: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+n_boot: 1000
+aipw_margin: 0.1
+differences:
+  - [all_mens, uniform]
+  - [response_100, all_mens]
+  - [response_50, all_mens]
+seed_range_difference: [response_100, all_mens]
+smoke:
+  sample_size: 3000
+  n_trials: 2
+  n_boot: 20

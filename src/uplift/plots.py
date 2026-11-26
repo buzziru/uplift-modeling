@@ -128,3 +128,19 @@ def interval_plot(
     ax.legend(loc="best", fontsize=8)
     fig.tight_layout()
     return fig
+
+
+def send_ratio_plot(values: pd.DataFrame, references: dict[str, float], title: str) -> Figure:
+    fig, ax = plt.subplots(figsize=(7, 4.5))
+    for seed, part in values.groupby("seed"):
+        part = part.sort_values("send_ratio")
+        x = part["send_ratio"].to_numpy()
+        ax.plot(x, part["estimate"], marker="o", label=f"response model, seed {seed}")
+        ax.fill_between(x, part["low"], part["high"], alpha=0.15)
+    for name, level in references.items():
+        ax.axhline(level, linestyle="--", linewidth=1, color="gray")
+        ax.annotate(name, (1.0, level), fontsize=8, ha="right", va="bottom")
+    ax.set(title=title, xlabel="send ratio", ylabel="visit policy value")
+    ax.legend(loc="best", fontsize=8)
+    fig.tight_layout()
+    return fig

@@ -1,0 +1,31 @@
+{
+  "run_id": "cfb0d1dade18",
+  "n_customers": 44800,
+  "best_params": {
+    "num_leaves": 9,
+    "learning_rate": 0.010407156878221873,
+    "n_estimators": 295,
+    "min_child_samples": 396,
+    "subsample": 0.7773856161772852,
+    "colsample_bytree": 0.8623341644699642,
+    "subsample_freq": 1
+  },
+  "best_log_loss": 0.876557291933403,
+  "estimator": {
+    "mean_width": {
+      "ipw": 0.010668526785714335,
+      "hajek": 0.009677861506242887,
+      "aipw": 0.009522504105907445
+    },
+    "base": "hajek",
+    "aipw_ratio": 0.983947135404322,
+    "chosen": "hajek",
+    "hajek_vs_ipw_disagree": 0,
+    "aipw_vs_base_disagree": 0
+  },
+  "seed_range": {
+    "comparison": "response_100 - all_mens",
+    "method": "hajek",
+    "range": 0.003793419254209
+  }
+}

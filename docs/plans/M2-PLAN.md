@@ -10,11 +10,11 @@
 | U2 평가 도구 | IPW·Hájek·AIPW 정책 가치(AIPW의 outcome model OOF 예측 포함)와 정책 차이, 부트스트랩 구간, 정책 생성, 처치 쌍별 Qini·AUUC, OOF 실행기(folds 테이블), DuckDB 실행 기록. BACKLOG docstring 삭제 행 | 없음 | PR-B |
 | U3 EXP-001 비교 정책 | 무작위 타겟팅, 전체 발송 정책, 반응 모델의 OOF 정책 가치와 비교 정책 사이 차이의 seed 간 범위(U5 판정 규칙에 쓸 값). 세 추정량의 OOF 구간 폭 비교. 빈 `experiments/EXP-001/`을 `EXP-001-<주제>`로 바꿔 씀 | U2 | 실험 PR |
 | U4 공통 학습기와 Kaggle 연결 | 학습기 인터페이스, causalml 설치 확인(로컬, Kaggle 이미지), dataset 업로드·출력 형식·DuckDB 기록 시험 실행 | U2 | U5 PR에 포함 |
-| U5 EXP-002 1단계 | LightGBM 고정, S·T·X·DR-learner, uplift random forest, class transformation, transformed outcome. 설계 절 먼저 커밋 | U3, U4, 이진 처치 비교 정의 승인(U3 무렵 요청). 늦으면 이진 전용 둘을 나눔 | 실험 PR |
+| U5 EXP-002 1단계 | LightGBM 고정, S·T·X·DR-learner, uplift random forest, class transformation, transformed outcome. 설계 절 먼저 커밋 | U3, U4 | 실험 PR |
 | 승인 | 1단계 방법론 | U5 | |
 | U6 EXP-003 2단계 | base learner 비교, 결합 후보, 금액 모델 spend 잡음 문턱을 판정 규칙에 먼저 적음 | 1단계 승인 | 실험 PR |
 | 승인 | 최종 모델 | U6 | |
-| U7 M2 마감 | tests/baseline 회귀 기준값과 CI 회귀 테스트(`tests/CLAUDE.md`의 regression test 시점은 U3 결과 보고 정함), NARRATIVE M2, 기록 문서 항목 | 최종 모델 승인 | 마감 PR |
+| U7 M2 마감 | tests/baseline 회귀 기준값과 CI 회귀 테스트(형식은 이때 정함, 2026-11-26), NARRATIVE M2, 기록 문서 항목 | 최종 모델 승인 | 마감 PR |
 
 - 병행: 쉬운 판 3\~9절(기초 개념은 문제에 걸린 것만, 2026-11-25 피드백). 하네스 BACKLOG 행은 다른 브랜치에 모아 M2를 닫을 때.
 
@@ -24,12 +24,10 @@
 
 - ANA-002, ANA-003 완료. 비교 정책 결정을 PROBLEM.md에 반영.
 
-### U3: U2 점검에서 본 추정량 비교(2026-11-26)
+### U3: EXP-001 결과(2026-11-26)
 
-- 학습 세트 44,800명, `visit`, fold seed 42, 부트스트랩 1,000회, outcome model은 처치군별 logistic regression의 OOF. 95% 구간 폭(IPW / Hájek / AIPW): 모두 남성용 0.0130 / 0.0121 / 0.0120, 무작위 타겟팅 0.0063 / 0.0063 / 0.0062, T-learner 상위 50% 발송 0.0119 / 0.0109 / 0.0111, 그 정책과 모두 남성용의 차이 0.0129 / 0.0117 / 0.0117. 모두 남성용, T-learner 정책, 차이에서 Hájek과 AIPW는 IPW보다 7\~9% 좁고 둘 사이 차이는 거의 없다. 무작위 타겟팅은 모든 고객의 가중치가 같아 세 추정량의 폭이 거의 같다.
-- Hájek 편향: μ̂를 참 방문 확률로 두고 배정만 다시 뽑은 시뮬레이션(T-learner 상위 50% 정책, 고객 30\~44,800명)에서 세 추정량 모두 편향이 몬테카를로 오차(학습 세트 크기에서 약 0.0001) 안이었다. 편향은 추정량 선택의 제약이 되지 않는다.
-- 이 수치는 결과 파일 없이 점검 스크립트로 낸 값이다. U3 EXP-001에서 비교 정책으로 같은 비교를 결과 파일로 다시 낸다.
-- 사용자 의견(2026-11-26): AIPW는 outcome model이 따로 필요하므로, U3에서 AIPW가 Hájek보다 뚜렷이 좁지 않으면 Hájek이 낫다. 판정 기준(얼마나 좁아야 뚜렷한가)은 U3 설계 절에 숫자로 적는다.
+- U2 점검에서 결과 파일 없이 낸 구간 폭 비교는 EXP-001에서 결과 파일로 다시 냈다(`artifacts/EXP-001/summary.md`). Hájek 편향 시뮬레이션 수치는 지웠다. 추정량은 구간 폭 규칙으로 정했고 편향은 판정에 쓰이지 않는다.
+- U5로 넘길 것: seed 간 범위(`artifacts/EXP-001/tables/seed_range.csv`), 반응 모델 쌍별 Qini(`artifacts/EXP-001/tables/response_ranking.csv`), 반응 모델 HPO 예산(trial 50회, `experiments/EXP-001-comparison-policies/config.yaml`). `policy.top_k`는 반응 모델 정책 함수다. 고른 정책은 U5에서 메일별 uplift와 0 가운데 큰 쪽을 고르는 함수로 따로 만든다.
 
 ### U3, U5: 모델링에 가져갈 것(ANA-002, ANA-003)
 
