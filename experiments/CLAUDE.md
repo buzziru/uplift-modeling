@@ -7,5 +7,5 @@
   - `smoke <폴더>`: `config.yaml`의 smoke 절 값으로 학습 세트 표본에서 계산해 메모리 DuckDB에 쓰고 지정한 폴더로 내보낸다. 폴더는 저장소 밖 임시 폴더를 쓰고, DuckDB 파일과 `artifacts/`에는 쓰지 않는다.
 - 정식 `compute` 전에 `smoke`로 파이프라인과 내보낼 파일을 확인한다.
 - `experiment_id`는 실험 폴더 ID(`EXP-001`)이고, 실행마다 `run_id`가 새로 붙는다. Kaggle에서 돌 때는 kaggle-remote-runner 스킬대로 출력 폴더에 쓴다.
-- `artifacts/<ID>/`에서 `summary.md` 말고는 `export`로만 만들고 손으로 고치지 않는다. 문서와 사이트가 인용하는 수치는 이 파일을 근거로 단다. `summary.md`가 인용할 수치는 `tables/`에 낸다. `.claude/harness/check_docs.py --summary`는 `tables/`만 대조한다.
+- `artifacts/<ID>/`에서 `summary.md` 말고는 `export`로만 만들고 손으로 고치지 않는다. 문서와 사이트가 인용하는 수치는 `export`가 낸 파일을 근거로 단다. `summary.md`가 인용할 수치는 `tables/`에 낸다. `.claude/harness/check_docs.py --summary`는 `tables/`만 대조한다.
 - `tests/baseline/`의 기준값 파일은 `tests/CLAUDE.md` 테스트 도입 순서의 regression test 시점에 만든다. 그 전의 실험 실행은 기준값을 만들지 않는다.
