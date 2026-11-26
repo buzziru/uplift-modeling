@@ -94,10 +94,32 @@ def test_check_style_flags_position_refs(text, expected):
     assert len(found) == expected
 
 
-def test_check_style_flags_merged_items_cleft_and_missing_alternative():
-    text = "출발점으로 삼는다.  - class transformation\n넣은 것은 고친 것이다.\n- 기각한 대안: 없음(사용자 지시)"
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("출발점으로 삼는다.  - class transformation", 1),
+        ("IPW 배정 확률은 설계값 1/3.- 병행: 쉬운 판", 1),
+        ("끝난다. - 다음 항목", 1),
+        ("- 첫 항목\n- 둘째 항목", 0),
+        ("범위는 0.1 - 0.3이다", 0),
+        ("S-learner와 T-learner", 0),
+        ("코드 `a.- b`와 블록", 0),
+        ("```\nx = a.- b\n```", 0),
+    ],
+)
+def test_check_merged_flags_items_on_one_line(text, expected):
+    assert len(check_docs.check_merged(text, "x.md")) == expected
+
+
+def test_run_blocks_merged_items():
+    errors, _ = check_docs.run("", "끝난다.- 다음 항목", "docs/plans/M2-PLAN.md")
+    assert any(e.startswith("목록 두 항목이 한 줄에 붙음") for e in errors)
+
+
+def test_check_style_flags_cleft_and_missing_alternative():
+    text = "넣은 것은 고친 것이다.\n- 기각한 대안: 없음(사용자 지시)"
     kinds = [w.split(":")[0] for w in check_docs.check_style(text, "docs/MODELING.md")]
-    assert kinds == ["목록 두 항목이 한 줄에 붙음", "분열문", "기각한 대안이 없음"]
+    assert kinds == ["분열문", "기각한 대안이 없음"]
     assert check_docs.check_style("- 기각한 대안: 없음", "CLAUDE.md") == []
     assert check_docs.check_style("메인이 정한 것은 정본에 반영한다.", "x.md") == []
 
@@ -164,6 +186,49 @@ def test_check_copies_errors_on_record_copies_outside_records(tmp_path, monkeypa
 def test_scope_is_everything_except_the_exclusions(path, scope, inbound):
     assert check_docs.in_scope(path) is scope
     assert check_docs.is_inbound(path) is inbound
+
+
+def test_check_inbound_flags_plan_files_only():
+    assert check_docs.check_inbound("`docs/plans/M2-PLAN.md` U3 메모", "src/uplift/value.py")
+    assert check_docs.check_inbound("지금 계획은 `docs/plans/`다.", "CLAUDE.md") == []
+
+
+def test_check_copies_ignores_matches_in_the_same_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(check_docs, "ROOT", tmp_path)
+    line = "mens 지난 1년 남성 상품 구매 여부를 나타내는 이진 열이다."
+    (tmp_path / "THEORY.md").write_text(f"{line}\n{line}\n", encoding="utf-8")
+    monkeypatch.setattr(check_docs, "scope_files", lambda: [tmp_path / "THEORY.md"])
+    assert check_docs.check_copies(line, "THEORY.md") == ([], [])
+
+
+@pytest.fixture
+def one_pending(monkeypatch):
+    monkeypatch.setattr(check_docs, "pending_items", lambda: ["docs/X.md | 가 결정 | 함수에 반영"])
+
+
+@pytest.mark.parametrize(
+    ("changed", "record_diff", "messages", "blocked"),
+    [
+        (["src/uplift/value.py"], "+- 정본: 아직 없음. 새 항목", "기능 추가", True),
+        (["src/uplift/value.py"], "-- 정본: 아직 없음. 함수에 반영\n+- 정본: `a.py`", "", False),
+        (["src/uplift/value.py"], "", "기능 추가\n\n정본 칸: 반영 없음", False),
+        (["docs/PROBLEM.md", ".claude/harness/check_docs.py"], "", "", False),
+        (["analyses/ANA-004-x.py"], "", "", True),
+        (["analyses/CLAUDE.md", "experiments/TEMPLATE.md"], "", "", False),
+    ],
+)
+def test_check_canon_requires_canon_edit_when_code_changes(
+    one_pending, changed, record_diff, messages, blocked
+):
+    errors = check_docs.check_canon(changed, record_diff, messages)
+    assert bool(errors) is blocked
+    if blocked:
+        assert errors[-1] == "반영 대기: docs/X.md | 가 결정 | 함수에 반영"
+
+
+def test_check_canon_passes_without_pending_items(monkeypatch):
+    monkeypatch.setattr(check_docs, "pending_items", list)
+    assert check_docs.check_canon(["src/uplift/value.py"], "", "") == []
 
 
 def test_run_blocks_pending_file():
