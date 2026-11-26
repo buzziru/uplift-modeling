@@ -46,4 +46,4 @@
 
 - 판정: 일곱 방법 모두 1위 transformed outcome과 가를 수 없어, 단순한 순서의 첫 방법 S-learner를 고른다(`artifacts/EXP-002/tables/pair_thresholds.csv`, `method_choice.csv`). 1위의 평균 점수가 전체 발송 정책보다 커서 "고르지 않는다" 규칙에는 걸리지 않는다. 고른 S-learner의 평균은 전체 발송 정책보다 작고, 차이 구간은 세 seed 모두 0을 포함한다(`policy_values.csv`).
 - 설계와 달라진 점: 없다.
-- 반영한 결정: 방법론 승인(모델 선택) 전이라 아직 없다.
+- 반영한 결정: 1단계 방법론을 S-learner로 정했다(사용자 승인 2026-11-26). 2단계 전에 예산 제약에서 반응 모델과 비교한다(ANA-004).
