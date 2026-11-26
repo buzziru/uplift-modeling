@@ -11,7 +11,9 @@ PAIRS = {
 }
 
 
-def _pair(uplift: np.ndarray, treatment: np.ndarray, outcome: np.ndarray, treated: int, reference: int):
+def _pair(
+    uplift: np.ndarray, treatment: np.ndarray, outcome: np.ndarray, treated: int, reference: int
+):
     treatment = np.asarray(treatment)
     effects = np.column_stack([np.zeros(len(uplift)), uplift])
     score = effects[:, treated] - effects[:, reference]

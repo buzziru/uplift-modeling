@@ -24,6 +24,16 @@ CREATE TABLE IF NOT EXISTS metrics (
     value DOUBLE
 )
 """
+PREDICTIONS_DDL = """
+CREATE TABLE IF NOT EXISTS predictions (
+    run_id VARCHAR,
+    model_id VARCHAR,
+    customer_id BIGINT,
+    treatment_id INTEGER,
+    fold INTEGER,
+    score DOUBLE
+)
+"""
 
 
 def git_commit() -> str:
@@ -42,9 +52,20 @@ def record_run(con: duckdb.DuckDBPyConnection, experiment_id: str, config: dict)
     return run_id
 
 
+def _insert(con: duckdb.DuckDBPyConnection, table: str, ddl: str, rows: pd.DataFrame) -> None:
+    con.execute(ddl)
+    con.register("new_rows", rows)
+    con.execute(f"INSERT INTO {table} SELECT * FROM new_rows")
+    con.unregister("new_rows")
+
+
 def record_metrics(con: duckdb.DuckDBPyConnection, run_id: str, metrics: pd.DataFrame) -> None:
-    con.execute(METRICS_DDL)
     rows = metrics.assign(run_id=run_id)[["run_id", "model_id", "metric", "fold", "value"]]
-    con.register("new_metrics", rows)
-    con.execute("INSERT INTO metrics SELECT * FROM new_metrics")
-    con.unregister("new_metrics")
+    _insert(con, "metrics", METRICS_DDL, rows)
+
+
+def record_predictions(
+    con: duckdb.DuckDBPyConnection, run_id: str, predictions: pd.DataFrame
+) -> None:
+    columns = ["run_id", "model_id", "customer_id", "treatment_id", "fold", "score"]
+    _insert(con, "predictions", PREDICTIONS_DDL, predictions.assign(run_id=run_id)[columns])

@@ -6,7 +6,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from uplift.policy import all_mens, fixed, top_k, uniform
-from uplift.value import compare_methods, policy_value, value_interval
+from uplift.value import choose_estimator, compare_methods, policy_value, value_interval
 
 POTENTIAL = np.array([[0, 1, 0], [1, 1, 1], [0, 0, 0], [0, 0, 1], [1, 0, 1], [0, 1, 0]])
 CHOICE = np.array([1, 1, 2, 2, 0, 1])
@@ -109,3 +109,23 @@ def test_difference_interval_covers_planted_difference():
 def test_aipw_requires_mu():
     with pytest.raises(ValueError):
         policy_value(uniform(3), np.array([0, 1, 2]), np.ones(3), "aipw")
+
+
+def _widths(ipw, hajek, aipw):
+    import pandas as pd
+
+    return pd.DataFrame({"ipw": ipw, "hajek": hajek, "aipw": aipw})
+
+
+def test_choose_estimator_prefers_hajek_unless_aipw_is_ten_percent_narrower():
+    assert choose_estimator(_widths([1.0, 1.0], [0.9, 0.9], [0.85, 0.85]), 0.1)["chosen"] == "hajek"
+    assert choose_estimator(_widths([1.0, 1.0], [0.9, 0.9], [0.81, 0.81]), 0.1)["chosen"] == "aipw"
+    assert choose_estimator(_widths([1.0, 1.0], [1.1, 1.1], [0.95, 0.95]), 0.1)["chosen"] == "ipw"
+
+
+def test_choose_estimator_counts_rows_that_disagree_with_the_mean():
+    result = choose_estimator(_widths([1.0, 1.0, 1.0], [0.8, 0.8, 1.1], [0.6, 0.95, 0.95]), 0.1)
+    assert result["base"] == "hajek"
+    assert result["hajek_vs_ipw_disagree"] == 1
+    assert result["chosen"] == "hajek"
+    assert result["aipw_vs_base_disagree"] == 2

@@ -71,6 +71,22 @@ def value_interval(
     }
 
 
+def choose_estimator(widths: pd.DataFrame, aipw_margin: float) -> dict:
+    mean = widths[list(METHODS)].mean()
+    base = "hajek" if mean["hajek"] < mean["ipw"] else "ipw"
+    use_aipw = bool(mean["aipw"] <= (1 - aipw_margin) * mean[base])
+    row_hajek = widths["hajek"] < widths["ipw"]
+    row_aipw = widths["aipw"] <= (1 - aipw_margin) * widths[base]
+    return {
+        "mean_width": {m: float(mean[m]) for m in METHODS},
+        "base": base,
+        "aipw_ratio": float(mean["aipw"] / mean[base]),
+        "chosen": "aipw" if use_aipw else base,
+        "hajek_vs_ipw_disagree": int((row_hajek != (base == "hajek")).sum()),
+        "aipw_vs_base_disagree": int((row_aipw != use_aipw).sum()),
+    }
+
+
 def compare_methods(
     policy: np.ndarray,
     treatment: np.ndarray,
