@@ -186,6 +186,30 @@
 - 정본: `scripts/kaggle.py`, `src/uplift/kaggle_jobs.py`, `src/uplift/runs.py`(`merge_records`), `experiments/CLAUDE.md`
 - 승인: 메인 결정이라 승인 대상이 아니다.
 
+## 2026-11-26 ruff 기본 규칙에 테스트 스타일, 함수 복잡도, 반복 변수 규칙을 더하고 인자 수 규칙은 켜지 않는다
+
+- 결정: ruff 기본 규칙에 `PT018`(assert 한 줄에 조건 여럿), `PT011`(너무 넓은 `pytest.raises`), `B905`(`zip`의 `strict`), `B007`(쓰지 않는 반복 변수), `SIM300`, `C901`(복잡도 10)을 더한다. `PLR0913`(인자 6개 이상)은 켜지 않는다.
+- 근거: 메인 결정(2026-11-26, 사용자 동의). 커밋 `7519103`의 코드에 후보 규칙(위 여섯과 `PLR0911`, `PLR0912`, `PLR0913`, `PLR0915`, `SIM`, `B`)을 켜고 `ruff check --statistics`를 돌리면 23건이 걸렸다. 그 가운데 `PLR0913` 8건은 `tune(x, t, y, folds, n_trials, seed)`처럼 수치 함수가 데이터와 seed를 받는 꼴이었고, 나머지 15건은 고칠 것이었다. 이 규칙들은 3\~4갈래 상태값 분기(`C901`의 복잡도 10에 닿지 않음), 여러 줄로 나눈 assert, 테스트 이름을 잡지 못해 그것들은 `.claude/rules/code-review.md`로 본다.
+- 기각한 대안: `PLR0913`까지 켜는 안. 인자를 묶을 객체를 억지로 만들게 된다.
+- 정본: `pyproject.toml`(`[tool.ruff.lint]`)
+- 승인: 메인 결정, 2026-11-26 보고에서 사용자 동의.
+
+## 2026-11-26 실험 run.py는 공통 진입부를 쓰고 실험별 설정, 계산, 판정, export 조립만 갖는다
+
+- 결정: 설정 모델의 공통 필드, smoke 설정, 학습 데이터 읽기, 예측 긴 형식, 실행 기록, 내보내기, 하위 명령 연결은 `src/uplift/experiment.py`에 둔다. 실험 `run.py`에는 실험별 설정 필드, 계산 함수(표를 돌려줌), 판정 함수, export 조립만 둔다.
+- 근거: 메인 결정(2026-11-26 코드 리뷰). EXP-001과 EXP-002 `run.py`의 compute 진입부가 줄 단위로 같았고, 계산과 DuckDB 기록이 한 함수에 섞여 있었다. 다음 실험 `run.py`가 같은 중복을 복사하지 않게 공통부를 먼저 둔다. 바꾼 뒤 두 실험을 다시 export했을 때 `tables/`의 값은 그대로였고, 이름을 바꾼 EXP-001의 `estimator_choice.csv` 열(`chosen`에서 `selected`)과 `metrics.json` 키(`estimator`에서 `estimator_choice`)만 달라졌다.
+- 기각한 대안: 다음 실험을 만들 때 공통부를 만드는 안. 사용자가 코드 품질 문제로 지금 고치기로 했다.
+- 정본: `src/uplift/experiment.py`, `experiments/CLAUDE.md`
+- 승인: 메인 결정, 2026-11-26 보고에서 사용자 동의.
+
+## 2026-11-26 명령, 방법, 추정량, 상태처럼 이름으로 정한 값의 분기는 표로 둔다
+
+- 결정: 이름으로 정한 값마다 동작을 고르는 분기는 갈래 수와 관계없이 dispatch table로 둔다. 정책 가치 추정량은 `value.ESTIMATORS`, Kaggle kernel 상태는 `kaggle_jobs.KERNEL_STATUS`, 적재 검사는 `db.check_tables`의 규칙 목록, `run.py`와 `scripts/kaggle.py`의 하위 명령은 argparse `set_defaults(func=...)`로 잇는다.
+- 근거: 사용자 지적(2026-11-26 diff 검토). 상태값마다 if-elif가 늘어지면 새 값이 생길 때마다 분기문을 고쳐야 한다(OCP). `scripts/kaggle.py`는 하위 명령이 넷으로 늘었고 마지막 명령을 `else`로 받아, 명령을 하나 더하면 조용히 `pull`이 돌 수 있었다.
+- 기각한 대안: 갈래가 적은 분기는 if-elif로 두는 안. 처음 코드 기준 초안의 예외였고, 이 예외 때문에 리뷰가 상태값 분기를 넘겼다.
+- 정본: `.claude/rules/code-review.md` C2, `src/uplift/value.py`, `src/uplift/kaggle_jobs.py`, `src/uplift/db.py`, `src/uplift/experiment.py`, `scripts/kaggle.py`
+- 승인: 사용자 지적을 반영한 기준(2026-11-26).
+
 ## 2026-11-26 코드 리뷰는 PR마다 하지 않고 매일 자정에 병합된 코드를 보고 이슈로 남긴다
 
 - 결정:

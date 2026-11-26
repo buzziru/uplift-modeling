@@ -1,17 +1,14 @@
 import argparse
-import json
 from pathlib import Path
-from typing import Literal
 
 import duckdb
 import optuna
 import pandas as pd
-import yaml
-from pydantic import BaseModel
 
-from uplift import oof, plots, policy, ranking, response, runs, value
+from uplift import experiment, oof, plots, policy, ranking, response, runs, value
+from uplift.experiment import Computed, ExperimentConfig
 from uplift.features import feature_matrix
-from uplift.train_data import TrainData, from_duckdb, from_parquet
+from uplift.train_data import TrainData, from_duckdb
 
 HERE = Path(__file__).parent
 ROOT = HERE.parents[1]
@@ -19,32 +16,35 @@ DB = ROOT / "data" / "uplift.duckdb"
 CODE = [str(ROOT / "src"), str(HERE)]
 
 
-class Smoke(BaseModel):
-    sample_size: int
-    n_trials: int
-    n_boot: int
-
-
-class Config(BaseModel):
-    experiment_id: str
-    outcome: str
-    seeds: list[int]
-    hpo_seed: int
-    n_trials: int
+class Config(ExperimentConfig):
     send_ratios: list[float]
-    n_boot: int
     aipw_margin: float
     differences: list[tuple[str, str]]
     seed_range_difference: tuple[str, str]
-    run_on: Literal["local", "kaggle"]
-    smoke: Smoke
 
 
-def load_config() -> Config:
-    return Config(**yaml.safe_load((HERE / "config.yaml").read_text(encoding="utf-8")))
+def interval_metrics(values: pd.DataFrame, diffs: pd.DataFrame) -> pd.DataFrame:
+    long = pd.concat(
+        [
+            values.melt(["seed", "policy", "method"], ["estimate", "low", "high"]).assign(
+                model_id=lambda d: d["policy"] + "_s" + d["seed"].astype(str)
+            ),
+            diffs.melt(["seed", "comparison", "method"], ["estimate", "low", "high"]).assign(
+                model_id=lambda d: d["comparison"] + "_s" + d["seed"].astype(str)
+            ),
+        ]
+    )
+    return pd.DataFrame(
+        {
+            "model_id": long["model_id"],
+            "metric": long["method"] + "_" + long["variable"],
+            "fold": pd.array([None] * len(long), dtype="Int64"),
+            "value": long["value"],
+        }
+    )
 
 
-def compute(cfg: Config, data: TrainData, rec: duckdb.DuckDBPyConnection) -> str:
+def compute(cfg: Config, data: TrainData) -> Computed:
     optuna.logging.set_verbosity(optuna.logging.WARNING)
     df = data.frame
     folds = {s: data.fold_array(s) for s in cfg.seeds}
@@ -80,152 +80,110 @@ def compute(cfg: Config, data: TrainData, rec: duckdb.DuckDBPyConnection) -> str
         for model, m in [("logistic", mu), ("lightgbm", lgbm_mu)]:
             r2.append(oof.within_arm_r2(m, t, y, f).assign(seed=s, outcome_model=model))
         qini.append(ranking.ranking_scores(scores, t, y).assign(seed=s))
-        for j, arm in enumerate(response.MAIL_ARMS):
-            preds.append(
-                pd.DataFrame(
-                    {
-                        "model_id": f"response_lgbm_s{s}",
-                        "customer_id": df["customer_id"],
-                        "treatment_id": arm,
-                        "fold": f,
-                        "score": scores[:, j],
-                    }
-                )
-            )
+        preds.append(experiment.predictions(f"response_lgbm_s{s}", df["customer_id"], f, scores))
 
     values = pd.concat(values, ignore_index=True)
     diffs = pd.concat(diffs, ignore_index=True)
-    trial_cols = ["number", "value"] + [c for c in trials.columns if c.startswith("params_")]
-    tables = {
-        "policy_values": values,
-        "policy_differences": diffs,
-        "outcome_r2": pd.concat(r2, ignore_index=True),
-        "response_ranking": pd.concat(qini, ignore_index=True),
-        "hpo_trials": trials[trial_cols],
-    }
+    return Computed(
+        config={"best_params": params, "n_customers": n},
+        tables={
+            "policy_values": values,
+            "policy_differences": diffs,
+            "outcome_r2": pd.concat(r2, ignore_index=True),
+            "response_ranking": pd.concat(qini, ignore_index=True),
+            "hpo_trials": experiment.trial_table(trials),
+        },
+        metrics=interval_metrics(values, diffs),
+        predictions=pd.concat(preds, ignore_index=True),
+    )
 
-    run_id = runs.record_run(
-        rec, cfg.experiment_id, cfg.model_dump() | {"best_params": params, "n_customers": n}
+
+def estimator_tables(diffs: pd.DataFrame, cfg: Config) -> tuple[dict[str, pd.DataFrame], dict]:
+    widths = diffs.pivot_table(index=["seed", "comparison"], columns="method", values="width")
+    widths = widths.reset_index()
+    choice = value.choose_estimator(widths, cfg.aipw_margin)
+    a, b = cfg.seed_range_difference
+    ranged = diffs.query("comparison == @a + ' - ' + @b and method == @choice['estimator']")
+    seed_range = float(ranged["estimate"].max() - ranged["estimate"].min())
+    mean_width = pd.Series(choice["mean_width"])
+    tables = {
+        "estimator_widths": widths,
+        "estimator_choice": pd.DataFrame(
+            {
+                "method": mean_width.index,
+                "mean_width": mean_width.to_numpy(),
+                "ratio_to_ipw": (mean_width / mean_width["ipw"]).to_numpy(),
+                "ratio_to_base": (mean_width / mean_width[choice["base"]]).to_numpy(),
+                "selected": mean_width.index == choice["estimator"],
+            }
+        ),
+        "seed_range": ranged[["seed", "comparison", "method", "estimate"]].assign(
+            seed_range=seed_range
+        ),
+    }
+    summary = {
+        "estimator_choice": choice,
+        "seed_range": {
+            "comparison": f"{a} - {b}",
+            "method": choice["estimator"],
+            "range": seed_range,
+        },
+    }
+    return tables, summary
+
+
+def send_ratio_figure(values: pd.DataFrame, estimator: str):
+    selected = values.query("method == @estimator")
+    curve = selected[selected["policy"].str.startswith("response_")].assign(
+        send_ratio=lambda d: d["policy"].str.removeprefix("response_").astype(int) / 100
     )
-    for name, table in tables.items():
-        runs.record_table(rec, run_id, name, table)
-    long = pd.concat(
-        [
-            values.melt(["seed", "policy", "method"], ["estimate", "low", "high"]).assign(
-                model_id=lambda d: d["policy"] + "_s" + d["seed"].astype(str)
-            ),
-            diffs.melt(["seed", "comparison", "method"], ["estimate", "low", "high"]).assign(
-                model_id=lambda d: d["comparison"] + "_s" + d["seed"].astype(str)
-            ),
-        ]
+    refs = {
+        p: float(selected.query("policy == @p")["estimate"].mean()) for p in ["all_mens", "uniform"]
+    }
+    return plots.send_ratio_plot(
+        curve, refs, f"Response model OOF visit policy value ({estimator}, 95% CI)"
     )
-    runs.record_metrics(
-        rec,
-        run_id,
-        long.assign(
-            metric=long["method"] + "_" + long["variable"],
-            fold=pd.array([None] * len(long), dtype="Int64"),
-        )[["model_id", "metric", "fold", "value"]],
-    )
-    runs.record_predictions(rec, run_id, pd.concat(preds, ignore_index=True))
-    return run_id
 
 
 def export(con: duckdb.DuckDBPyConnection, run_id: str, out: Path) -> None:
     run_cfg = runs.load_run_config(con, run_id)
     cfg = Config(**run_cfg)
-    (out / "tables").mkdir(parents=True, exist_ok=True)
-    (out / "figures").mkdir(parents=True, exist_ok=True)
     names = ["policy_values", "policy_differences", "outcome_r2", "response_ranking", "hpo_trials"]
     tables = {name: runs.load_table(con, run_id, name) for name in names}
-    values, diffs = tables["policy_values"], tables["policy_differences"]
-
-    widths = diffs.pivot_table(index=["seed", "comparison"], columns="method", values="width")
-    widths = widths.reset_index()
-    choice = value.choose_estimator(widths, cfg.aipw_margin)
-    a, b = cfg.seed_range_difference
-    ranged = diffs.query("comparison == @a + ' - ' + @b and method == @choice['chosen']")
-    seed_range = float(ranged["estimate"].max() - ranged["estimate"].min())
-    mean_width = pd.Series(choice["mean_width"])
-    tables["estimator_widths"] = widths
-    tables["estimator_choice"] = pd.DataFrame(
-        {
-            "method": mean_width.index,
-            "mean_width": mean_width.to_numpy(),
-            "ratio_to_ipw": (mean_width / mean_width["ipw"]).to_numpy(),
-            "ratio_to_base": (mean_width / mean_width[choice["base"]]).to_numpy(),
-            "chosen": mean_width.index == choice["chosen"],
-        }
-    )
-    tables["seed_range"] = ranged[["seed", "comparison", "method", "estimate"]].assign(
-        seed_range=seed_range
-    )
-    for name, table in tables.items():
-        table.to_csv(out / "tables" / f"{name}.csv", index=False)
-
-    chosen = values.query("method == @choice['chosen']")
-    curve = chosen[chosen["policy"].str.startswith("response_")].assign(
-        send_ratio=lambda d: d["policy"].str.removeprefix("response_").astype(int) / 100
-    )
-    refs = {
-        p: float(chosen.query("policy == @p")["estimate"].mean()) for p in ["all_mens", "uniform"]
-    }
-    fig = plots.send_ratio_plot(
-        curve, refs, f"Response model OOF visit policy value ({choice['chosen']}, 95% CI)"
-    )
-    fig.savefig(out / "figures" / "send_ratio.png", dpi=150)
-
+    judged, summary = estimator_tables(tables["policy_differences"], cfg)
+    figure = send_ratio_figure(tables["policy_values"], summary["estimator_choice"]["estimator"])
     metrics = {
         "run_id": run_id,
         "n_customers": run_cfg["n_customers"],
         "best_params": run_cfg["best_params"],
         "best_log_loss": float(tables["hpo_trials"]["value"].min()),
-        "estimator": choice,
-        "seed_range": {"comparison": f"{a} - {b}", "method": choice["chosen"], "range": seed_range},
+        **summary,
     }
-    (out / "metrics.json").write_text(
-        json.dumps(metrics, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    experiment.write_outputs(out, tables | judged, {"send_ratio": figure}, metrics)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    sub = parser.add_subparsers(dest="command", required=True)
-    comp = sub.add_parser("compute")
-    comp.add_argument("--data", type=Path)
-    comp.add_argument("--db", type=Path)
-    comp.add_argument("--smoke", action="store_true")
-    sub.add_parser("export").add_argument("run_id")
-    sub.add_parser("smoke").add_argument("out", type=Path)
-    args = parser.parse_args()
-    cfg = load_config()
-    smoke = args.command == "smoke" or (args.command == "compute" and args.smoke)
-    if smoke:
-        cfg.n_trials, cfg.n_boot = cfg.smoke.n_trials, cfg.smoke.n_boot
+    cfg = experiment.load_config(HERE, Config)
 
-    if args.command == "compute":
-        if args.data is None and cfg.run_on == "kaggle":
-            raise RuntimeError("이 실험은 Kaggle에서 compute한다: scripts/kaggle.py push")
-        if args.smoke and args.db is None:
-            raise RuntimeError("smoke 설정의 compute는 --db로 따로 기록한다")
-        runs.require_clean(CODE)
-        if args.data is None:
-            with duckdb.connect(str(DB), read_only=True) as con:
-                data = from_duckdb(con)
-        else:
-            data = from_parquet(args.data)
-        if smoke:
-            data = data.sample(cfg.smoke.sample_size)
-        with duckdb.connect(str(args.db or DB)) as rec:
-            print(compute(cfg, data, rec))
-    elif args.command == "export":
+    def run_export(args: argparse.Namespace) -> None:
         with duckdb.connect(str(DB), read_only=True) as con:
-            export(con, args.run_id, ROOT / "artifacts" / cfg.experiment_id)
-    else:
+            export(con, args.run_ids[0], ROOT / "artifacts" / cfg.experiment_id)
+
+    def run_smoke(args: argparse.Namespace) -> None:
+        smoke_cfg = experiment.with_smoke(cfg)
         with duckdb.connect(str(DB), read_only=True) as con:
-            data = from_duckdb(con).sample(cfg.smoke.sample_size)
+            data = from_duckdb(con).sample(smoke_cfg.smoke.sample_size, smoke_cfg.smoke.seed)
         with duckdb.connect() as rec:
-            export(rec, compute(cfg, data, rec), args.out)
+            export(rec, experiment.record(rec, smoke_cfg, compute(smoke_cfg, data)), args.out)
+
+    root, _ = experiment.parser(
+        lambda args: experiment.run_compute(cfg, args, DB, CODE, compute),
+        run_export,
+        run_smoke,
+        export_nargs=1,
+    )
+    args = root.parse_args()
+    args.func(args)
 
 
 if __name__ == "__main__":

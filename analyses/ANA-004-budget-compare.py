@@ -15,7 +15,7 @@ def _():
     from uplift import runs
     from uplift.budget import RATIOS, budget_differences, judge_budget
     from uplift.plots import budget_plot
-    from uplift.policy import MENS, WOMENS
+    from uplift.policy import MAILS
     from uplift.train_data import from_duckdb
 
     root = Path(__file__).resolve().parents[1]
@@ -25,9 +25,8 @@ def _():
     con = duckdb.connect(str(root / "data" / "uplift.duckdb"), read_only=True)
     frame = from_duckdb(con).frame
     return (
-        MENS,
+        MAILS,
         RATIOS,
-        WOMENS,
         budget_differences,
         budget_plot,
         con,
@@ -64,7 +63,7 @@ def _(mo):
 
 
 @app.cell
-def _(MENS, RATIOS, WOMENS, budget_differences, con, frame, pd_concat, runs):
+def _(MAILS, RATIOS, budget_differences, con, frame, pd_concat, runs):
     UPLIFT_RUN = "52938f3ec570"
     RESPONSE_RUN = "cfb0d1dade18"
     SEEDS = (42, 154, 1592)
@@ -72,10 +71,10 @@ def _(MENS, RATIOS, WOMENS, budget_differences, con, frame, pd_concat, runs):
     indexed = frame.set_index("customer_id")
     parts = []
     for seed in SEEDS:
-        uplift = runs.load_scores(con, UPLIFT_RUN, f"s_learner_s{seed}", (MENS, WOMENS))
+        uplift = runs.load_scores(con, UPLIFT_RUN, f"s_learner_s{seed}", MAILS)
         response = runs.load_scores(
-            con, RESPONSE_RUN, f"response_lgbm_s{seed}", (MENS, WOMENS)
-        ).reindex(uplift.index)
+            con, RESPONSE_RUN, f"response_lgbm_s{seed}", MAILS, uplift.index
+        )
         rows = indexed.loc[uplift.index]
         parts.append(
             budget_differences(
@@ -98,7 +97,9 @@ def _(budget_plot, differences, judge_budget, out):
     judged = judge_budget(differences, FLOOR)
     differences.to_csv(out / "tables" / "budget_differences.csv", index=False)
     judged.to_csv(out / "tables" / "budget_judgement.csv", index=False)
-    budget_plot(differences, judged).savefig(out / "figures" / "budget_differences.png", dpi=150)
+    budget_plot(
+        differences, judged, "visit: uplift (S-learner) - response model at the same send count"
+    ).savefig(out / "figures" / "budget_differences.png", dpi=150)
     judged
     return
 

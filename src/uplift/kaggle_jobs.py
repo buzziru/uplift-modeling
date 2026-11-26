@@ -1,23 +1,50 @@
 import hashlib
 import json
 import re
-from dataclasses import asdict, dataclass, field
+import subprocess
 from pathlib import Path
+from typing import Literal
+
+from pydantic import BaseModel, Field, TypeAdapter
 
 USER = "buzziru"
 DATASET = "uplift-hillstrom-train"
 MAX_BATCH_CPU = 5
-ACTIVE = ("pushed", "running")
-DONE = ("complete", "error", "unknown")
+Status = Literal["queued", "pushed", "running", "complete", "error", "unknown"]
+ACTIVE: tuple[Status, ...] = ("pushed", "running")
+DONE: tuple[Status, ...] = ("complete", "error", "unknown")
+MAX_MISSES = 3
+KAGGLE = [
+    "doppler",
+    "run",
+    "-p",
+    "uplift-modeling",
+    "-c",
+    "dev",
+    "--",
+    "uvx",
+    "--with",
+    "six",
+    "kaggle",
+]
+KERNEL_STATUS: dict[str, Status] = {
+    "NEW_SCRIPT": "running",
+    "QUEUED": "running",
+    "RUNNING": "running",
+    "COMPLETE": "complete",
+    "ERROR": "error",
+    "CANCEL_REQUESTED": "error",
+    "CANCEL_ACKNOWLEDGED": "error",
+}
 
 ENTRY = """import hashlib
 import json
 import subprocess
 from pathlib import Path
 
-SHA = "{sha}"
-EXP = "{exp}"
-ARGS = "{args}"
+SHA = {sha}
+EXP = {exp}
+ARGS = {args}
 
 
 def sh(cmd: str) -> None:
@@ -42,17 +69,28 @@ sh(
 """
 
 
-@dataclass
-class Job:
+class Job(BaseModel):
     slug: str
     exp: str
     sha: str
     args: str = ""
-    manifest: dict[str, str] = field(default_factory=dict)
-    status: str = "queued"
+    manifest: dict[str, str] = Field(default_factory=dict)
+    status: Status = "queued"
     version: int | None = None
     misses: int = 0
-    run_ids: list[str] = field(default_factory=list)
+    run_ids: list[str] = Field(default_factory=list)
+
+
+JOBS = TypeAdapter(list[Job])
+HASHES = TypeAdapter(dict[str, str])
+
+
+def kaggle(*args: str, check: bool = True) -> str:
+    done = subprocess.run([*KAGGLE, *args], check=False, capture_output=True, text=True)
+    out = done.stdout + done.stderr
+    if check and done.returncode != 0:
+        raise RuntimeError(f"kaggle {' '.join(args)} 실패(exit {done.returncode}): {out}")
+    return out
 
 
 def slug_for(exp: str, part: str | None) -> str:
@@ -69,16 +107,24 @@ def slot_limited(text: str) -> bool:
     return "Maximum batch CPU session count" in text
 
 
-def parse_status(text: str) -> str | None:
+def parse_status(text: str) -> Status | None:
     found = re.search(r'status "(?:KernelWorkerStatus\.)?(\w+)"', text)
     if not found:
         return None
     raw = found.group(1).upper()
-    if raw in ("RUNNING", "QUEUED"):
-        return "running"
-    if raw == "COMPLETE":
-        return "complete"
-    return "error"
+    if raw not in KERNEL_STATUS:
+        raise ValueError(f"모르는 kernel 상태: {raw}")
+    return KERNEL_STATUS[raw]
+
+
+def update_status(job: Job, parsed: Status | None) -> None:
+    if parsed is None:
+        job.misses += 1
+        if job.misses >= MAX_MISSES:
+            job.status = "unknown"
+        return
+    job.misses = 0
+    job.status = parsed
 
 
 def to_pull(jobs: list[Job]) -> list[Job]:
@@ -108,7 +154,11 @@ def write_kernel(job: Job, folder: Path) -> None:
     }
     (folder / "kernel-metadata.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     entry = ENTRY.format(
-        sha=job.sha, exp=job.exp, args=job.args, user=USER, manifest=repr(job.manifest)
+        sha=json.dumps(job.sha),
+        exp=json.dumps(job.exp),
+        args=json.dumps(job.args),
+        user=USER,
+        manifest=repr(job.manifest),
     )
     (folder / "entry.py").write_text(entry, encoding="utf-8")
 
@@ -116,12 +166,12 @@ def write_kernel(job: Job, folder: Path) -> None:
 def load_jobs(path: Path) -> list[Job]:
     if not path.exists():
         return []
-    return [Job(**j) for j in json.loads(path.read_text(encoding="utf-8"))]
+    return JOBS.validate_json(path.read_text(encoding="utf-8"))
 
 
 def save_jobs(path: Path, jobs: list[Job]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps([asdict(j) for j in jobs], indent=2), encoding="utf-8")
+    path.write_text(JOBS.dump_json(jobs, indent=2).decode(), encoding="utf-8")
 
 
 MANIFEST = "manifest.json"
@@ -135,4 +185,11 @@ def file_hashes(folder: Path) -> dict[str, str]:
 def write_manifest(folder: Path) -> dict[str, str]:
     hashes = file_hashes(folder)
     (folder / MANIFEST).write_text(json.dumps(hashes, indent=2), encoding="utf-8")
+    return hashes
+
+
+def read_manifest(path: Path) -> dict[str, str]:
+    hashes = HASHES.validate_json(path.read_text(encoding="utf-8"))
+    if set(hashes) != set(DATA_FILES):
+        raise ValueError(f"{path}의 파일 목록이 {DATA_FILES}와 다르다: {sorted(hashes)}")
     return hashes

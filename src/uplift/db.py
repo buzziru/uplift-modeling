@@ -40,7 +40,7 @@ BINARY_COLUMNS = ["mens", "womens", "newbie"]
 def build_tables(raw: pd.DataFrame) -> dict[str, pd.DataFrame]:
     df = raw.reset_index(drop=True).replace(CATEGORY_FIXES)
     customer_id = pd.Series(range(len(df)), name="customer_id")
-    ids = dict(zip(TREATMENTS["name"], TREATMENTS["treatment_id"]))
+    ids = dict(zip(TREATMENTS["name"], TREATMENTS["treatment_id"], strict=True))
     unknown = sorted(set(df["segment"]) - ids.keys())
     if unknown:
         raise ValueError(f"알 수 없는 segment: {unknown}")
@@ -67,33 +67,43 @@ def category_fix_counts(raw: pd.DataFrame) -> dict:
 
 def check_tables(tables: dict[str, pd.DataFrame]) -> list[str]:
     customers, outcomes = tables["customers"], tables["outcomes"]
-    errors = []
     ids = customers["customer_id"]
-    if not bool(ids.is_unique):
-        errors.append("customer_id 중복")
-    for name in ["assignments", "outcomes"]:
-        if set(tables[name]["customer_id"]) != set(ids):
-            errors.append(f"{name}의 customer_id 집합이 customers와 다름")
-    if not bool(tables["assignments"]["treatment_id"].isin(TREATMENTS["treatment_id"]).all()):
-        errors.append("treatment_id가 0, 1, 2 밖")
-    for col, allowed in ALLOWED.items():
-        unknown = sorted(set(customers[col]) - allowed)
-        if unknown:
-            errors.append(f"{col}에 허용되지 않은 값 {unknown}")
-    for col in BINARY_COLUMNS + ["visit", "conversion"]:
-        frame = customers if col in BINARY_COLUMNS else outcomes
-        if not bool(frame[col].isin([0, 1]).all()):
-            errors.append(f"{col}이 0/1 밖")
-    if not bool(customers["recency"].between(1, 12).all()):
-        errors.append("recency가 1~12 밖")
-    for frame, col in [(customers, "history"), (outcomes, "spend")]:
-        if bool((frame[col] < 0).any()):
-            errors.append(f"{col}에 음수")
-    if bool(((outcomes["conversion"] == 1) & (outcomes["visit"] == 0)).any()):
-        errors.append("구매했는데 방문하지 않은 행")
-    if bool(((outcomes["spend"] > 0) != (outcomes["conversion"] == 1)).any()):
-        errors.append("spend > 0과 conversion = 1이 어긋남")
-    return errors
+    flags = {
+        "visit": outcomes["visit"],
+        "conversion": outcomes["conversion"],
+        **{col: customers[col] for col in BINARY_COLUMNS},
+    }
+    unknown = {col: sorted(set(customers[col]) - allowed) for col, allowed in ALLOWED.items()}
+    rules = [
+        (not bool(ids.is_unique), "customer_id 중복"),
+        *(
+            (
+                set(tables[name]["customer_id"]) != set(ids),
+                f"{name}의 customer_id 집합이 customers와 다름",
+            )
+            for name in ["assignments", "outcomes"]
+        ),
+        (
+            not bool(tables["assignments"]["treatment_id"].isin(TREATMENTS["treatment_id"]).all()),
+            "treatment_id가 0, 1, 2 밖",
+        ),
+        *((bool(values), f"{col}에 허용되지 않은 값 {values}") for col, values in unknown.items()),
+        *((not bool(s.isin([0, 1]).all()), f"{col}이 0/1 밖") for col, s in flags.items()),
+        (not bool(customers["recency"].between(1, 12).all()), "recency가 1~12 밖"),
+        *(
+            (bool((s < 0).any()), f"{col}에 음수")
+            for col, s in [("history", customers["history"]), ("spend", outcomes["spend"])]
+        ),
+        (
+            bool(((outcomes["conversion"] == 1) & (outcomes["visit"] == 0)).any()),
+            "구매했는데 방문하지 않은 행",
+        ),
+        (
+            bool(((outcomes["spend"] > 0) != (outcomes["conversion"] == 1)).any()),
+            "spend > 0과 conversion = 1이 어긋남",
+        ),
+    ]
+    return [message for failed, message in rules if failed]
 
 
 def load_frame(con: duckdb.DuckDBPyConnection, split: str | None = None) -> pd.DataFrame:

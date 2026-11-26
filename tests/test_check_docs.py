@@ -6,7 +6,8 @@ import pytest
 SPEC = importlib.util.spec_from_file_location(
     "check_docs", Path(__file__).resolve().parents[1] / ".claude" / "harness" / "check_docs.py"
 )
-assert SPEC and SPEC.loader
+if SPEC is None or SPEC.loader is None:
+    raise ImportError("check_docs.py를 불러오지 못했다")
 check_docs = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(check_docs)
 
@@ -52,20 +53,23 @@ def test_history_ratio_counts_history_block_lines():
     assert check_docs.history_ratio(text) == pytest.approx(3 / 10)
 
 
-def test_history_ratio_is_zero_without_history():
+def test_history_ratio_empty_is_zero():
     assert check_docs.history_ratio("## 제목\n- 결정: a\n") == 0.0
 
 
-def test_check_refs_flags_title_refs_and_glossary_pointers(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("`a.md` '있는 제목' 절", ["절 제목 인용: \"`a.md` '있는 제목' 절\""]),
+        ("고른 정책(`docs/glossary.md`)은", ['용어집 가리키기: "(`docs/glossary.md`)"']),
+        ("용어는 `docs/glossary.md`다. `a.md`에 있다.", []),
+    ],
+    ids=["title_quote", "glossary_pointer", "plain_path"],
+)
+def test_check_refs_flags_pointer(tmp_path, monkeypatch, text, expected):
     monkeypatch.setattr(check_docs, "ROOT", tmp_path)
     (tmp_path / "SPEC.md").write_text("## 1. 목적\n", encoding="utf-8")
-    assert check_docs.check_refs("`a.md` '있는 제목' 절") == [
-        "절 제목 인용: \"`a.md` '있는 제목' 절\""
-    ]
-    assert check_docs.check_refs("고른 정책(`docs/glossary.md`)은") == [
-        '용어집 가리키기: "(`docs/glossary.md`)"'
-    ]
-    assert check_docs.check_refs("용어는 `docs/glossary.md`다. `a.md`에 있다.") == []
+    assert check_docs.check_refs(text) == expected
 
 
 @pytest.mark.parametrize(
@@ -116,12 +120,24 @@ def test_run_blocks_merged_items():
     assert any(e.startswith("목록 두 항목이 한 줄에 붙음") for e in errors)
 
 
-def test_check_style_flags_cleft_and_missing_alternative():
-    text = "넣은 것은 고친 것이다.\n- 기각한 대안: 없음(사용자 지시)"
-    kinds = [w.split(":")[0] for w in check_docs.check_style(text, "docs/MODELING.md")]
-    assert kinds == ["분열문", "기각한 대안이 없음"]
-    assert check_docs.check_style("- 기각한 대안: 없음", "CLAUDE.md") == []
-    assert check_docs.check_style("메인이 정한 것은 정본에 반영한다.", "x.md") == []
+def _style_kinds(text, path="docs/MODELING.md"):
+    return [w.split(":")[0] for w in check_docs.check_style(text, path)]
+
+
+def test_check_style_flags_cleft():
+    assert _style_kinds("넣은 것은 고친 것이다.") == ["분열문"]
+
+
+def test_check_style_flags_missing_alternative():
+    assert _style_kinds("- 기각한 대안: 없음(사용자 지시)") == ["기각한 대안이 없음"]
+
+
+def test_check_style_alternative_docs_only():
+    assert _style_kinds("- 기각한 대안: 없음", "CLAUDE.md") == []
+
+
+def test_check_style_passes_plain_geoseun():
+    assert _style_kinds("메인이 정한 것은 정본에 반영한다.", "x.md") == []
 
 
 def test_check_blank_runs_ignores_code_blocks():
@@ -129,7 +145,7 @@ def test_check_blank_runs_ignores_code_blocks():
     assert check_docs.check_blank_runs("a\n\n```\nx\n\n\ny\n```\nb", "x.md") == []
 
 
-def test_check_citations_matches_parenthetical_and_inline_cites():
+def test_check_citations_flags_missing_reference():
     text = (
         "방법 (Künzel et al., 2019; Jaśkowski & Jaroszewicz, 2012). Kennedy (2023)는 쓴다. "
         "(causalml, 2026). Radcliffe (2007)도.\n"
@@ -140,30 +156,42 @@ def test_check_citations_matches_parenthetical_and_inline_cites():
         "- Radcliffe, N. J. (2007). Title.\n"
     )
     assert check_docs.check_citations(text) == ["참고문헌에 없는 인용: kennedy 2023"]
-    negative = "(표본 10000명) 고객 (2000명) (2026-11-24)\n## 참고문헌\n"
-    assert check_docs.check_citations(negative) == []
 
 
-def test_check_copies_errors_on_record_copies_outside_records(tmp_path, monkeypatch):
+def test_check_citations_ignores_non_citation_parens():
+    text = "(표본 10000명) 고객 (2000명) (2026-11-24)\n## 참고문헌\n"
+    assert check_docs.check_citations(text) == []
+
+
+COPY = "분할은 고객 단위로 층화해 학습, 검증, 시험 세트로 나눈다."
+GLOSSARY_LINE = "용어집에 적은 다른 문장이 여기에 꽤 길게 하나 있다고 하자."
+
+
+@pytest.fixture
+def record_docs(tmp_path, monkeypatch):
     monkeypatch.setattr(check_docs, "ROOT", tmp_path)
-    copy = "분할은 고객 단위로 층화해 학습, 검증, 시험 세트로 나눈다."
     (tmp_path / "docs").mkdir()
-    (tmp_path / "docs" / "DATA.md").write_text(f"{copy}\n", encoding="utf-8")
-    (tmp_path / "docs" / "glossary.md").write_text(
-        "용어집에 적은 다른 문장이 여기에 꽤 길게 하나 있다고 하자.\n", encoding="utf-8"
-    )
+    (tmp_path / "docs" / "DATA.md").write_text(f"{COPY}\n", encoding="utf-8")
+    (tmp_path / "docs" / "glossary.md").write_text(f"{GLOSSARY_LINE}\n", encoding="utf-8")
     monkeypatch.setattr(
         check_docs,
         "scope_files",
         lambda: [tmp_path / "docs" / "DATA.md", tmp_path / "docs" / "glossary.md"],
     )
-    errors, warnings = check_docs.check_copies(copy, "docs/plans/M2-PLAN.md")
-    assert len(errors) == 1 and warnings == []
-    assert check_docs.check_copies(copy, "docs/MODELING.md") == ([], [])
-    errors, warnings = check_docs.check_copies(
-        "용어집에 적은 다른 문장이 여기에 꽤 길게 하나 있다고 하자.", "docs/plans/M3-PLAN.md"
-    )
-    assert errors == [] and len(warnings) == 1
+
+
+@pytest.mark.parametrize(
+    ("text", "path", "counts"),
+    [
+        (COPY, "docs/plans/M2-PLAN.md", (1, 0)),
+        (COPY, "docs/MODELING.md", (0, 0)),
+        (GLOSSARY_LINE, "docs/plans/M3-PLAN.md", (0, 1)),
+    ],
+    ids=["record_copy_in_plan", "record_copy_in_record", "glossary_copy"],
+)
+def test_check_copies_counts(record_docs, text, path, counts):
+    errors, warnings = check_docs.check_copies(text, path)
+    assert (len(errors), len(warnings)) == counts
 
 
 @pytest.mark.parametrize(
@@ -226,7 +254,7 @@ def test_check_canon_requires_canon_edit_when_code_changes(
         assert errors[-1] == "반영 대기: docs/X.md | 가 결정 | 함수에 반영"
 
 
-def test_check_canon_passes_without_pending_items(monkeypatch):
+def test_check_canon_passes_no_pending(monkeypatch):
     monkeypatch.setattr(check_docs, "pending_items", list)
     assert check_docs.check_canon(["src/uplift/value.py"], "", "") == []
 
@@ -236,7 +264,7 @@ def test_run_blocks_pending_file():
     assert any("--pending" in e for e in errors)
 
 
-def test_pending_lists_record_entries_without_canon(tmp_path, monkeypatch, capsys):
+def test_pending_lists_unresolved_entries(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(check_docs, "ROOT", tmp_path)
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "MODELING.md").write_text(
@@ -256,24 +284,36 @@ def test_run_skips_reference_checks_in_records():
     assert len(check_docs.run("", text, "docs/plans/M2-PLAN.md")[0]) == 2
 
 
-def test_check_copies_skips_record_matches_in_canon(tmp_path, monkeypatch):
+@pytest.mark.parametrize("path", ["scripts/CLAUDE.md", ".claude/skills/run-evaluation/SKILL.md"])
+def test_check_copies_skips_record_matches_in_canon(tmp_path, monkeypatch, path):
     monkeypatch.setattr(check_docs, "ROOT", tmp_path)
-    copy = "분할은 고객 단위로 층화해 학습, 검증, 시험 세트로 나눈다."
     (tmp_path / "docs").mkdir()
-    (tmp_path / "docs" / "DATA.md").write_text(f"{copy}\n", encoding="utf-8")
+    (tmp_path / "docs" / "DATA.md").write_text(f"{COPY}\n", encoding="utf-8")
     monkeypatch.setattr(check_docs, "scope_files", lambda: [tmp_path / "docs" / "DATA.md"])
-    assert check_docs.check_copies(copy, "scripts/CLAUDE.md") == ([], [])
-    assert check_docs.check_copies(copy, ".claude/skills/run-evaluation/SKILL.md") == ([], [])
-    (tmp_path / "scripts").mkdir()
-    (tmp_path / "scripts" / "CLAUDE.md").write_text(f"{copy}\n", encoding="utf-8")
+    assert check_docs.check_copies(COPY, path) == ([], [])
+
+
+@pytest.fixture
+def canon_copy(tmp_path, monkeypatch):
+    monkeypatch.setattr(check_docs, "ROOT", tmp_path)
+    for folder, name in [("docs", "DATA.md"), ("scripts", "CLAUDE.md")]:
+        (tmp_path / folder).mkdir()
+        (tmp_path / folder / name).write_text(f"{COPY}\n", encoding="utf-8")
     monkeypatch.setattr(
         check_docs,
         "scope_files",
         lambda: [tmp_path / "docs" / "DATA.md", tmp_path / "scripts" / "CLAUDE.md"],
     )
-    errors, warnings = check_docs.check_copies(copy, "CLAUDE.md")
-    assert errors == [] and len(warnings) == 1
-    assert len(check_docs.check_copies(copy, "docs/glossary.md")[0]) == 1
+
+
+def test_check_copies_canon_copy_warns_in_harness(canon_copy):
+    errors, warnings = check_docs.check_copies(COPY, "CLAUDE.md")
+    assert (len(errors), len(warnings)) == (0, 1)
+
+
+def test_check_copies_record_copy_errors_in_glossary(canon_copy):
+    errors, _ = check_docs.check_copies(COPY, "docs/glossary.md")
+    assert len(errors) == 1
 
 
 def test_check_refs_flags_spec_section_refs():
@@ -293,11 +333,13 @@ def test_run_allows_spec_refs_only_in_glossary_first_use_column():
     assert errors == ['시작 명세 가리키기: "SPEC.md 13절"']
 
 
-def test_spec_ref_catches_short_and_dotted_forms():
-    assert check_docs.check_refs("SPEC 9절과 SPEC.md 5.2절") == [
-        '시작 명세 가리키기: "SPEC 9절"',
-        '시작 명세 가리키기: "SPEC.md 5.2절"',
-    ]
+@pytest.mark.parametrize(
+    ("text", "ref"),
+    [("SPEC 9절", "SPEC 9절"), ("SPEC.md 5.2절", "SPEC.md 5.2절")],
+    ids=["short", "dotted"],
+)
+def test_check_refs_flags_spec_section(text, ref):
+    assert check_docs.check_refs(text) == [f'시작 명세 가리키기: "{ref}"']
 
 
 def test_check_removed_ignores_phrases_under_ten_characters(tmp_path, monkeypatch):
@@ -332,14 +374,38 @@ def test_check_removed_skips_paths_that_still_exist(tmp_path, monkeypatch):
     ]
 
 
-def test_unmatched_numbers_rounds_scales_percent_and_skips_non_values():
-    values = [0.0766, 0.124, 21306.0, 2.1]
-    text = (
-        "효과 0.077, 비율 12.4%, 21,306명, 차이 -2.1. "
-        "ANA-001, 2026-11-26, `ate.csv`, 95% 구간, 검정력 80%, p < 0.001, 기준 0.1, 방문 1회"
-    )
-    assert check_docs.unmatched_numbers(text, values) == []
-    assert check_docs.unmatched_numbers("효과 0.078, 1.2배, 30%", values) == ["0.078", "1.2"]
+NUMBERS = [0.0766, 0.124, 21306.0, 2.1]
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["효과 0.077", "비율 12.4%", "21,306명", "차이 -2.1"],
+    ids=["rounding", "percent", "thousands", "negative"],
+)
+def test_unmatched_numbers_matches_table_value(text):
+    assert check_docs.unmatched_numbers(text, NUMBERS) == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "ANA-001",
+        "2026-11-26",
+        "`ate.csv`",
+        "95% 구간",
+        "검정력 80%",
+        "p < 0.001",
+        "기준 0.1",
+        "방문 1회",
+    ],
+    ids=["exp_id", "date", "filename", "ci_level", "power", "p_value", "threshold", "count"],
+)
+def test_unmatched_numbers_skips_non_values(text):
+    assert check_docs.unmatched_numbers(text, NUMBERS) == []
+
+
+def test_unmatched_numbers_flags_mismatch():
+    assert check_docs.unmatched_numbers("효과 0.078, 1.2배, 30%", NUMBERS) == ["0.078", "1.2"]
 
 
 def test_unmatched_numbers_skips_integers():

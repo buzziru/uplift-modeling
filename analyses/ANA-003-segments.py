@@ -23,7 +23,8 @@ def _():
         segment_effects,
         segment_profile,
         share_table,
-        stacked_by_segment,
+        stacked_effects,
+        stacked_means,
         threshold_effects,
     )
     from uplift.plots import ecdf_by_group, interval_plot, share_heatmap
@@ -56,7 +57,8 @@ def _():
         segments,
         share_heatmap,
         share_table,
-        stacked_by_segment,
+        stacked_effects,
+        stacked_means,
         threshold_effects,
     )
 
@@ -175,9 +177,9 @@ def _(df, mo, out, share_heatmap, share_table):
 
 
 @app.cell
-def _(df, interval_plot, mo, out, segments, stacked_by_segment):
+def _(df, interval_plot, mo, out, segments, stacked_means):
     control = df[df["treatment_id"] == 0]
-    baseline = stacked_by_segment(control, segments, ["visit", "conversion", "spend"], "means")
+    baseline = stacked_means(control, segments, ["visit", "conversion", "spend"])
     baseline.to_csv(out / "tables" / "control_by_segment.csv", index=False)
     visit_base_fig = interval_plot(
         baseline[baseline["outcome"] == "visit"],
@@ -234,8 +236,8 @@ def _(df, interval_plot, mo, out, segments, stacked_by_segment):
 
 
 @app.cell
-def _(df, effects_below_zero, interval_plot, mo, out, segments, stacked_by_segment):
-    effects = stacked_by_segment(df, segments, ["visit", "spend"], "effects")
+def _(df, effects_below_zero, interval_plot, mo, out, segments, stacked_effects):
+    effects = stacked_effects(df, segments, ["visit", "spend"])
     effects.to_csv(out / "tables" / "segment_effects.csv", index=False)
     visit_eff_fig = interval_plot(
         effects[effects["outcome"] == "visit"],

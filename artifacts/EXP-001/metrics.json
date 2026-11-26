@@ -11,7 +11,7 @@
     "subsample_freq": 1
   },
   "best_log_loss": 0.876557291933403,
-  "estimator": {
+  "estimator_choice": {
     "mean_width": {
       "ipw": 0.010668526785714335,
       "hajek": 0.009677861506242887,
@@ -19,7 +19,7 @@
     },
     "base": "hajek",
     "aipw_ratio": 0.983947135404322,
-    "chosen": "hajek",
+    "estimator": "hajek",
     "hajek_vs_ipw_disagree": 0,
     "aipw_vs_base_disagree": 0
   },

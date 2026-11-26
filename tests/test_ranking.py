@@ -4,15 +4,20 @@ from sklift.metrics import qini_curve, uplift_curve
 from uplift.ranking import qini_curves, ranking_scores
 
 
-def test_qini_and_uplift_curve_match_theory_example():
-    top_t = np.r_[np.ones(12), np.zeros(48)]
-    top_c = np.r_[np.ones(4), np.zeros(36)]
-    y = np.r_[top_t, top_c, np.zeros(50)]
+def _theory_example():
+    y = np.r_[np.ones(12), np.zeros(48), np.ones(4), np.zeros(36), np.zeros(50)]
     treated = np.r_[np.ones(60), np.zeros(40), np.tile([1, 0], 25)]
     score = np.r_[np.linspace(2, 1.01, 100), np.linspace(1, 0, 50)]
-    x, q = qini_curve(y, score, treated)
+    return y, score, treated
+
+
+def test_qini_curve_theory_example():
+    x, q = qini_curve(*_theory_example())
     assert q[x == 100][0] == 6
-    x, f = uplift_curve(y, score, treated)
+
+
+def test_uplift_curve_theory_example():
+    x, f = uplift_curve(*_theory_example())
     assert f[x == 100][0] == 10
 
 

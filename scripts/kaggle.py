@@ -9,19 +9,23 @@ import duckdb
 
 from uplift import runs
 from uplift.kaggle_jobs import (
+    ACTIVE,
     DATASET,
     DONE,
     MANIFEST,
     USER,
     Job,
     free_slots,
+    kaggle,
     load_jobs,
     parse_status,
     parse_version,
+    read_manifest,
     save_jobs,
     slot_limited,
     slug_for,
     to_pull,
+    update_status,
     write_kernel,
     write_manifest,
 )
@@ -30,12 +34,6 @@ from uplift.train_data import from_duckdb, to_parquet
 ROOT = Path(__file__).resolve().parents[1]
 DATA = Path(os.environ.get("UPLIFT_DATA", ROOT / "data"))
 STATE = DATA / "kaggle" / "state.json"
-K = ["doppler", "run", "-p", "uplift-modeling", "-c", "dev", "--", "uvx", "--with", "six", "kaggle"]
-
-
-def kaggle(*args: str) -> str:
-    done = subprocess.run([*K, *args], check=False, capture_output=True, text=True)
-    return done.stdout + done.stderr
 
 
 def git(*args: str) -> str:
@@ -48,8 +46,6 @@ def dataset(version_message: str | None) -> None:
     out = DATA / "kaggle" / "dataset"
     with duckdb.connect(str(DATA / "uplift.duckdb"), read_only=True) as con:
         data = from_duckdb(con)
-    if not set(data.folds["customer_id"]) <= set(data.frame["customer_id"]):
-        raise RuntimeError("folds에 학습 세트 밖 고객이 있다")
     to_parquet(data, out)
     write_manifest(out)
     meta = {"title": DATASET, "id": f"{USER}/{DATASET}", "licenses": [{"name": "unknown"}]}
@@ -62,9 +58,8 @@ def dataset(version_message: str | None) -> None:
 
 
 def check_pushable(exp: str) -> str:
-    if git("status", "--porcelain", "--", "src", f"experiments/{exp}"):
-        raise RuntimeError("커밋하지 않은 변경이 있다")
-    sha = git("rev-parse", "HEAD")
+    runs.require_clean([str(ROOT / "src"), str(ROOT / "experiments" / exp)])
+    sha = runs.git_commit()
     if not git("branch", "-r", "--contains", sha):
         raise RuntimeError(f"{sha}가 origin에 없다. 먼저 push한다")
     design = git("show", f"{sha}:experiments/{exp}/experiment.md")
@@ -77,7 +72,7 @@ def fill(jobs: list[Job]) -> None:
     for job in [j for j in jobs if j.status == "queued"][: free_slots(jobs)]:
         folder = DATA / "kaggle" / job.slug
         write_kernel(job, folder)
-        out = kaggle("kernels", "push", "-p", str(folder))
+        out = kaggle("kernels", "push", "-p", str(folder), check=False)
         if slot_limited(out):
             break
         version = parse_version(out)
@@ -95,7 +90,7 @@ def check_dataset() -> dict[str, str]:
     if not local.exists():
         raise RuntimeError("로컬 dataset manifest가 없다. scripts/kaggle.py dataset부터")
     remote_dir = DATA / "kaggle" / "dataset-remote"
-    out = kaggle(
+    kaggle(
         "datasets",
         "download",
         f"{USER}/{DATASET}",
@@ -105,16 +100,15 @@ def check_dataset() -> dict[str, str]:
         str(remote_dir),
         "--force",
     )
-    remote = remote_dir / MANIFEST
-    if not remote.exists():
-        raise RuntimeError(f"Kaggle dataset에 manifest가 없다: {out}")
-    expected = json.loads(local.read_text(encoding="utf-8"))
-    if json.loads(remote.read_text(encoding="utf-8")) != expected:
+    expected = read_manifest(local)
+    if read_manifest(remote_dir / MANIFEST) != expected:
         raise RuntimeError("Kaggle dataset 최신 버전이 로컬 dataset과 다르다")
     return expected
 
 
 def push(exp: str, parts: list[str], args: str) -> None:
+    if not (ROOT / "experiments" / exp / "run.py").exists():
+        raise ValueError(f"experiments/{exp}/run.py가 없다")
     sha = check_pushable(exp)
     manifest = check_dataset()
     jobs = load_jobs(STATE)
@@ -128,14 +122,13 @@ def push(exp: str, parts: list[str], args: str) -> None:
 def watch(interval: int) -> None:
     jobs = load_jobs(STATE)
     while any(j.status not in DONE for j in jobs):
-        for job in [j for j in jobs if j.status in ("pushed", "running")]:
-            status = parse_status(kaggle("kernels", "status", f"{USER}/{job.slug}"))
-            if status is None:
-                job.misses += 1
-                status = "unknown" if job.misses >= 3 else job.status
-            if status != job.status:
-                job.status = status
-                print(time.strftime("%H:%M:%S"), job.slug, status, flush=True)
+        for job in [j for j in jobs if j.status in ACTIVE]:
+            before = job.status
+            update_status(
+                job, parse_status(kaggle("kernels", "status", f"{USER}/{job.slug}", check=False))
+            )
+            if job.status != before:
+                print(time.strftime("%H:%M:%S"), job.slug, job.status, flush=True)
         fill(jobs)
         save_jobs(STATE, jobs)
         if any(j.status not in DONE for j in jobs):
@@ -158,22 +151,22 @@ def pull(db: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("dataset").add_argument("--version-message")
+    p = sub.add_parser("dataset")
+    p.add_argument("--version-message")
+    p.set_defaults(func=lambda a: dataset(a.version_message))
     p = sub.add_parser("push")
     p.add_argument("exp")
     p.add_argument("--part", action="append", default=[])
     p.add_argument("--args", default="")
-    sub.add_parser("watch").add_argument("--interval", type=int, default=60)
-    sub.add_parser("pull").add_argument("--db", type=Path, default=DATA / "uplift.duckdb")
+    p.set_defaults(func=lambda a: push(a.exp, a.part, a.args))
+    p = sub.add_parser("watch")
+    p.add_argument("--interval", type=int, default=60)
+    p.set_defaults(func=lambda a: watch(a.interval))
+    p = sub.add_parser("pull")
+    p.add_argument("--db", type=Path, default=DATA / "uplift.duckdb")
+    p.set_defaults(func=lambda a: pull(a.db))
     args = parser.parse_args()
-    if args.command == "dataset":
-        dataset(args.version_message)
-    elif args.command == "push":
-        push(args.exp, args.part, args.args)
-    elif args.command == "watch":
-        watch(args.interval)
-    else:
-        pull(args.db)
+    args.func(args)
 
 
 if __name__ == "__main__":
