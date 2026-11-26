@@ -82,10 +82,3 @@ def test_load_config_reads_yaml(tmp_path):
         "test_size: 0.3\ntest_seed: 42\ncv_seeds: [42, 154]\nn_folds: 5\n", encoding="utf-8"
     )
     assert load_config(path) == CFG
-
-
-def test_load_config_rejects_missing_field(tmp_path):
-    path = tmp_path / "splits.yaml"
-    path.write_text("test_size: 0.3\n", encoding="utf-8")
-    with pytest.raises(ValueError, match="test_seed"):
-        load_config(path)

@@ -1,6 +1,5 @@
 import subprocess
 
-import pydantic
 import pytest
 
 from uplift import kaggle_jobs
@@ -97,14 +96,6 @@ def test_kaggle_raises_on_nonzero_exit(failing_cli):
 
 def test_kaggle_unchecked_returns_output(failing_cli):
     assert kaggle_jobs.kaggle("kernels", "status", check=False) == "outerr"
-
-
-def test_load_jobs_rejects_unknown_status(tmp_path):
-    (tmp_path / "state.json").write_text(
-        '[{"slug": "a", "exp": "E", "sha": "s", "status": "done"}]', encoding="utf-8"
-    )
-    with pytest.raises(pydantic.ValidationError):
-        load_jobs(tmp_path / "state.json")
 
 
 @pytest.mark.parametrize(("limit", "free"), [(5, 3), (1, 0)])

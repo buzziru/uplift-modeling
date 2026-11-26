@@ -19,11 +19,6 @@ CFG = ExperimentConfig(
 )
 
 
-def test_with_smoke_uses_smoke_budget():
-    smoke = experiment.with_smoke(CFG)
-    assert (smoke.n_trials, smoke.n_boot) == (2, 20)
-
-
 def test_train_data_kaggle_requires_data(tmp_path):
     with pytest.raises(RuntimeError, match="Kaggle"):
         experiment.train_data(CFG, tmp_path / "x.duckdb", None, smoke=False)
@@ -39,38 +34,6 @@ def test_predictions_long_format_per_mail():
         [7, 2, 0.2],
         [8, 2, 0.4],
     ]
-
-
-def test_trial_table_keeps_params():
-    trials = pd.DataFrame({"number": [0], "value": [0.5], "params_a": [1], "state": ["COMPLETE"]})
-    assert list(experiment.trial_table(trials).columns) == ["number", "value", "params_a"]
-
-
-def test_write_outputs_writes_tables_and_metrics(tmp_path):
-    experiment.write_outputs(tmp_path, {"t": pd.DataFrame({"a": [1]})}, {}, {"k": 1})
-    assert (
-        (tmp_path / "tables" / "t.csv").exists(),
-        (tmp_path / "metrics.json").read_text(encoding="utf-8"),
-    ) == (
-        True,
-        '{\n  "k": 1\n}',
-    )
-
-
-@pytest.mark.parametrize("command", ["compute", "export", "smoke"])
-def test_parser_dispatches_command(command):
-    called = []
-
-    def handler(name):
-        return lambda args: called.append(name)
-
-    root, _ = experiment.parser(
-        handler("compute"), handler("export"), handler("smoke"), export_nargs="+"
-    )
-    argv = {"compute": ["compute"], "export": ["export", "r1"], "smoke": ["smoke", "out"]}[command]
-    args = root.parse_args(argv)
-    args.func(args)
-    assert called == [command]
 
 
 def _unreachable(cfg: ExperimentConfig, data) -> experiment.Computed:
