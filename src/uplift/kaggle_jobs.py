@@ -1,3 +1,4 @@
+import hashlib
 import json
 import re
 from dataclasses import asdict, dataclass, field
@@ -9,7 +10,9 @@ MAX_BATCH_CPU = 5
 ACTIVE = ("pushed", "running")
 DONE = ("complete", "error", "unknown")
 
-ENTRY = """import subprocess
+ENTRY = """import hashlib
+import json
+import subprocess
 from pathlib import Path
 
 SHA = "{sha}"
@@ -21,8 +24,15 @@ def sh(cmd: str) -> None:
     subprocess.run(cmd, shell=True, check=True)
 
 
-DATA = next(Path("/kaggle/input").rglob("train.parquet")).parent
-print("data", DATA)
+EXPECTED = {manifest}
+found = list(Path("/kaggle/input").rglob("manifest.json"))
+if len(found) != 1:
+    raise SystemExit(f"dataset manifest.json을 하나 찾지 못했다: {{found}}")
+DATA = found[0].parent
+got = {{n: hashlib.sha256((DATA / n).read_bytes()).hexdigest() for n in EXPECTED}}
+if got != EXPECTED:
+    raise SystemExit(f"dataset 버전이 push 때와 다르다: {{got}} != {{EXPECTED}}")
+print("data", DATA, "matches manifest")
 sh("pip install -q uv")
 sh(f"git clone -q https://github.com/{user}/uplift-modeling.git /tmp/repo && git -C /tmp/repo checkout -q {{SHA}}")
 sh(
@@ -38,6 +48,7 @@ class Job:
     exp: str
     sha: str
     args: str = ""
+    manifest: dict[str, str] = field(default_factory=dict)
     status: str = "queued"
     version: int | None = None
     misses: int = 0
@@ -88,7 +99,9 @@ def write_kernel(job: Job, folder: Path) -> None:
         "dataset_sources": [f"{USER}/{DATASET}"],
     }
     (folder / "kernel-metadata.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
-    entry = ENTRY.format(sha=job.sha, exp=job.exp, args=job.args, user=USER)
+    entry = ENTRY.format(
+        sha=job.sha, exp=job.exp, args=job.args, user=USER, manifest=repr(job.manifest)
+    )
     (folder / "entry.py").write_text(entry, encoding="utf-8")
 
 
@@ -101,3 +114,17 @@ def load_jobs(path: Path) -> list[Job]:
 def save_jobs(path: Path, jobs: list[Job]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps([asdict(j) for j in jobs], indent=2), encoding="utf-8")
+
+
+MANIFEST = "manifest.json"
+DATA_FILES = ("train.parquet", "folds.parquet")
+
+
+def file_hashes(folder: Path) -> dict[str, str]:
+    return {n: hashlib.sha256((folder / n).read_bytes()).hexdigest() for n in DATA_FILES}
+
+
+def write_manifest(folder: Path) -> dict[str, str]:
+    hashes = file_hashes(folder)
+    (folder / MANIFEST).write_text(json.dumps(hashes, indent=2), encoding="utf-8")
+    return hashes

@@ -11,6 +11,7 @@ from uplift import runs
 from uplift.kaggle_jobs import (
     DATASET,
     DONE,
+    MANIFEST,
     USER,
     Job,
     free_slots,
@@ -21,6 +22,7 @@ from uplift.kaggle_jobs import (
     slot_limited,
     slug_for,
     write_kernel,
+    write_manifest,
 )
 from uplift.train_data import from_duckdb, to_parquet
 
@@ -48,6 +50,7 @@ def dataset(version_message: str | None) -> None:
     if not set(data.folds["customer_id"]) <= set(data.frame["customer_id"]):
         raise RuntimeError("folds에 학습 세트 밖 고객이 있다")
     to_parquet(data, out)
+    write_manifest(out)
     meta = {"title": DATASET, "id": f"{USER}/{DATASET}", "licenses": [{"name": "unknown"}]}
     (out / "dataset-metadata.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     print({"train_rows": len(data.frame), "fold_rows": len(data.folds)})
@@ -83,12 +86,40 @@ def fill(jobs: list[Job]) -> None:
         print(time.strftime("%H:%M:%S"), job.slug, f"v{version} pushed", flush=True)
 
 
+def check_dataset() -> dict[str, str]:
+    status = kaggle("datasets", "status", f"{USER}/{DATASET}").strip()
+    if status != "ready":
+        raise RuntimeError(f"dataset이 ready가 아니다: {status}")
+    local = DATA / "kaggle" / "dataset" / MANIFEST
+    if not local.exists():
+        raise RuntimeError("로컬 dataset manifest가 없다. scripts/kaggle.py dataset부터")
+    remote_dir = DATA / "kaggle" / "dataset-remote"
+    out = kaggle(
+        "datasets",
+        "download",
+        f"{USER}/{DATASET}",
+        "-f",
+        MANIFEST,
+        "-p",
+        str(remote_dir),
+        "--force",
+    )
+    remote = remote_dir / MANIFEST
+    if not remote.exists():
+        raise RuntimeError(f"Kaggle dataset에 manifest가 없다: {out}")
+    expected = json.loads(local.read_text(encoding="utf-8"))
+    if json.loads(remote.read_text(encoding="utf-8")) != expected:
+        raise RuntimeError("Kaggle dataset 최신 버전이 로컬 dataset과 다르다")
+    return expected
+
+
 def push(exp: str, parts: list[str], args: str) -> None:
     sha = check_pushable(exp)
+    manifest = check_dataset()
     jobs = load_jobs(STATE)
     for part in parts or [None]:
         extra = f"--part {part} {args}".strip() if part else args
-        jobs.append(Job(slug=slug_for(exp, part), exp=exp, sha=sha, args=extra))
+        jobs.append(Job(slug=slug_for(exp, part), exp=exp, sha=sha, args=extra, manifest=manifest))
     fill(jobs)
     save_jobs(STATE, jobs)
 

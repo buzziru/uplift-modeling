@@ -8,6 +8,7 @@ from uplift.kaggle_jobs import (
     slot_limited,
     slug_for,
     write_kernel,
+    write_manifest,
 )
 
 
@@ -35,12 +36,29 @@ def test_free_slots_counts_only_active_jobs():
 
 
 def test_state_round_trip_and_kernel_files(tmp_path):
-    jobs = [Job("uplift-exp-002-s-learner", "EXP-002-x", "abc123", "--part s_learner")]
+    jobs = [
+        Job(
+            "uplift-exp-002-s-learner",
+            "EXP-002-x",
+            "abc123",
+            "--part s_learner",
+            {"train.parquet": "h1"},
+        )
+    ]
     save_jobs(tmp_path / "state.json", jobs)
     assert load_jobs(tmp_path / "state.json") == jobs
     write_kernel(jobs[0], tmp_path / "k")
     entry = (tmp_path / "k" / "entry.py").read_text(encoding="utf-8")
     assert 'SHA = "abc123"' in entry and "--part s_learner" in entry
-    assert 'rglob("train.parquet")' in entry
+    assert "EXPECTED = {'train.parquet': 'h1'}" in entry
+    compile(entry, "entry.py", "exec")
     meta = (tmp_path / "k" / "kernel-metadata.json").read_text(encoding="utf-8")
     assert '"is_private": "true"' in meta
+
+
+def test_manifest_hashes_both_data_files(tmp_path):
+    (tmp_path / "train.parquet").write_bytes(b"a")
+    (tmp_path / "folds.parquet").write_bytes(b"b")
+    hashes = write_manifest(tmp_path)
+    assert set(hashes) == {"train.parquet", "folds.parquet"}
+    assert (tmp_path / "manifest.json").exists()
