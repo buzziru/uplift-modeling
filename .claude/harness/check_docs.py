@@ -415,7 +415,9 @@ def branch() -> int:
             )
             errors += [f"{m.group(1)}: {e}" for e in check_refs(added)]
     warnings += check_history()
-    for p in git_text("diff", "--name-only", "origin/main...HEAD", "--", "artifacts/*/summary.md").split():
+    for p in git_text(
+        "diff", "--name-only", "--diff-filter=d", "origin/main...HEAD", "--", "artifacts/*/summary.md"
+    ).split():
         warnings += check_summary(p)
     if "+++ b/SPEC.md" in diff:
         warnings.append("SPEC.md는 시작 명세로 고정한 문서다. 바꾼 이유를 보고에 적는다")

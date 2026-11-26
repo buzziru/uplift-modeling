@@ -16,7 +16,7 @@ description: 분석(ANA) 노트북을 시작하고, 분석 단위를 더하고, 
 
 1. ID를 정한다. `analyses/`와 `artifacts/`의 가장 큰 ANA 번호에 1을 더한다. 노트북 이름은 `analyses/CLAUDE.md`를 따르고, 산출물 폴더는 `artifacts/<ID>/`다.
 2. 첫 셀에서 import, `uplift.db.load_frame`으로 분할 읽기, `out = root / "artifacts" / "<ID>"`와 `out / "tables"`, `out / "figures"` 만들기를 한다. 다른 셀은 `out`만 받아 쓴다.
-3. 머리 셀(첫 마크다운 셀)에 질문을 `experiments/TEMPLATE.md` 질문 절의 꼴로 쓰고, 이미 본 것을 둔다. 결과를 아직 보지 않았으면 판정 규칙도 둔다.
+3. 결정에 쓰는 노트북은 머리 셀(첫 마크다운 셀)에 질문을 `experiments/TEMPLATE.md` 질문 절의 꼴로 쓰고, 이미 본 것을 둔다. 결과를 아직 보지 않았으면 판정 규칙도 둔다.
 4. 결과를 보기 전에 첫 셀과 머리 셀을 커밋한다.
 
 ## 2. 분석 단위
