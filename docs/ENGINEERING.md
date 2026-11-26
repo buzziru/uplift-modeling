@@ -147,7 +147,7 @@
   - `summary.md`가 인용할 수치는 `tables/`에 낸다.
 - 근거: 사용자 지적(2026-11-26). EXP-001에서 같은 결과를 내려고 전체 실행(약 5분)을 네 번 돌렸다. 커밋하지 않은 코드로 실행해 DuckDB의 커밋 해시가 실행한 코드와 맞지 않았다. `summary.md` 수치 검사가 `tables/`만 대조한다는 것을 실행 뒤에 알아 판정 수치를 표로 내려고 다시 돌렸는데, 계산과 내보내기가 한 실행에 묶여 표 하나를 더하는 데도 전체를 다시 계산했다. 작은 표본으로 파이프라인을 확인할 수단이 없어 첫 확인 실행이 그대로 정식 기록이 되었다. 바꾸는 앞 항목: "계산 코드, 실험, 분석, 산출물을 폴더로 나누고 ID로 잇는다".
 - 기각한 대안: `run.py` 한 실행이 계산과 `artifacts/` 내보내기를 함께 하는 앞 구조. 표나 그림 하나를 더하려 해도 전체 계산을 다시 돌려야 한다.
-- 정본: 아직 없음. `src/uplift/runs.py`(`require_clean`, `record_table`, `load_table`)와 `experiments/EXP-001-comparison-policies/run.py`는 feat/u3-comparison-policies 브랜치에 있고 병합 전이다. `experiments/CLAUDE.md`, `experiments/TEMPLATE.md`, `CLAUDE.md` 폴더 구조는 반영했다.
+- 정본: `src/uplift/runs.py`(`require_clean`, `record_table`, `load_table`), `experiments/EXP-001-comparison-policies/run.py`, `experiments/CLAUDE.md`, `experiments/TEMPLATE.md`, `CLAUDE.md` 폴더 구조
 
 ## 2026-11-26 회귀 기준값과 CI 회귀 테스트는 M2 최종 모델에서 기준값 형식과 함께 정하고, EXP-001은 기준값을 만들지 않는다
 
