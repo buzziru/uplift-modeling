@@ -125,6 +125,19 @@ def main() -> None:
     widths.reset_index().to_csv(out / "tables" / "estimator_widths.csv", index=False)
     r2.to_csv(out / "tables" / "outcome_r2.csv", index=False)
     qini.to_csv(out / "tables" / "response_ranking.csv", index=False)
+    mean_width = pd.Series(choice["mean_width"])
+    pd.DataFrame(
+        {
+            "method": mean_width.index,
+            "mean_width": mean_width.to_numpy(),
+            "ratio_to_ipw": (mean_width / mean_width["ipw"]).to_numpy(),
+            "ratio_to_base": (mean_width / mean_width[choice["base"]]).to_numpy(),
+            "chosen": mean_width.index == choice["chosen"],
+        }
+    ).to_csv(out / "tables" / "estimator_choice.csv", index=False)
+    ranged[["seed", "comparison", "method", "estimate"]].assign(
+        seed_range=seed_range["range"]
+    ).to_csv(out / "tables" / "seed_range.csv", index=False)
     trial_cols = ["number", "value"] + [c for c in trials.columns if c.startswith("params_")]
     trials[trial_cols].to_csv(out / "tables" / "hpo_trials.csv", index=False)
 
