@@ -82,7 +82,12 @@ def review_input(
     ]
     all_omitted = [f"{name} {item['path']}" for name, items in groups for item in items]
     skeleton = base | {name: [] for name, _ in groups} | {"omitted": all_omitted}
-    kept, omitted = fill(groups, MAX_CHARS - size(skeleton))
+    room = MAX_CHARS - size(skeleton)
+    if room < 0:
+        raise ValueError(
+            f"기본 입력(기준 문서, 열린 이슈, 경로 목록)만으로 {MAX_CHARS}자를 넘는다: {size(skeleton)}자"
+        )
+    kept, omitted = fill(groups, room)
     return base | kept | {"omitted": omitted}, omitted
 
 
