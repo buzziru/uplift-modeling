@@ -80,7 +80,7 @@ def compute(cfg: Config, data: TrainData, rec: duckdb.DuckDBPyConnection) -> str
         for model, m in [("logistic", mu), ("lightgbm", lgbm_mu)]:
             r2.append(oof.within_arm_r2(m, t, y, f).assign(seed=s, outcome_model=model))
         qini.append(ranking.ranking_scores(scores, t, y).assign(seed=s))
-        for j, arm in enumerate(response.MAIL_ARMS):
+        for j, arm in enumerate(policy.MAILS):
             preds.append(
                 pd.DataFrame(
                     {
@@ -144,7 +144,7 @@ def export(con: duckdb.DuckDBPyConnection, run_id: str, out: Path) -> None:
     widths = widths.reset_index()
     choice = value.choose_estimator(widths, cfg.aipw_margin)
     a, b = cfg.seed_range_difference
-    ranged = diffs.query("comparison == @a + ' - ' + @b and method == @choice['chosen']")
+    ranged = diffs.query("comparison == @a + ' - ' + @b and method == @choice['estimator']")
     seed_range = float(ranged["estimate"].max() - ranged["estimate"].min())
     mean_width = pd.Series(choice["mean_width"])
     tables["estimator_widths"] = widths
@@ -154,7 +154,7 @@ def export(con: duckdb.DuckDBPyConnection, run_id: str, out: Path) -> None:
             "mean_width": mean_width.to_numpy(),
             "ratio_to_ipw": (mean_width / mean_width["ipw"]).to_numpy(),
             "ratio_to_base": (mean_width / mean_width[choice["base"]]).to_numpy(),
-            "chosen": mean_width.index == choice["chosen"],
+            "selected": mean_width.index == choice["estimator"],
         }
     )
     tables["seed_range"] = ranged[["seed", "comparison", "method", "estimate"]].assign(
@@ -163,7 +163,7 @@ def export(con: duckdb.DuckDBPyConnection, run_id: str, out: Path) -> None:
     for name, table in tables.items():
         table.to_csv(out / "tables" / f"{name}.csv", index=False)
 
-    chosen = values.query("method == @choice['chosen']")
+    chosen = values.query("method == @choice['estimator']")
     curve = chosen[chosen["policy"].str.startswith("response_")].assign(
         send_ratio=lambda d: d["policy"].str.removeprefix("response_").astype(int) / 100
     )
@@ -171,7 +171,7 @@ def export(con: duckdb.DuckDBPyConnection, run_id: str, out: Path) -> None:
         p: float(chosen.query("policy == @p")["estimate"].mean()) for p in ["all_mens", "uniform"]
     }
     fig = plots.send_ratio_plot(
-        curve, refs, f"Response model OOF visit policy value ({choice['chosen']}, 95% CI)"
+        curve, refs, f"Response model OOF visit policy value ({choice['estimator']}, 95% CI)"
     )
     fig.savefig(out / "figures" / "send_ratio.png", dpi=150)
 
@@ -181,7 +181,7 @@ def export(con: duckdb.DuckDBPyConnection, run_id: str, out: Path) -> None:
         "best_params": run_cfg["best_params"],
         "best_log_loss": float(tables["hpo_trials"]["value"].min()),
         "estimator": choice,
-        "seed_range": {"comparison": f"{a} - {b}", "method": choice["chosen"], "range": seed_range},
+        "seed_range": {"comparison": f"{a} - {b}", "method": choice["estimator"], "range": seed_range},
     }
     (out / "metrics.json").write_text(
         json.dumps(metrics, ensure_ascii=False, indent=2), encoding="utf-8"
