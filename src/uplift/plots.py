@@ -146,6 +146,27 @@ def send_ratio_plot(values: pd.DataFrame, references: dict[str, float], title: s
     return fig
 
 
+def budget_plot(differences: pd.DataFrame, judged: pd.DataFrame) -> Figure:
+    fig, ax = plt.subplots(figsize=(7, 4.5))
+    for seed, part in differences.groupby("seed"):
+        part = part.sort_values("ratio")
+        x = part["ratio"].to_numpy()
+        ax.plot(x, part["estimate"], marker="o", linewidth=0.8, label=f"seed {seed}")
+        ax.fill_between(x, part["low"], part["high"], alpha=0.12)
+    ax.plot(judged["ratio"], judged["mean_diff"], color="black", linewidth=2, label="seed mean")
+    ax.plot(judged["ratio"], judged["threshold"], "k--", linewidth=1, label="threshold")
+    ax.plot(judged["ratio"], -judged["threshold"], "k--", linewidth=1)
+    ax.axhline(0, color="gray", linewidth=0.8)
+    ax.set(
+        title="visit: uplift (S-learner) - response model at the same send count",
+        xlabel="send ratio",
+        ylabel="Hajek policy value difference",
+    )
+    ax.legend(loc="best", fontsize=8)
+    fig.tight_layout()
+    return fig
+
+
 def method_score_plot(scores: pd.DataFrame, order: list[str], reference: float) -> Figure:
     fig, ax = plt.subplots(figsize=(7, 4.5))
     sns.stripplot(data=scores, y="method", x="value", order=order, ax=ax, size=6, alpha=0.7)

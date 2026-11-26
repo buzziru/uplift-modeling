@@ -10,7 +10,12 @@ def _():
 
     import duckdb
     import marimo as mo
+    from pandas import concat as pd_concat
 
+    from uplift import runs
+    from uplift.budget import RATIOS, budget_differences, judge_budget
+    from uplift.plots import budget_plot
+    from uplift.policy import MENS, WOMENS
     from uplift.train_data import from_duckdb
 
     root = Path(__file__).resolve().parents[1]
@@ -19,7 +24,20 @@ def _():
     (out / "figures").mkdir(parents=True, exist_ok=True)
     con = duckdb.connect(str(root / "data" / "uplift.duckdb"), read_only=True)
     frame = from_duckdb(con).frame
-    return con, frame, mo, out
+    return (
+        MENS,
+        RATIOS,
+        WOMENS,
+        budget_differences,
+        budget_plot,
+        con,
+        frame,
+        judge_budget,
+        mo,
+        out,
+        pd_concat,
+        runs,
+    )
 
 
 @app.cell
@@ -41,6 +59,56 @@ def _(mo):
     - 판정 규칙: k마다 세 seed 차이의 평균 $\bar d$와 범위 $R$을 구하고 문턱을 $\max(R, 0.0038)$로 둔다(EXP-002와 같은 규칙). $\bar d$가 문턱 이상이면 그 k에서 uplift가 이긴다, $-\bar d$가 문턱 이상이면 반응 모델이 이긴다, 그 밖에는 가를 수 없다고 본다. 어느 k에서도 uplift가 이기지 못하면 "uplift가 이기는 예산이 없다"로 보고한다.
     - 이미 본 것: 발송 100% 부근에서 S-learner 정책과 같은 발송 수의 반응 모델 정책은 가를 수 없었다(`artifacts/EXP-002/tables/response_same_send.csv`). 정규화 Qini는 여성용 대 미발송에서 uplift 모델이 높고, 남성용 대 미발송에서 반응 모델이 높았다(`artifacts/EXP-002/tables/ranking.csv`, `artifacts/EXP-001/tables/response_ranking.csv`).
     - 걸리는 점: k 아홉 개를 보므로, 한 k에서 우연히 문턱을 넘을 수 있다. 이기는 k가 하나뿐이고 이웃 k가 가를 수 없으면 그렇게 보고한다.
+    """)
+    return
+
+
+@app.cell
+def _(MENS, RATIOS, WOMENS, budget_differences, con, frame, pd_concat, runs):
+    UPLIFT_RUN = "52938f3ec570"
+    RESPONSE_RUN = "cfb0d1dade18"
+    SEEDS = (42, 154, 1592)
+    N_BOOT = 1000
+    indexed = frame.set_index("customer_id")
+    parts = []
+    for seed in SEEDS:
+        uplift = runs.load_scores(con, UPLIFT_RUN, f"s_learner_s{seed}", (MENS, WOMENS))
+        response = runs.load_scores(
+            con, RESPONSE_RUN, f"response_lgbm_s{seed}", (MENS, WOMENS)
+        ).reindex(uplift.index)
+        rows = indexed.loc[uplift.index]
+        parts.append(
+            budget_differences(
+                uplift.to_numpy(),
+                response.to_numpy(),
+                rows["treatment_id"].to_numpy(),
+                rows["visit"].to_numpy(),
+                RATIOS,
+                N_BOOT,
+                seed,
+            )
+        )
+    differences = pd_concat(parts, ignore_index=True)
+    return (differences,)
+
+
+@app.cell
+def _(budget_plot, differences, judge_budget, out):
+    FLOOR = 0.0038
+    judged = judge_budget(differences, FLOOR)
+    differences.to_csv(out / "tables" / "budget_differences.csv", index=False)
+    judged.to_csv(out / "tables" / "budget_judgement.csv", index=False)
+    budget_plot(differences, judged).savefig(out / "figures" / "budget_differences.png", dpi=150)
+    judged
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(r"""
+    ## visit: S-learner 정책이 반응 모델 정책을 이기는 발송 비율이 없다
+
+    발송 비율 10%\~90% 아홉 개 가운데 uplift가 이긴 비율은 없고, 반응 모델이 50%와 60%에서 이겼다. 나머지 일곱 비율은 가를 수 없다(`tables/budget_judgement.csv`).
     """)
     return
 
