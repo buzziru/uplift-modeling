@@ -103,6 +103,8 @@ def test_check_style_flags_position_refs(text, expected):
         ("- 첫 항목\n- 둘째 항목", 0),
         ("범위는 0.1 - 0.3이다", 0),
         ("S-learner와 T-learner", 0),
+        ("코드 `a.- b`와 블록", 0),
+        ("```\nx = a.- b\n```", 0),
     ],
 )
 def test_check_merged_flags_items_on_one_line(text, expected):
@@ -212,6 +214,7 @@ def one_pending(monkeypatch):
         (["src/uplift/value.py"], "", "기능 추가\n\n정본 칸: 반영 없음", False),
         (["docs/PROBLEM.md", ".claude/harness/check_docs.py"], "", "", False),
         (["analyses/ANA-004-x.py"], "", "", True),
+        (["analyses/CLAUDE.md", "experiments/TEMPLATE.md"], "", "", False),
     ],
 )
 def test_check_canon_requires_canon_edit_when_code_changes(

@@ -216,9 +216,9 @@ def check_style(new_text: str, path: str) -> list[str]:
 
 
 def check_merged(new_text: str, path: str) -> list[str]:
+    prose = re.sub(r"```.*?```|`[^`\n]*`", "", new_text, flags=re.DOTALL)
     return [
-        f'목록 두 항목이 한 줄에 붙음: {path} "{m.group(0)}"'
-        for m in MERGED_ITEM.finditer(new_text)
+        f'목록 두 항목이 한 줄에 붙음: {path} "{m.group(0)}"' for m in MERGED_ITEM.finditer(prose)
     ]
 
 
@@ -432,7 +432,7 @@ def branch() -> int:
 
 
 def check_canon(changed: list[str], record_diff: str, messages: str) -> list[str]:
-    if not any(p.startswith(CODE_DIRS) for p in changed):
+    if not any(p.startswith(CODE_DIRS) and not p.endswith(".md") for p in changed):
         return []
     if any(line.startswith("-" + PENDING_LINE) for line in record_diff.splitlines()):
         return []
