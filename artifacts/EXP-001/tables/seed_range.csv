@@ -1,0 +1,4 @@
+seed,comparison,method,estimate,seed_range
+42,response_100 - all_mens,hajek,-0.0026015202844030002,0.003793419254209
+154,response_100 - all_mens,hajek,-9.1542404568e-05,0.003793419254209
+1592,response_100 - all_mens,hajek,-0.003884961658777,0.003793419254209

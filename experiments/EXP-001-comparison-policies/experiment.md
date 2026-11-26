@@ -47,3 +47,14 @@
 - 바꿀 파일: `src/uplift/response.py`(반응 모델 OOF와 HPO), `src/uplift/oof.py`(처치군 안 설명력), `src/uplift/value.py`(추정량 판정), `src/uplift/runs.py`(예측 기록), `src/uplift/plots.py`(발송 비율 그림), 이 폴더의 `config.yaml`, `run.py`, 테스트.
 - 산출물: `artifacts/EXP-001/`의 `metrics.json`(판정), `tables/`(정책 가치와 차이, 추정량 폭, seed 간 범위, outcome model 설명력, HPO trial, 쌍별 Qini), `figures/`, `summary.md`.
 - 구현 검증: unit test(반응 모델 OOF가 학습 fold만 쓰는지, HPO가 탐색 범위 안의 설정을 내는지, 설명력, 추정량 판정 규칙의 경우별 결과).
+
+## 결과 해석
+
+- 판정(실행 `cfb0d1dade18`, `artifacts/EXP-001/`):
+  - 추정량은 Hájek이다. 아홉 폭의 평균에서 Hájek이 IPW의 0.907배로 기본이 되었고, AIPW는 Hájek의 0.984배라 10% 문턱에 닿지 않았다. 아홉 폭 모두 평균과 대소가 같았다(`tables/estimator_choice.csv`, `tables/estimator_widths.csv`).
+  - 이 결과는 설계 절의 근사와 맞는다. 처치군 안 R²가 0.023\~0.029라 √(1 − R²)는 0.985\~0.988이다(`tables/outcome_r2.csv`). HPO 설정의 LightGBM도 R² 0.023\~0.025로 logistic regression보다 높지 않아, outcome model에 자원을 더 들여도 문턱에 필요한 R² 약 0.19에는 닿기 어렵다.
+  - seed 간 범위는 반응 모델 100% − 전체 발송 차이의 Hájek 점추정 범위 0.0038이다(`tables/seed_range.csv`). U5 판정 규칙에 참고값으로 넘긴다.
+  - 비교 정책의 OOF 정책 가치(Hájek)는 전체 발송 0.1828, 무작위 타겟팅 0.1468, 반응 모델 100% 발송 0.1789\~0.1827이다(`tables/policy_values.csv`). 반응 모델이 메일을 고르게 해도 모두에게 남성용을 보내는 것보다 높지 않았다(차이의 구간이 세 seed 모두 0을 포함, `tables/policy_differences.csv`). 설계 절 앞에 적은 예상(남성용 메일이 거의 모든 세그먼트에서 효과가 같거나 크다)과 맞는다.
+- 설계와 달라진 점:
+  - 실행 구조를 `compute`(계산과 DuckDB 기록), `export`(DuckDB에서 `artifacts/` 생성), `smoke`(표본 실행)로 나누고, 커밋하지 않은 변경이 있으면 `compute`가 멈추게 했다. 판정 규칙과 수치는 바뀌지 않았다. 앞선 실행 `fe4997ae5743`(커밋 전 코드), `d03310024a6d`, `04196b0d4017`은 같은 판정을 냈고 채택하지 않는다.
+- 반영한 결정: 추정량 선택은 이 실험의 `tables/estimator_choice.csv`가 근거다. 모델 선택과 시험 세트 판정 코드에 Hájek을 기본으로 반영하는 일은 U5와 시험 세트 판정 스크립트에서 한다.
