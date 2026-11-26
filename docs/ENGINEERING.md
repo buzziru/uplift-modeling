@@ -163,7 +163,7 @@
 ## 2026-11-26 summary.md가 인용할 수치는 tables/에 낸다
 
 - 결정: `summary.md`가 인용할 수치는 `export`가 `tables/`에 낸다. 실험 계획 절의 산출물 줄에 그 수치가 든 표를 모두 적는다.
-- 근거: 사용자 지적(2026-11-26). EXP-001에서 `summary.md` 수치 검사가 `tables/`만 대조한다는 것을 실행 뒤에 알아, 판정 수치를 표로 내려고 전체 실행을 다시 돌렸다(`experiments/EXP-001-comparison-policies/experiment.md` 결과 해석 절의 설계와 달라진 점).
+- 근거: EXP-001은 채택한 실행 말고도 같은 설정으로 전체 실행을 세 번 더 돌렸다(`experiments/EXP-001-comparison-policies/experiment.md` 결과 해석 절의 설계와 달라진 점). 사용자 지적(2026-11-26)에 따르면 그중 한 번은 `summary.md` 수치 검사가 `tables/`만 대조한다는 것을 실행 뒤에 알고, 판정 수치를 표로 내려고 돌린 것이다.
 - 기각한 대안: 판정 수치를 `metrics.json`에만 두는 안. `summary.md` 수치 검사가 `metrics.json`을 대조하지 않아 그 수치는 근거 파일과 맞는지 확인되지 않는다.
 - 정본: `experiments/CLAUDE.md`, `experiments/TEMPLATE.md`
 
