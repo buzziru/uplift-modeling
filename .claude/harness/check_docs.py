@@ -420,7 +420,7 @@ def branch() -> int:
     if "+++ b/SPEC.md" in diff:
         warnings.append("SPEC.md는 시작 명세로 고정한 문서다. 바꾼 이유를 보고에 적는다")
     errors += check_canon(
-        git_text("diff", "--name-only", "origin/main...HEAD").split(),
+        git_text("diff", "--name-only", "--diff-filter=d", "origin/main...HEAD").splitlines(),
         git_text("diff", "-U0", "origin/main...HEAD", "--", *map(rel, record_files())),
         git_text("log", "--format=%B", "origin/main..HEAD"),
     )
