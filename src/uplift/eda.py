@@ -188,7 +188,8 @@ def incremental_composition(effects: pd.DataFrame, by: str) -> pd.DataFrame:
     out = pd.DataFrame(effects[effects["comparison"].str.endswith("- None")])
     out["increment"] = out["effect"] * out["n"]
     out["share"] = out["increment"] / out.groupby("comparison")["increment"].transform("sum")
-    return pd.DataFrame(out[["comparison", by, "n", "effect", "increment", "share"]])
+    out["n_share"] = out["n"] / out.groupby("comparison")["n"].transform("sum")
+    return pd.DataFrame(out[["comparison", by, "n", "n_share", "effect", "increment", "share"]])
 
 
 def funnel_ratio_ci(
@@ -251,7 +252,9 @@ def spearman_matrix(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
 
 def profile_above_floor(df: pd.DataFrame, by: str, level: str) -> pd.DataFrame:
     floor = df.loc[df[by] == level, "history"].min()
-    return segment_profile(pd.DataFrame(df[df["history"] >= floor]), by).assign(history_floor=floor)
+    out = segment_profile(pd.DataFrame(df[df["history"] >= floor]), by).assign(history_floor=floor)
+    level_median = out.loc[out[by] == level, "history_median"].iloc[0]
+    return out.assign(level_median_ratio=level_median / out["history_median"])
 
 
 def stacked_by_segment(

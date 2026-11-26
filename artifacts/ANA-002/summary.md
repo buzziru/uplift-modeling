@@ -18,7 +18,7 @@
 ## 기존 고객은 history가 500 아래에서 잘려 있고, Multichannel 고객은 history가 모두 200 이상이다
 
 - 기존 고객의 `history` 최댓값은 499.95이고(`tables/history_by_newbie.csv`), 500달러 이상 구간의 고객은 모두 신규 고객이다(`tables/segment_by_newbie.csv`, Cramer's V 0.41, `tables/cramers_v.csv`).
-- Multichannel 고객에게는 200달러 미만 구간이 없다(`tables/segment_by_channel.csv`, Cramer's V 0.33).
+- Multichannel 고객에게는 200달러 미만 구간이 없다(`tables/segment_by_channel.csv`, Cramer's V 0.33, `tables/cramers_v.csv`).
 - 그 밖의 쌍은 `mens`·`womens`를 빼면 Cramer's V 0.13 이하다.
 
 ## 구매 고객의 spend는 4분의 1이 29.99이고 499에서 잘려 있다

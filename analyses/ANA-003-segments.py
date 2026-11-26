@@ -119,7 +119,7 @@ def _(df, mo, out, profile_above_floor):
             mo.md(f"### history {both_min:.0f} 이상인 고객만 비교"),
             mo.ui.table(above_floor.round(3)),
             mo.md(f"""
-    - 하한을 맞추면 중앙값이 둘 다 산 고객 {q.loc["both", "history_median"]:.0f}, 남성 상품만 {q.loc["mens_only", "history_median"]:.0f}, 여성 상품만 {q.loc["womens_only", "history_median"]:.0f}로, 세 배가 넘던 차이가 {q.loc["both", "history_median"] / q.loc["mens_only", "history_median"]:.1f}배로 줄어든다. 차이의 대부분은 하한에서 나왔다.
+    - 하한을 맞추면 중앙값이 둘 다 산 고객 {q.loc["both", "history_median"]:.0f}, 남성 상품만 {q.loc["mens_only", "history_median"]:.0f}, 여성 상품만 {q.loc["womens_only", "history_median"]:.0f}로, 세 배가 넘던 차이가 {q.loc["mens_only", "level_median_ratio"]:.1f}배로 줄어든다. 차이의 대부분은 하한에서 나왔다.
     - Multichannel 비율도 {q.loc["both", "multichannel_share"]:.0%} 대 {q.loc["mens_only", "multichannel_share"]:.0%}로 비슷해진다. A3에서 보는 Multichannel과 둘 다 산 고객의 관계도 두 세그먼트가 같은 200 하한을 가진 데서 나온 것일 수 있다.
     - 그래서 "둘 다 사는 고객은 가족을 위해 사서 더 많이 산다"는 가설은 이 데이터로 뒷받침되지 않는다. 남는 차이는 작고, 가족 구매와 한 사람의 잦은 구매를 가를 변수도 없다.
     - 시사점: 구매 상품 세그먼트를 모델 입력이나 세그먼트 규칙에 쓸 때, `both`의 효과에는 200 하한이 섞인다. 규칙이 `both`를 고르면 `history`를 맞춘 비교로 다시 확인한다.
