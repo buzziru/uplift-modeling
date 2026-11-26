@@ -115,6 +115,18 @@ def load_table(con: duckdb.DuckDBPyConnection, run_id: str, name: str) -> pd.Dat
     return pd.read_json(StringIO(row[0]), orient="records")
 
 
+def load_scores(
+    con: duckdb.DuckDBPyConnection, run_id: str, model_id: str, arms: tuple[int, ...]
+) -> pd.DataFrame:
+    rows = con.execute(
+        "SELECT customer_id, treatment_id, score FROM predictions WHERE run_id = ? AND model_id = ?",
+        [run_id, model_id],
+    ).df()
+    if rows.empty:
+        raise KeyError(f"{run_id}에 {model_id} 예측이 없다")
+    return rows.pivot(index="customer_id", columns="treatment_id", values="score")[list(arms)]
+
+
 def load_run_config(con: duckdb.DuckDBPyConnection, run_id: str) -> dict:
     row = con.execute("SELECT config FROM runs WHERE run_id = ?", [run_id]).fetchone()
     if row is None:

@@ -6,6 +6,7 @@ import pytest
 
 from uplift.runs import (
     load_run_config,
+    load_scores,
     load_table,
     merge_records,
     record_metrics,
@@ -131,3 +132,21 @@ def test_merge_records_copies_runs_once(tmp_path):
     assert load_table(con, run_id, "t")["v"].tolist() == [1]
     with pytest.raises(RuntimeError):
         merge_records(con, source)
+
+
+def test_load_scores_pivots_arms_in_given_order():
+    con = duckdb.connect()
+    preds = pd.DataFrame(
+        {
+            "model_id": "m",
+            "customer_id": [1, 1, 2, 2],
+            "treatment_id": [1, 2, 1, 2],
+            "fold": 0,
+            "score": [0.1, 0.2, 0.3, 0.4],
+        }
+    )
+    record_predictions(con, "r", preds)
+    scores = load_scores(con, "r", "m", (2, 1))
+    assert scores.loc[1].tolist() == [0.2, 0.1]
+    with pytest.raises(KeyError):
+        load_scores(con, "r", "other", (1, 2))

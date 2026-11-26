@@ -127,14 +127,6 @@ def compute(cfg: Config, data: TrainData, rec: duckdb.DuckDBPyConnection, part: 
     return run_id
 
 
-def _scores(con: duckdb.DuckDBPyConnection, run_id: str, model_id: str) -> pd.DataFrame:
-    rows = con.execute(
-        "SELECT customer_id, treatment_id, score FROM predictions WHERE run_id = ? AND model_id = ?",
-        [run_id, model_id],
-    ).df()
-    return rows.pivot(index="customer_id", columns="treatment_id", values="score")[list(MAILS)]
-
-
 def same_send(
     cfg: Config,
     rec: duckdb.DuckDBPyConnection,
@@ -145,8 +137,10 @@ def same_send(
     frame = from_duckdb(data_con).frame.set_index("customer_id")
     rows = []
     for s in cfg.seeds:
-        uplift = _scores(rec, run_id, f"{part}_s{s}")
-        response = _scores(data_con, cfg.response_run, f"response_lgbm_s{s}").reindex(uplift.index)
+        uplift = runs.load_scores(rec, run_id, f"{part}_s{s}", MAILS)
+        response = runs.load_scores(
+            data_con, cfg.response_run, f"response_lgbm_s{s}", MAILS
+        ).reindex(uplift.index)
         df = frame.loc[uplift.index]
         chosen = policy.best_action(uplift.to_numpy())
         sends = int((chosen.argmax(axis=1) != policy.CONTROL).sum())
