@@ -83,8 +83,8 @@ def predictions(
 
 
 def trial_table(trials: pd.DataFrame) -> pd.DataFrame:
-    return trials.reindex(
-        columns=["number", "value"] + [c for c in trials.columns if c.startswith("params_")]
+    return runs.require_columns(
+        trials, ["number", "value"] + [c for c in trials.columns if c.startswith("params_")]
     )
 
 

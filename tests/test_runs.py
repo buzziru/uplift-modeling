@@ -5,6 +5,7 @@ import pandas as pd
 import pydantic
 import pytest
 
+from uplift import runs
 from uplift.runs import (
     common_config,
     load_run_config,
@@ -76,7 +77,8 @@ def test_load_table_missing_raises():
         load_table(con, "r1", "missing")
 
 
-def test_require_clean_stops_on_uncommitted_change(tmp_path, monkeypatch):
+@pytest.fixture
+def repo(tmp_path, monkeypatch):
     def git(*args):
         subprocess.run(
             ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
@@ -89,11 +91,22 @@ def test_require_clean_stops_on_uncommitted_change(tmp_path, monkeypatch):
     (tmp_path / "run.py").write_text("a", encoding="utf-8")
     git("add", "run.py")
     git("commit", "-m", "init")
-    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(runs, "ROOT", tmp_path)
+    return tmp_path
+
+
+def test_require_clean_passes_committed(repo):
     require_clean(["run.py"])
-    (tmp_path / "run.py").write_text("b", encoding="utf-8")
+
+
+def test_require_clean_stops_on_uncommitted_change(repo):
+    (repo / "run.py").write_text("b", encoding="utf-8")
     with pytest.raises(RuntimeError):
         require_clean(["run.py"])
+
+
+def test_require_clean_ignores_other_paths(repo):
+    (repo / "run.py").write_text("b", encoding="utf-8")
     require_clean(["other"])
 
 

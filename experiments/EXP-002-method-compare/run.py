@@ -6,7 +6,7 @@ from typing import Literal
 import duckdb
 import optuna
 import pandas as pd
-from pydantic import PositiveFloat
+from pydantic import PositiveFloat, TypeAdapter
 
 from uplift import experiment, learners, plots, policy, ranking, runs, value
 from uplift.experiment import Computed, ExperimentConfig
@@ -37,7 +37,7 @@ def parts(cfg: Config) -> list[str]:
 def part_setup(cfg: Config, part: str) -> tuple[learners.Method, Literal["flags", "segment"]]:
     if part == cfg.feature_part:
         return cfg.feature_base, "segment"
-    return next(m for m in cfg.order if m == part), "flags"
+    return TypeAdapter(learners.Method).validate_python(part), "flags"
 
 
 def interval_metrics(values: pd.DataFrame) -> pd.DataFrame:

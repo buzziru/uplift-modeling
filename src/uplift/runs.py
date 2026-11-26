@@ -9,6 +9,7 @@ import duckdb
 import pandas as pd
 from pydantic import BaseModel
 
+ROOT = Path(__file__).resolve().parents[2]
 RUNS_DDL = """
 CREATE TABLE IF NOT EXISTS runs (
     run_id VARCHAR PRIMARY KEY,
@@ -50,7 +51,11 @@ CREATE TABLE IF NOT EXISTS run_tables (
 
 def require_clean(paths: list[str]) -> None:
     status = subprocess.run(
-        ["git", "status", "--porcelain", "--", *paths], capture_output=True, text=True, check=True
+        ["git", "status", "--porcelain", "--", *paths],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout
     if status.strip():
         raise RuntimeError(f"커밋하지 않은 변경이 있어 실행을 기록할 수 없다:\n{status}")
@@ -58,7 +63,7 @@ def require_clean(paths: list[str]) -> None:
 
 def git_commit() -> str:
     return subprocess.run(
-        ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+        ["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True, check=True
     ).stdout.strip()
 
 
@@ -79,7 +84,7 @@ def _insert(con: duckdb.DuckDBPyConnection, table: str, ddl: str, rows: pd.DataF
     con.unregister("new_rows")
 
 
-def _columns(rows: pd.DataFrame, columns: list) -> pd.DataFrame:
+def require_columns(rows: pd.DataFrame, columns: list) -> pd.DataFrame:
     missing = [c for c in columns if c not in rows.columns]
     if missing:
         raise KeyError(f"열이 없다: {missing}")
@@ -87,7 +92,7 @@ def _columns(rows: pd.DataFrame, columns: list) -> pd.DataFrame:
 
 
 def record_metrics(con: duckdb.DuckDBPyConnection, run_id: str, metrics: pd.DataFrame) -> None:
-    rows = _columns(
+    rows = require_columns(
         metrics.assign(run_id=run_id), ["run_id", "model_id", "metric", "fold", "value"]
     )
     _insert(con, "metrics", METRICS_DDL, rows)
@@ -101,7 +106,7 @@ def record_predictions(
         con,
         "predictions",
         PREDICTIONS_DDL,
-        _columns(predictions.assign(run_id=run_id), columns),
+        require_columns(predictions.assign(run_id=run_id), columns),
     )
 
 
@@ -135,7 +140,7 @@ def load_scores(
     ).df()
     if rows.empty:
         raise KeyError(f"{run_id}에 {model_id} 예측이 없다")
-    wide = _columns(
+    wide = require_columns(
         rows.pivot(index="customer_id", columns="treatment_id", values="score"), list(arms)
     )
     if customers is None:
@@ -147,16 +152,16 @@ def load_scores(
 
 
 def common_config[M: BaseModel](
-    con: duckdb.DuckDBPyConnection, run_ids: list[str], model: type[M], part_key: str = "part"
+    con: duckdb.DuckDBPyConnection, run_ids: list[str], model: type[M]
 ) -> tuple[M, dict[str, str]]:
     raw = {r: load_run_config(con, r) for r in run_ids}
     configs = {r: model(**c) for r, c in raw.items()}
     dumps = {json.dumps(c.model_dump(), sort_keys=True) for c in configs.values()}
     if len(dumps) > 1:
         raise ValueError(f"실행들의 설정이 서로 다르다: {run_ids}")
-    parts = [raw[r][part_key] for r in run_ids]
+    parts = [raw[r]["part"] for r in run_ids]
     if len(set(parts)) < len(parts):
-        raise ValueError(f"같은 {part_key}의 실행이 여럿이다: {parts}")
+        raise ValueError(f"같은 part의 실행이 여럿이다: {parts}")
     return configs[run_ids[0]], dict(zip(parts, run_ids, strict=True))
 
 

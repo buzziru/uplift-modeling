@@ -122,7 +122,7 @@ def estimator_tables(diffs: pd.DataFrame, cfg: Config) -> tuple[dict[str, pd.Dat
         ),
     }
     summary = {
-        "estimator": choice,
+        "estimator_choice": choice,
         "seed_range": {
             "comparison": f"{a} - {b}",
             "method": choice["estimator"],
@@ -151,7 +151,7 @@ def export(con: duckdb.DuckDBPyConnection, run_id: str, out: Path) -> None:
     names = ["policy_values", "policy_differences", "outcome_r2", "response_ranking", "hpo_trials"]
     tables = {name: runs.load_table(con, run_id, name) for name in names}
     judged, summary = estimator_tables(tables["policy_differences"], cfg)
-    figure = send_ratio_figure(tables["policy_values"], summary["estimator"]["estimator"])
+    figure = send_ratio_figure(tables["policy_values"], summary["estimator_choice"]["estimator"])
     metrics = {
         "run_id": run_id,
         "n_customers": run_cfg["n_customers"],
