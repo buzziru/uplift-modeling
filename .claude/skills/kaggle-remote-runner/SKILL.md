@@ -23,7 +23,7 @@ description: 로컬에서 개발한 실험의 본학습, HPO, GPU 실행을 Kagg
 
 1. dataset: 처음이면 `uv run python scripts/kaggle.py dataset`, 분할이나 fold가 바뀌었으면 `uv run python scripts/kaggle.py dataset --version-message "<분할 시드, 행 수, 커밋>"`.
 2. 실험 커밋을 origin에 push한다. kernel은 push한 커밋을 받아 돈다.
-3. `uv run python scripts/kaggle.py push <실험 폴더 이름> [--part <이름>] [--args "<compute 옵션>"]`. `--part`는 여러 번 줄 수 있고, 줄 때마다 kernel이 하나씩 생긴다. kernel 폴더는 `data/kaggle/<slug>/`이고 작업 상태는 `data/kaggle/state.json`에 쌓인다.
+3. `uv run python scripts/kaggle.py push <실험 폴더 이름> [--part <이름>] [--args "<compute 옵션>"]`. `--part`는 여러 번 줄 수 있고, 줄 때마다 kernel이 하나씩 생긴다.
 4. `uv run python scripts/kaggle.py watch`로 모든 작업이 끝날 때까지 상태를 본다. 동시 CPU 세션 상한에 걸려 queued로 남은 kernel은 watch가 자리가 날 때 push한다. 로그는 `K kernels logs <USER>/<slug>`로 본다.
 5. `uv run python scripts/kaggle.py pull`로 끝난 kernel의 출력을 받아 메인 DuckDB에 합친다. 출력에 찍힌 `run_id`로 `run.py export`를 돈다.
 
