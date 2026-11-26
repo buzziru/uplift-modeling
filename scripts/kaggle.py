@@ -21,6 +21,7 @@ from uplift.kaggle_jobs import (
     save_jobs,
     slot_limited,
     slug_for,
+    to_pull,
     write_kernel,
     write_manifest,
 )
@@ -145,7 +146,7 @@ def watch(interval: int) -> None:
 
 def pull(db: Path) -> None:
     jobs = load_jobs(STATE)
-    for job in [j for j in jobs if j.status == "complete" and not j.run_ids]:
+    for job in to_pull(jobs):
         out = DATA / "kaggle" / job.slug / "output" / f"v{job.version}"
         print(kaggle("kernels", "output", f"{USER}/{job.slug}", "-p", str(out)))
         with duckdb.connect(str(db)) as con:

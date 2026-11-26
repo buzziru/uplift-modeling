@@ -7,6 +7,7 @@ from uplift.kaggle_jobs import (
     save_jobs,
     slot_limited,
     slug_for,
+    to_pull,
     write_kernel,
     write_manifest,
 )
@@ -33,6 +34,17 @@ def test_free_slots_counts_only_active_jobs():
     ]
     assert free_slots(jobs) == 3
     assert free_slots(jobs, limit=1) == 0
+
+
+def test_to_pull_skips_smoke_pulled_and_unfinished_jobs():
+    jobs = [
+        Job("full", "E", "s", args="--part s_learner", status="complete"),
+        Job("smoke", "E", "s", args="--smoke", status="complete"),
+        Job("pulled", "E", "s", status="complete", run_ids=["r1"]),
+        Job("running", "E", "s", status="running"),
+        Job("failed", "E", "s", status="error"),
+    ]
+    assert [j.slug for j in to_pull(jobs)] == ["full"]
 
 
 def test_state_round_trip_and_kernel_files(tmp_path):

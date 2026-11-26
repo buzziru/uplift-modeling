@@ -81,6 +81,14 @@ def parse_status(text: str) -> str | None:
     return "error"
 
 
+def to_pull(jobs: list[Job]) -> list[Job]:
+    return [
+        j
+        for j in jobs
+        if j.status == "complete" and not j.run_ids and "--smoke" not in j.args.split()
+    ]
+
+
 def free_slots(jobs: list[Job], limit: int = MAX_BATCH_CPU) -> int:
     return max(0, limit - sum(j.status in ACTIVE for j in jobs))
 
