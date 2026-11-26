@@ -41,6 +41,7 @@
 - 기각한 대안: 실행마다 `results/<run_id>/` JSON을 정본으로 두고 DuckDB는 읽어 들이기만 하는 안. 같은 값이 파일과 테이블 두 곳에 생긴다.
 - 정본: `scripts/CLAUDE.md`, `experiments/CLAUDE.md`
 - 승인: 2026-11-23
+- 바뀐 이력: 2026-11-26, "회귀 기준값과 CI 회귀 테스트는 M2 최종 모델에서 기준값 형식과 함께 정하고, EXP-001은 기준값을 만들지 않는다"로 바뀜
 
 ## 2026-11-23 계산 코드, 실험, 분석, 산출물을 폴더로 나누고 ID로 잇는다
 
@@ -76,6 +77,8 @@
 - 승인: 2026-11-23
 - 바뀐 이력:
   - 2026-11-24: 결정의 정본을 분야 문서에서 코드와 설정으로 옮겼다(아래 2026-11-24 기록 문서 항목). 분석 산출물에 `summary.md`를 더했다.
+  - 2026-11-26, "실험 run.py는 compute와 export 하위 명령으로 나누고, artifacts/<ID>/는 export로만 만든다"로 바뀜
+  - 2026-11-26, "회귀 기준값과 CI 회귀 테스트는 M2 최종 모델에서 기준값 형식과 함께 정하고, EXP-001은 기준값을 만들지 않는다"로 바뀜
 
 ## 2026-11-24 결정에 쓰는 실험과 분석은 판정 규칙을 결과보다 먼저 적는 양식을 따른다
 
@@ -134,3 +137,39 @@
 - 기각한 대안: 기록 항목을 더하거나 고치는 PR마다 검토가 같은 대상의 다른 항목과 비교하는 안. 기록을 고칠 때마다 다른 기록과 맞추는 연쇄가 되살아나고, 지적을 피하려 옛 항목을 고치는 행동이 생길 수 있다. 아무도 보지 않는 안. 충돌한 채 구현될 수 있다.
 - 정본: `docs/CLAUDE.md` 단계 계획 절, `.claude/harness/check_docs.py`의 --pending, PR 검토 지시문(`.claude/agents/pr-reviewer.md`)
 - 승인: 2026-11-25
+
+## 2026-11-26 실험 run.py는 compute와 export 하위 명령으로 나누고, artifacts/<ID>/는 export로만 만든다
+
+- 결정: `run.py`는 `compute`와 `export <run_id>`를 둔다. `compute`는 계산 결과(설정, 지표, 예측, 결과 표)를 DuckDB에 쓰고, `export`는 DuckDB에서 읽어 `artifacts/<ID>/`의 `tables/`, `figures/`, `metrics.json`을 만든다. `artifacts/<ID>/`에서 `summary.md` 말고는 `export`로만 만든다.
+- 근거: 사용자 지적(2026-11-26). EXP-001은 채택한 실행 말고도 같은 설정으로 전체 실행을 세 번 더 돌렸고, 모두 같은 판정을 냈다(`experiments/EXP-001-comparison-policies/experiment.md` 결과 해석 절의 설계와 달라진 점). 그중 한 번은 판정 수치를 표로 내려고 다시 돌린 것인데, 계산과 내보내기가 한 실행에 묶여 표 하나를 더하는 데도 전체를 다시 계산했다. 바꾸는 앞 항목: "계산 코드, 실험, 분석, 산출물을 폴더로 나누고 ID로 잇는다".
+- 기각한 대안: `run.py` 한 실행이 계산과 `artifacts/` 내보내기를 함께 하는 앞 구조. 표나 그림 하나를 더하려 해도 전체 계산을 다시 돌려야 한다.
+- 정본: `experiments/EXP-001-comparison-policies/run.py`, `src/uplift/runs.py`(`record_table`, `load_table`), `experiments/CLAUDE.md`, `CLAUDE.md` 폴더 구조
+
+## 2026-11-26 compute는 src/와 실험 폴더에 커밋하지 않은 변경이 있으면 멈춘다
+
+- 결정: `compute`는 시작 전에 `src/`와 실험 폴더에 커밋하지 않은 변경이 있으면 멈춘다.
+- 근거: 사용자 지적(2026-11-26). EXP-001의 다시 돌린 실행 가운데 첫 번째는 커밋 전 코드로 돌아(`experiments/EXP-001-comparison-policies/experiment.md` 결과 해석 절의 설계와 달라진 점), DuckDB에 적힌 커밋 해시가 실행한 코드와 맞지 않았다.
+- 기각한 대안: 커밋 해시만 기록하고 실행은 막지 않는 앞 방식. 커밋하지 않은 변경으로 돈 실행도 그 해시로 기록되어, 기록만 보고는 실행한 코드를 되살릴 수 없다.
+- 정본: `src/uplift/runs.py`(`require_clean`), `experiments/CLAUDE.md`
+
+## 2026-11-26 정식 compute 전에 smoke로 학습 세트 표본에서 파이프라인을 확인한다
+
+- 결정: 정식 `compute` 전에 `smoke <폴더>`로 학습 세트 표본에서 파이프라인과 내보낼 파일을 확인한다. smoke 결과는 저장소 밖 임시 폴더에 쓰고 DuckDB 파일에는 쓰지 않는다.
+- 근거: 사용자 지적(2026-11-26). EXP-001에는 작은 표본으로 파이프라인을 확인할 수단이 없어 첫 확인 실행이 그대로 정식 기록이 되었다.
+- 기각한 대안: 정식 실행으로 바로 확인하는 앞 방식. 확인 중에 고칠 것이 나오면 정식 기록이 될 전체 실행을 다시 돌려야 한다.
+- 정본: `experiments/EXP-001-comparison-policies/run.py`, `experiments/CLAUDE.md`, `experiments/TEMPLATE.md`
+
+## 2026-11-26 summary.md가 인용할 수치는 tables/에 낸다
+
+- 결정: `summary.md`가 인용할 수치는 `export`가 `tables/`에 낸다. 실험 계획 절의 산출물 줄에 그 수치가 든 표를 모두 적는다.
+- 근거: 사용자 지적(2026-11-26). EXP-001에서 `summary.md` 수치 검사가 `tables/`만 대조한다는 것을 실행 뒤에 알아, 판정 수치를 표로 내려고 전체 실행을 다시 돌렸다(`experiments/EXP-001-comparison-policies/experiment.md` 결과 해석 절의 설계와 달라진 점).
+- 기각한 대안: 판정 수치를 `metrics.json`에만 두는 안. `summary.md` 수치 검사가 `metrics.json`을 대조하지 않아 그 수치는 근거 파일과 맞는지 확인되지 않는다.
+- 정본: `experiments/CLAUDE.md`, `experiments/TEMPLATE.md`
+
+## 2026-11-26 회귀 기준값과 CI 회귀 테스트는 M2 최종 모델에서 기준값 형식과 함께 정하고, EXP-001은 기준값을 만들지 않는다
+
+- 결정: EXP-001은 `tests/baseline/` 기준값을 만들지 않는다. 기준값과 CI 회귀 테스트는 M2 최종 모델을 채택할 때, 기준값 파일의 형식(고객별 처치와 결과를 어떻게 다룰지)과 함께 정한다.
+- 근거: 사용자 결정(2026-11-26). CI가 정책 가치를 다시 계산하려면 예측 말고 고객별 처치와 `visit`이 필요해, 커밋하지 않기로 한 원본 데이터의 일부를 커밋하게 된다. 바꾸는 앞 항목: "분석 데이터와 실험 기록은 DuckDB 파일 하나에 두고 이것을 정본으로 한다", "계산 코드, 실험, 분석, 산출물을 폴더로 나누고 ID로 잇는다".
+- 기각한 대안: 앞 규약대로 EXP-001 실행을 채택해 지표와 예측을 `tests/baseline/`에 커밋하는 안. 예측만으로는 CI가 정책 가치를 다시 계산할 수 없고, 계산하게 하려면 고객별 처치와 `visit`을 함께 커밋해야 한다.
+- 정본: `tests/CLAUDE.md` 테스트 도입 순서, `experiments/CLAUDE.md`
+- 승인: 2026-11-26

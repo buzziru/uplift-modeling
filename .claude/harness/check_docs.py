@@ -4,6 +4,7 @@ import re
 import subprocess
 import sys
 from fnmatch import fnmatch
+from functools import cache
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -197,9 +198,25 @@ def check_copies(new_text: str, path: str) -> tuple[list[str], list[str]]:
     return errors, warnings
 
 
+@cache
+def all_files() -> tuple[str, ...]:
+    return tuple(tracked())
+
+
+def existing_path(phrase: str) -> bool:
+    if re.search(r"\s", phrase) or not re.search(r"/|\.\w+$", phrase):
+        return False
+    pattern = re.sub(r"<[^>]+>", "*", phrase.rstrip("/"))
+    return any(
+        fnmatch(f, p) for f in all_files() for p in (pattern, pattern + "/*", "*/" + pattern)
+    )
+
+
 def check_removed(old_text: str, new_text: str) -> list[str]:
     phrases = set(re.findall(r"`([^`\n]{10,})`|\"([^\"\n]{10,})\"", old_text))
-    removed = {p for pair in phrases for p in pair if p and p not in new_text}
+    removed = {
+        p for pair in phrases for p in pair if p and p not in new_text and not existing_path(p)
+    }
     warnings = []
     for f in scope_files():
         body = f.read_text(encoding="utf-8")
@@ -292,6 +309,8 @@ def json_leaves(data: object) -> list[object]:
 def unmatched_numbers(text: str, values: list[float]) -> list[str]:
     missing = []
     for token in NUMBER.findall(NOT_VALUE.sub(" ", text)):
+        if "." not in token:
+            continue
         digits = token.rstrip("%").replace(",", "")
         x = abs(float(digits))
         tol = 0.5 * 10 ** -len(digits.partition(".")[2]) + 1e-9
@@ -318,10 +337,10 @@ def check_summary(path: str) -> list[str]:
 
 def summaries() -> int:
     paths = [a for a in sys.argv[2:]] or tracked("artifacts/*/summary.md")
-    for p in paths:
-        for w in check_summary(Path(p).as_posix()):
-            print(f"알림: {w}")
-    return 0
+    errors = [e for p in paths for e in check_summary(Path(p).as_posix())]
+    for e in errors:
+        print(f"오류: {e}")
+    return 1 if errors else 0
 
 
 def hook() -> None:
@@ -346,7 +365,7 @@ def hook() -> None:
     if file_path in record_files():
         warnings += check_history()
     if SUMMARY.fullmatch(path):
-        warnings += check_summary(path)
+        errors += check_summary(path)
     lines = [f"오류: {e}" for e in errors] + [f"알림: {w}" for w in warnings]
     if not lines:
         return
@@ -416,7 +435,7 @@ def branch() -> int:
     for p in git_text(
         "diff", "--name-only", "--diff-filter=d", "origin/main...HEAD", "--", "artifacts/*/summary.md"
     ).split():
-        warnings += check_summary(p)
+        errors += check_summary(p)
     if "+++ b/SPEC.md" in diff:
         warnings.append("SPEC.md는 시작 명세로 고정한 문서다. 바꾼 이유를 보고에 적는다")
     errors += check_canon(

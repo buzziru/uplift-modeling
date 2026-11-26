@@ -304,8 +304,32 @@ def test_check_removed_ignores_phrases_under_ten_characters(tmp_path, monkeypatc
     monkeypatch.setattr(check_docs, "ROOT", tmp_path)
     (tmp_path / "a.md").write_text("`docs/a.md`와 `docs/abcde.md`가 남았다.\n", encoding="utf-8")
     monkeypatch.setattr(check_docs, "scope_files", lambda: [tmp_path / "a.md"])
+    monkeypatch.setattr(check_docs, "all_files", lambda: ())
     old = "`docs/a.md`와 `docs/abcde.md`"
     assert check_docs.check_removed(old, "") == ['지운 표현이 남음: "docs/abcde.md" in a.md']
+
+
+def test_check_removed_skips_paths_that_still_exist(tmp_path, monkeypatch):
+    monkeypatch.setattr(check_docs, "ROOT", tmp_path)
+    (tmp_path / "a.md").write_text(
+        "`docs/THEORY.md`, `artifacts/<ID>/summary.md`, `docs/plans/`, `summary.md`, "
+        '`docs/gone-file.md`, "지운 문장이 여기 남았다"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(check_docs, "scope_files", lambda: [tmp_path / "a.md"])
+    monkeypatch.setattr(
+        check_docs,
+        "all_files",
+        lambda: ("docs/THEORY.md", "artifacts/ANA-001/summary.md", "docs/plans/ROADMAP.md"),
+    )
+    old = (
+        "`docs/THEORY.md` `artifacts/<ID>/summary.md` `docs/plans/` `summary.md` "
+        '`docs/gone-file.md` "지운 문장이 여기 남았다"'
+    )
+    assert sorted(check_docs.check_removed(old, "")) == [
+        '지운 표현이 남음: "docs/gone-file.md" in a.md',
+        '지운 표현이 남음: "지운 문장이 여기 남았다" in a.md',
+    ]
 
 
 def test_unmatched_numbers_rounds_scales_percent_and_skips_non_values():
@@ -315,7 +339,13 @@ def test_unmatched_numbers_rounds_scales_percent_and_skips_non_values():
         "ANA-001, 2026-11-26, `ate.csv`, 95% 구간, 검정력 80%, p < 0.001, 기준 0.1, 방문 1회"
     )
     assert check_docs.unmatched_numbers(text, values) == []
-    assert check_docs.unmatched_numbers("효과 0.078, 1.2배, 30%", values) == ["0.078", "1.2", "30%"]
+    assert check_docs.unmatched_numbers("효과 0.078, 1.2배, 30%", values) == ["0.078", "1.2"]
+
+
+def test_unmatched_numbers_skips_integers():
+    text = "학습 세트 44,800명, 18개, 100% 발송, 200 이상, 30%"
+    assert check_docs.unmatched_numbers(text, [0.5]) == []
+    assert check_docs.unmatched_numbers("비율 12.5%, 효과 0.25", [0.5]) == ["12.5%", "0.25"]
 
 
 def test_check_summary_matches_numbers_against_cited_tables_only(tmp_path, monkeypatch):
@@ -333,6 +363,25 @@ def test_check_summary_matches_numbers_against_cited_tables_only(tmp_path, monke
     (tmp_path / "artifacts" / "EXP-009").mkdir()
     (tmp_path / "artifacts" / "EXP-009" / "summary.md").write_text("0.7", encoding="utf-8")
     assert check_docs.check_summary("artifacts/EXP-009/summary.md") == []
+
+
+def test_summaries_fail_on_decimal_mismatch(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(check_docs, "ROOT", tmp_path)
+    folder = tmp_path / "artifacts" / "EXP-009"
+    (folder / "tables").mkdir(parents=True)
+    (folder / "tables" / "a.csv").write_text("x\n0.5\n", encoding="utf-8")
+    summary = folder / "summary.md"
+    summary.write_text(
+        "학습 세트 44,800명.\n\n## 결론 0.5\n\n값 0.5, 100% 발송.\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(check_docs.sys, "argv", ["x", "--summary", "artifacts/EXP-009/summary.md"])
+    assert check_docs.summaries() == 0
+    summary.write_text("## 결론 0.5\n\n값 0.7.\n", encoding="utf-8")
+    assert check_docs.summaries() == 1
+    assert (
+        "오류: tables/에 없는 수치 1건: artifacts/EXP-009/summary.md (0.7)"
+        in capsys.readouterr().out
+    )
 
 
 def test_table_values_reads_numbers_in_column_labels(tmp_path):

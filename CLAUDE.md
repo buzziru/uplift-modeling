@@ -12,6 +12,7 @@
 - 작은 수정과 결정은 작업 트리나 진행 중인 브랜치에 모으고, 브랜치를 새로 만들거나 PR을 열기 전에 묶을 범위를 사용자와 정한다. 하네스 파일(범위는 아래 변경 이력 줄) 수정은 작업 변경과 다른 브랜치에 모은다. 하네스 PR은 이미 본 실수가 되풀이되지 않게 하는 변경이면 범위를 정한 뒤 쌓아 두지 않고 바로 열고, 그 밖의 변경은 하네스 브랜치에 쌓았다가 작업을 막을 때나 마일스톤을 닫을 때 연다. `experiments/`의 실험 폴더 하나는 묻지 않고 PR 하나로 한다.
 - 되돌리기 어려운 대상은 명령을 막는 대신 대상 쪽(보호 설정, 복구 수단, 보관 위치)에서 지킨다. main은 GitHub branch protection, 프로덕션 배포는 Vercel Git 연동(main 병합 때만), 원본 데이터는 받는 스크립트와 체크섬, 비밀 값(API 키)은 저장소 밖 Doppler에 두고 실행할 때 주입한다.
 - 거부 규칙은 흔한 명령 꼴만 막는 첫 방어선이다. 같은 동작의 다른 명령 꼴을 찾아 규칙을 더하지 않는다.
+- 실수가 되풀이되면 먼저 그 실수가 생기는 자리를 구조로 없앤다(같은 사실을 한 곳에만 두거나 코드·표에서 만들기, 실행 단계를 나눠 다시 할 범위 줄이기). 구조로 없앨 수 없을 때만 탐지 검사를 더한다. 탐지 검사는 같은 꼴의 오류가 서로 다른 작업 두 곳에서 나왔고, 문자열만으로 판정되며, 지금 저장소에서 오탐이 없을 때 오류로 더한다. 알림은 새로 만들지 않고, 같은 오탐을 되풀이하는 알림은 고치거나 지운다. 의미, 과장, 설계와의 대조는 검사로 옮기지 않고 평가와 검토에 둔다.
 - 정본의 내용을 하네스 파일에 옮겨 적지 않는다. 가리켜야 하면 파일 이름만 쓴다. `SPEC.md`는 시작 명세로 고정한 문서라 맞추거나 가리키지 않는다.
 - 규칙을 새로 쓰거나 바꾸기 전에 같은 대상을 정하는 정본과 하네스 파일(범위는 아래 변경 이력 줄)을 먼저 읽는다. 용어나 규칙 표현을 바꾸면 바뀌기 전 표현을 저장소에서 검색해 남은 곳을 같은 커밋에서 고친다.
 - 정의된 용어는 그대로 쓰고, 정의를 가리키거나 뜻을 다시 풀어 쓰지 않는다.
@@ -38,17 +39,17 @@ experiments/         모델 실험. 설정을 바꿔 다시 돌려 비교하는 
   EXP-001-<주제>/
     experiment.md    질문, 설계, 계획, 결과 해석
     config.yaml      pydantic으로 검증
-    run.py           src 호출, DuckDB 기록, artifacts 내보내기만 함(Kaggle 실행은 kaggle-remote-runner 스킬의 예외)
+    run.py           compute, export, smoke 하위 명령(`experiments/CLAUDE.md`. Kaggle 실행은 kaggle-remote-runner 스킬의 예외)
 analyses/            marimo 분석. 한 번 보고 판단하는 일(EDA, 결정에 쓰는 분석)
   ANA-001-<주제>.py
 artifacts/           산출물. 코드와 나누고 폴더 이름은 실험·분석 ID만 씀(data/ 예외)
-  EXP-001/           metrics.json, summary.md, figures/ 커밋. 예측 파일 커밋 안 함
+  EXP-001/           metrics.json, summary.md, figures/, tables/ 커밋. 예측 파일 커밋 안 함
   ANA-001/           figures/, tables/, summary.md 커밋. marimo HTML export 커밋 안 함
   data/              적재 때 만든 명세 요약(profile.json)과 테이블 미리보기(tables.md). 커밋함
 data/                커밋 안 함. raw/*.parquet, uplift.duckdb
 scripts/             데이터 받기와 체크섬(fetch_data.py), DuckDB 적재와 분할(build_db.py, splits.yaml)
 tests/
-  baseline/          채택한 실행의 기준값 파일과 예측. 커밋함
+  baseline/          회귀 기준값 파일. 커밋함
 ```
 
 - 실험 폴더 이름은 ID와 짧은 주제(`EXP-001-meta-learner-compare`)이고, 산출물 폴더 이름은 ID(`EXP-001`)만 쓴다.

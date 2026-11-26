@@ -52,4 +52,4 @@ description: 분석(ANA) 노트북을 시작하고, 분석 단위를 더하고, 
 2. 다시 실행이 오래 걸리면 무거운 계산을 EXP(`experiments/`의 `run.py`)로 옮기는 것을 먼저 검토한다. ANA에 남겨야 하면 그 계산만 `mo.persistent_cache`로 캐시한다. 몇 분부터 오래 걸린다고 볼지는 병목인 분석이 처음 생길 때 정한다. 캐시에는 아래 외부 제약이 있다(marimo 문서 https://docs.marimo.io/api/caching/ Limitations).
    - 캐시 키에 import한 모듈의 소스 코드가 들어가지 않는다. 캐시 블록이 쓰는 `src/` 함수를 고치면 캐시 이름을 바꿔 무효화한다.
    - 캐시가 맞으면(cache hit) 블록 안의 부수 효과(파일 쓰기 등)가 실행되지 않는다. `tables/`·`figures/` 내보내기는 캐시 블록 밖에 둔다.
-3. `uv run python .claude/harness/check_docs.py --summary artifacts/<ID>/summary.md`를 돌린다. 알림에 나온 수치는 표에 넣거나 경로를 고친다. 문턱, 설정값, 표의 행 수처럼 표의 값이 아닌 수치는 그대로 둔다.
+3. `uv run python .claude/harness/check_docs.py --summary artifacts/<ID>/summary.md`를 돌린다. 오류에 나온 수치는 표에 넣거나 경로를 고친다. 소수점이 없는 수(문턱, 설정값, 행 수, 개수)는 대조하지 않는다.
