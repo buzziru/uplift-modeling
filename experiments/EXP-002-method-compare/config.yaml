@@ -1,0 +1,22 @@
+experiment_id: EXP-002
+outcome: visit
+seeds: [42, 154, 1592]
+hpo_seed: 42
+n_trials: 50
+n_boot: 1000
+floor: 0.0038
+order:
+  - s_learner
+  - t_learner
+  - class_transformation
+  - transformed_outcome
+  - x_learner
+  - dr_learner
+  - uplift_rf
+feature_part: t_learner_segment
+response_run: cfb0d1dade18
+run_on: kaggle
+smoke:
+  sample_size: 3000
+  n_trials: 2
+  n_boot: 20

@@ -76,3 +76,22 @@ def test_within_arm_r2_is_one_for_exact_and_zero_for_arm_mean():
         return np.tile([y[train & (t == a)].mean() for a in range(3)], (int(test.sum()), 1))
 
     assert np.allclose(within_arm_r2(oof_predict(arm_mean, folds), t, y, folds)["r2"], 0)
+
+
+def test_feature_matrix_segment_replaces_product_flags():
+    df = pd.DataFrame(
+        {
+            "recency": [1, 2, 3],
+            "history": [10.0, 20.0, 30.0],
+            "mens": [1, 0, 1],
+            "womens": [0, 1, 1],
+            "newbie": [0, 1, 0],
+            "zip_code": ["Urban", "Rural", "Urban"],
+            "channel": ["Web", "Phone", "Web"],
+        }
+    )
+    seg = feature_matrix(df, product="segment")
+    assert "mens" not in seg.columns and "womens" not in seg.columns
+    product_cols = [c for c in seg.columns if c.startswith("product_")]
+    assert len(product_cols) == 2
+    assert (seg[product_cols].sum(axis=1) <= 1).all()

@@ -144,3 +144,17 @@ def send_ratio_plot(values: pd.DataFrame, references: dict[str, float], title: s
     ax.legend(loc="best", fontsize=8)
     fig.tight_layout()
     return fig
+
+
+def method_score_plot(scores: pd.DataFrame, order: list[str], reference: float) -> Figure:
+    fig, ax = plt.subplots(figsize=(7, 4.5))
+    sns.stripplot(data=scores, y="method", x="value", order=order, ax=ax, size=6, alpha=0.7)
+    means = {m: float(scores.loc[scores["method"] == m, "value"].mean()) for m in order}
+    ax.scatter(
+        list(means.values()), range(len(order)), marker="|", s=400, color="black", label="mean"
+    )
+    ax.axvline(reference, linestyle="--", color="gray", linewidth=1, label="all_mens")
+    ax.set(xlabel="OOF visit policy value (Hajek)", ylabel="", title="Method scores by seed")
+    ax.legend(loc="best", fontsize=8)
+    fig.tight_layout()
+    return fig
