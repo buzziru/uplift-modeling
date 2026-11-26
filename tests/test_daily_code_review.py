@@ -25,10 +25,9 @@ def test_code_diffs_keeps_python_code_paths():
 
 
 def test_fill_puts_earlier_groups_first():
-    kept, omitted = review.fill(
-        [("a", [{"path": "x", "t": "1234"}], "t"), ("b", [{"path": "y", "t": "12"}], "t")], 5
-    )
-    assert (kept, omitted) == ({"a": [{"path": "x", "t": "1234"}], "b": []}, ["b y"])
+    first, second = {"path": "x", "t": "1234"}, {"path": "y", "t": "12"}
+    kept, omitted = review.fill([("a", [first]), ("b", [second])], review.size(first))
+    assert (kept, omitted) == ({"a": [first], "b": []}, ["b y"])
 
 
 @pytest.fixture
@@ -89,3 +88,29 @@ def test_ask_with_fallback_picks_model(monkeypatch, first, model, failure):
 def test_owned_drops_other_authors():
     prs = [{"number": 1, "author": {"login": "o"}}, {"number": 2, "author": {"login": "x"}}]
     assert [p["number"] for p in review.owned(prs, "o")] == [1]
+
+
+@pytest.fixture
+def many_small(repo):
+    for i in range(6):
+        (repo / "src" / "uplift" / f"m{i}.py").write_text(f"v{i} = {i}", encoding="utf-8")
+    return [{"pr": 7, "path": f"src/uplift/m{i}.py", "diff": f"+v{i} = {i}"} for i in range(6)]
+
+
+@pytest.mark.parametrize("limit", [650, 750, 850])
+def test_review_input_stays_under_limit(repo, many_small, monkeypatch, limit):
+    monkeypatch.setattr(review, "MAX_CHARS", limit)
+    data, _ = review.review_input([{"number": 7, "title": "t"}], many_small, repo, [])
+    assert review.size(data) <= limit
+
+
+def test_review_input_omits_when_tight(repo, many_small, monkeypatch):
+    monkeypatch.setattr(review, "MAX_CHARS", 750)
+    _, omitted = review.review_input([{"number": 7, "title": "t"}], many_small, repo, [])
+    assert omitted != []
+
+
+def test_review_input_rejects_base_over_limit(repo, monkeypatch):
+    monkeypatch.setattr(review, "MAX_CHARS", 10)
+    with pytest.raises(ValueError, match="기본 입력"):
+        review.review_input([], [], repo, [])
