@@ -148,13 +148,31 @@ def send_ratio_plot(values: pd.DataFrame, references: dict[str, float], title: s
 
 def budget_plot(differences: pd.DataFrame, judged: pd.DataFrame) -> Figure:
     fig, ax = plt.subplots(figsize=(7, 4.5))
+    sns.lineplot(
+        data=differences.assign(seed=differences["seed"].astype(str)),
+        x="ratio",
+        y="estimate",
+        hue="seed",
+        marker="o",
+        linewidth=0.8,
+        ax=ax,
+    )
     for seed, part in differences.groupby("seed"):
         part = part.sort_values("ratio")
-        x = part["ratio"].to_numpy()
-        ax.plot(x, part["estimate"], marker="o", linewidth=0.8, label=f"seed {seed}")
-        ax.fill_between(x, part["low"], part["high"], alpha=0.12)
-    ax.plot(judged["ratio"], judged["mean_diff"], color="black", linewidth=2, label="seed mean")
-    ax.plot(judged["ratio"], judged["threshold"], "k--", linewidth=1, label="threshold")
+        ax.fill_between(part["ratio"], part["low"], part["high"], alpha=0.12)
+    sns.lineplot(
+        data=judged, x="ratio", y="mean_diff", color="black", linewidth=2, label="seed mean", ax=ax
+    )
+    sns.lineplot(
+        data=judged,
+        x="ratio",
+        y="threshold",
+        color="black",
+        linestyle="--",
+        linewidth=1,
+        label="threshold",
+        ax=ax,
+    )
     ax.plot(judged["ratio"], -judged["threshold"], "k--", linewidth=1)
     ax.axhline(0, color="gray", linewidth=0.8)
     ax.set(
