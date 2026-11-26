@@ -124,7 +124,8 @@ def load_scores(
     ).df()
     if rows.empty:
         raise KeyError(f"{run_id}에 {model_id} 예측이 없다")
-    return rows.pivot(index="customer_id", columns="treatment_id", values="score")[list(arms)]
+    wide = rows.pivot(index="customer_id", columns="treatment_id", values="score")
+    return wide.reindex(columns=list(arms))
 
 
 def load_run_config(con: duckdb.DuckDBPyConnection, run_id: str) -> dict:

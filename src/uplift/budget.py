@@ -38,10 +38,9 @@ def budget_differences(
 
 
 def judge_budget(differences: pd.DataFrame, floor: float) -> pd.DataFrame:
-    by_ratio = differences.groupby("ratio")["estimate"]
-    table = pd.DataFrame(
-        {"mean_diff": by_ratio.mean(), "seed_range": by_ratio.max() - by_ratio.min()}
-    )
+    table = differences.groupby("ratio")["estimate"].agg(mean_diff="mean", low="min", high="max")
+    table["seed_range"] = table["high"] - table["low"]
+    table = table.drop(columns=["low", "high"])
     table["threshold"] = np.maximum(table["seed_range"], floor)
     table["winner"] = np.select(
         [table["mean_diff"] >= table["threshold"], -table["mean_diff"] >= table["threshold"]],
