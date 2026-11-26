@@ -41,3 +41,9 @@
 - 산출물: `export <run_id>...`가 방법별 실행을 모아 낸다. `tables/`의 `method_scores.csv`(방법별 seed 점수와 평균), `pair_thresholds.csv`(1위와의 $\bar d$, $R$, 문턱, 가를 수 있는지), `method_choice.csv`(선택), `policy_values.csv`(구간), `response_same_send.csv`(같은 발송 수의 반응 모델과의 차이), `ranking.csv`(쌍별 Qini), `feature_compare.csv`, `hpo_trials.csv`, `metrics.json`, `figures/`.
 - smoke: 여덟 part가 모두 표본에서 돌고, export가 위 표를 모두 내는지.
 - 구현 검증: unit test(판정 규칙의 경우별 결과, 특성 함수, part 선택). 효과를 심은 합성 데이터 test는 `tests/test_learners.py`.
+
+## 결과 해석
+
+- 판정: 일곱 방법 모두 1위 transformed outcome과 가를 수 없어, 단순한 순서의 첫 방법 S-learner를 고른다(`artifacts/EXP-002/tables/pair_thresholds.csv`, `method_choice.csv`). 1위의 평균 점수가 전체 발송 정책보다 커서 "고르지 않는다" 규칙에는 걸리지 않는다. 고른 S-learner의 평균은 전체 발송 정책보다 작고, 차이 구간은 세 seed 모두 0을 포함한다(`policy_values.csv`).
+- 설계와 달라진 점: 없다.
+- 반영한 결정: 방법론 승인(모델 선택) 전이라 아직 없다.

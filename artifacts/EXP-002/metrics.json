@@ -1,0 +1,15 @@
+{
+  "run_ids": {
+    "s_learner": "52938f3ec570",
+    "t_learner": "cede264f206f",
+    "class_transformation": "2a4f6129f826",
+    "transformed_outcome": "fc26f912671f",
+    "x_learner": "0b6188e72e60",
+    "dr_learner": "05ffc25eb647",
+    "uplift_rf": "aec4057c1891",
+    "t_learner_segment": "a3542f453e22"
+  },
+  "chosen": "s_learner",
+  "leader": "transformed_outcome",
+  "any_beats_all_mens": true
+}
