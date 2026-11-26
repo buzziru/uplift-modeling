@@ -27,7 +27,7 @@
 ### U3: EXP-001 결과(2026-11-26)
 
 - U2 점검에서 결과 파일 없이 낸 구간 폭 비교는 EXP-001에서 결과 파일로 다시 냈다(`artifacts/EXP-001/summary.md`). Hájek 편향 시뮬레이션 수치는 지웠다. 추정량은 구간 폭 규칙으로 정했고 편향은 판정에 쓰이지 않는다.
-- U5로 넘길 것: seed 간 범위(`artifacts/EXP-001/tables/seed_range.csv`), 반응 모델 쌍별 Qini(`artifacts/EXP-001/tables/response_ranking.csv`), 반응 모델 HPO 예산(trial 50회, `experiments/EXP-001-comparison-policies/config.yaml`). `policy.top_k`는 반응 모델 정책 함수이고, 고른 정책(대조를 포함한 최선 행동)은 U5에서 따로 만든다.
+- U5로 넘길 것: seed 간 범위(`artifacts/EXP-001/tables/seed_range.csv`), 반응 모델 쌍별 Qini(`artifacts/EXP-001/tables/response_ranking.csv`), 반응 모델 HPO 예산(trial 50회, `experiments/EXP-001-comparison-policies/config.yaml`). `policy.top_k`는 반응 모델 정책 함수다. 고른 정책은 U5에서 메일별 uplift와 0 가운데 큰 쪽을 고르는 함수로 따로 만든다.
 
 ### U3, U5: 모델링에 가져갈 것(ANA-002, ANA-003)
 

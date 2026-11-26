@@ -8,7 +8,7 @@
 
 ## outcome model은 처치군 안에서 visit을 거의 설명하지 못한다
 
-처치군 안 R²는 logistic regression 0.023\~0.029, 반응 모델 HPO 설정의 LightGBM 0.023\~0.025다(`tables/outcome_r2.csv`). LightGBM으로 바꿔도 나아지지 않아, AIPW가 Hájek보다 좁아지는 몫이 작다.
+처치군 안 R²는 logistic regression 0.023\~0.029, 반응 모델 HPO 설정의 LightGBM 0.023\~0.025다(`tables/outcome_r2.csv`). LightGBM으로 바꿔도 같은 수준이라, AIPW가 Hájek보다 좁아지는 몫이 작다.
 
 ## 반응 모델 정책은 모두 발송해도 전체 발송 정책보다 높지 않다
 

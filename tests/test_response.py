@@ -44,3 +44,14 @@ def test_tune_returns_params_inside_search_space():
     assert 20 <= params["min_child_samples"] <= 500
     assert 0.5 <= params["subsample"] <= 1 and params["subsample_freq"] == 1
     assert 0.5 <= params["colsample_bytree"] <= 1
+
+
+def test_held_out_fold_labels_do_not_reach_its_predictions():
+    rng = np.random.default_rng(1)
+    n = 1500
+    x = rng.normal(size=(n, 2))
+    t = np.tile([0, 1, 2], n // 3)
+    folds = np.arange(n) % 5
+    y = np.where(folds == 0, 1, rng.random(n) < 0.2).astype(int)
+    pred = arm_models_oof(x, t, y, folds, PARAMS, seed=0)
+    assert pred[folds == 0].mean() < 0.4

@@ -128,4 +128,4 @@ def test_choose_estimator_counts_rows_that_disagree_with_the_mean():
     assert result["base"] == "hajek"
     assert result["hajek_vs_ipw_disagree"] == 1
     assert result["chosen"] == "hajek"
-    assert result["aipw_vs_base_disagree"] == 2
+    assert result["aipw_vs_base_disagree"] == 1

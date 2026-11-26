@@ -76,14 +76,14 @@ def choose_estimator(widths: pd.DataFrame, aipw_margin: float) -> dict:
     mean = {m: float(w[m].mean()) for m in METHODS}
     base = "hajek" if mean["hajek"] < mean["ipw"] else "ipw"
     use_aipw = mean["aipw"] <= (1 - aipw_margin) * mean[base]
-    row_aipw = w["aipw"] <= (1 - aipw_margin) * w[base]
+    aipw_smaller = mean["aipw"] < mean[base]
     return {
         "mean_width": mean,
         "base": base,
         "aipw_ratio": mean["aipw"] / mean[base],
         "chosen": "aipw" if use_aipw else base,
         "hajek_vs_ipw_disagree": int(((w["hajek"] < w["ipw"]) != (base == "hajek")).sum()),
-        "aipw_vs_base_disagree": int((row_aipw != use_aipw).sum()),
+        "aipw_vs_base_disagree": int(((w["aipw"] < w[base]) != aipw_smaller).sum()),
     }
 
 

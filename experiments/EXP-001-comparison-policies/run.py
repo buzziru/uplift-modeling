@@ -16,7 +16,7 @@ from uplift.features import feature_matrix
 HERE = Path(__file__).parent
 ROOT = HERE.parents[1]
 DB = ROOT / "data" / "uplift.duckdb"
-CODE = ["src", str(HERE.relative_to(ROOT))]
+CODE = [str(ROOT / "src"), str(HERE)]
 
 
 class Smoke(BaseModel):
