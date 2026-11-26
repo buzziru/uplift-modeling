@@ -39,7 +39,7 @@ experiments/         모델 실험. 설정을 바꿔 다시 돌려 비교하는 
   EXP-001-<주제>/
     experiment.md    질문, 설계, 계획, 결과 해석
     config.yaml      pydantic으로 검증
-    run.py           compute(계산과 DuckDB 기록), export(artifacts 내보내기), smoke(표본 확인) 하위 명령(Kaggle 실행은 kaggle-remote-runner 스킬의 예외)
+    run.py           compute, export, smoke 하위 명령(`experiments/CLAUDE.md`. Kaggle 실행은 kaggle-remote-runner 스킬의 예외)
 analyses/            marimo 분석. 한 번 보고 판단하는 일(EDA, 결정에 쓰는 분석)
   ANA-001-<주제>.py
 artifacts/           산출물. 코드와 나누고 폴더 이름은 실험·분석 ID만 씀(data/ 예외)
