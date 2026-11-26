@@ -1,7 +1,6 @@
 import json
 import subprocess
 import uuid
-from collections.abc import Callable
 from datetime import UTC, datetime
 from io import StringIO
 from pathlib import Path
@@ -133,47 +132,6 @@ def load_run_config(con: duckdb.DuckDBPyConnection, run_id: str) -> dict:
     if row is None:
         raise KeyError(f"{run_id} 실행이 없다")
     return json.loads(row[0])
-
-
-def _changed_since(commit: str, files: list[str]) -> bool:
-    diff = subprocess.run(
-        ["git", "diff", "--name-only", commit, "--", *files],
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
-    return bool(diff.strip())
-
-
-def stage(
-    con: duckdb.DuckDBPyConnection,
-    run_id: str,
-    name: str,
-    compute: Callable[[], pd.DataFrame],
-    files: list[str],
-    settings: dict,
-    parent: str | None = None,
-) -> pd.DataFrame:
-    if parent is not None:
-        row = con.execute(
-            "SELECT config, git_commit FROM runs WHERE run_id = ?", [parent]
-        ).fetchone()
-        has = con.execute(
-            "SELECT count(*) FROM run_tables WHERE run_id = ? AND name = ?", [parent, name]
-        ).fetchone()
-        if (
-            row is not None
-            and has is not None
-            and has[0] > 0
-            and json.loads(row[0]).get("stages", {}).get(name) == settings
-            and not _changed_since(row[1], files)
-        ):
-            table = load_table(con, parent, name)
-            record_table(con, run_id, name, table)
-            return table
-    table = compute()
-    record_table(con, run_id, name, table)
-    return table
 
 
 RECORD_TABLES = {
