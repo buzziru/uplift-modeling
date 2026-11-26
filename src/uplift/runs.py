@@ -2,6 +2,7 @@ import json
 import subprocess
 import uuid
 from datetime import UTC, datetime
+from io import StringIO
 
 import duckdb
 import pandas as pd
@@ -34,6 +35,23 @@ CREATE TABLE IF NOT EXISTS predictions (
     score DOUBLE
 )
 """
+
+
+RUN_TABLES_DDL = """
+CREATE TABLE IF NOT EXISTS run_tables (
+    run_id VARCHAR,
+    name VARCHAR,
+    data JSON
+)
+"""
+
+
+def require_clean(paths: list[str]) -> None:
+    status = subprocess.run(
+        ["git", "status", "--porcelain", "--", *paths], capture_output=True, text=True, check=True
+    ).stdout
+    if status.strip():
+        raise RuntimeError(f"커밋하지 않은 변경이 있어 실행을 기록할 수 없다:\n{status}")
 
 
 def git_commit() -> str:
@@ -69,3 +87,26 @@ def record_predictions(
 ) -> None:
     columns = ["run_id", "model_id", "customer_id", "treatment_id", "fold", "score"]
     _insert(con, "predictions", PREDICTIONS_DDL, predictions.assign(run_id=run_id)[columns])
+
+
+def record_table(
+    con: duckdb.DuckDBPyConnection, run_id: str, name: str, table: pd.DataFrame
+) -> None:
+    con.execute(RUN_TABLES_DDL)
+    data = table.to_json(orient="records", double_precision=15)
+    con.execute("INSERT INTO run_tables VALUES (?, ?, ?)", [run_id, name, data])
+
+
+def load_table(con: duckdb.DuckDBPyConnection, run_id: str, name: str) -> pd.DataFrame:
+    row = con.execute(
+        "SELECT data FROM run_tables WHERE run_id = ? AND name = ?", [run_id, name]
+    ).fetchone()
+    if row is None:
+        raise KeyError(f"{run_id}에 {name} 표가 없다")
+    return pd.read_json(StringIO(row[0]), orient="records")
+
+
+def load_run_config(con: duckdb.DuckDBPyConnection, run_id: str) -> dict:
+    return json.loads(
+        con.execute("SELECT config FROM runs WHERE run_id = ?", [run_id]).fetchone()[0]
+    )

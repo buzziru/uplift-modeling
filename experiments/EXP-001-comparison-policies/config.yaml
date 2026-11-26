@@ -11,3 +11,7 @@ differences:
   - [response_100, all_mens]
   - [response_50, all_mens]
 seed_range_difference: [response_100, all_mens]
+smoke:
+  sample_size: 3000
+  n_trials: 2
+  n_boot: 20
