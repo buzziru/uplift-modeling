@@ -154,6 +154,7 @@ def test_check_copies_errors_on_record_copies_outside_records(tmp_path, monkeypa
         ("artifacts/ANA-003/summary.md", False, True),
         (".claude/skills/marimo-notebook/SKILL.md", False, True),
         (".claude/skills/run-evaluation/SKILL.md", True, True),
+        (".claude/skills/run-analysis/SKILL.md", True, True),
         ("src/uplift/eda.py", False, True),
         (".claude/harness/CHANGELOG.md", False, True),
         ("tests/test_check_docs.py", False, False),
@@ -240,3 +241,36 @@ def test_check_removed_ignores_phrases_under_ten_characters(tmp_path, monkeypatc
     monkeypatch.setattr(check_docs, "scope_files", lambda: [tmp_path / "a.md"])
     old = "`docs/a.md`와 `docs/abcde.md`"
     assert check_docs.check_removed(old, "") == ['지운 표현이 남음: "docs/abcde.md" in a.md']
+
+
+def test_unmatched_numbers_rounds_scales_percent_and_skips_non_values():
+    values = [0.0766, 0.124, 21306.0, 2.1]
+    text = (
+        "효과 0.077, 비율 12.4%, 21,306명, 차이 -2.1. "
+        "ANA-001, 2026-11-26, `ate.csv`, 95% 구간, 검정력 80%, p < 0.001, 기준 0.1, 방문 1회"
+    )
+    assert check_docs.unmatched_numbers(text, values) == []
+    assert check_docs.unmatched_numbers("효과 0.078, 1.2배, 30%", values) == ["0.078", "1.2", "30%"]
+
+
+def test_check_summary_matches_numbers_against_cited_tables_only(tmp_path, monkeypatch):
+    monkeypatch.setattr(check_docs, "ROOT", tmp_path)
+    folder = tmp_path / "artifacts" / "ANA-009"
+    (folder / "tables").mkdir(parents=True)
+    (folder / "tables" / "a.csv").write_text("x,y\n0.5,3\n", encoding="utf-8")
+    (folder / "tables" / "b.json").write_text('{"v": [0.25]}', encoding="utf-8")
+    (folder / "summary.md").write_text(
+        "## 결론 0.5\n\n값 0.5와 3(`tables/a.csv`).\n\n값 0.25(`tables/a.csv`).\n", encoding="utf-8"
+    )
+    assert check_docs.check_summary("artifacts/ANA-009/summary.md") == [
+        "tables/에 없는 수치 1건: artifacts/ANA-009/summary.md (0.25)"
+    ]
+    (tmp_path / "artifacts" / "EXP-009").mkdir()
+    (tmp_path / "artifacts" / "EXP-009" / "summary.md").write_text("0.7", encoding="utf-8")
+    assert check_docs.check_summary("artifacts/EXP-009/summary.md") == []
+
+
+def test_table_values_reads_numbers_in_column_labels(tmp_path):
+    (tmp_path / "tables").mkdir()
+    (tmp_path / "tables" / "a.csv").write_text("newbie,recency=9\n0,0.1\n", encoding="utf-8")
+    assert sorted(check_docs.table_values(tmp_path)) == [0.0, 0.1, 9.0]

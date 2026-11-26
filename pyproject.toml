@@ -53,3 +53,4 @@ venv = ".venv"
 
 [tool.marimo.runtime]
 default_sql_output = "pandas"
+auto_reload = "lazy"

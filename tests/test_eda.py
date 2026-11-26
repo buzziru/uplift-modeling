@@ -148,6 +148,7 @@ def test_incremental_composition_shares_sum_to_one(trial):
     assert set(out["comparison"]) == {"Mens - None", "Womens - None"}
     for name in ["Mens - None", "Womens - None"]:
         assert out.loc[out["comparison"] == name, "share"].sum() == pytest.approx(1.0)
+        assert out.loc[out["comparison"] == name, "n_share"].sum() == pytest.approx(1.0)
 
 
 def test_funnel_ratio_ci_point_is_ratio_of_effects(trial):
@@ -196,6 +197,8 @@ def test_profile_above_floor_uses_level_minimum():
     out = profile_above_floor(df, "p", "both").set_index("p")
     assert out.loc["one", "n"] == 2
     assert out.loc["one", "history_floor"] == 200.0
+    assert out.loc["one", "level_median_ratio"] == pytest.approx(300.0 / 375.0)
+    assert out.loc["both", "level_median_ratio"] == 1.0
 
 
 def test_stacked_by_segment_labels_rows(trial):

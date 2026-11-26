@@ -1,3 +1,4 @@
+import csv
 import json
 import re
 import subprocess
@@ -24,7 +25,11 @@ CANON = [
     "scripts/*",
     "analyses/*",
 ]
-INCLUDE = [".claude/skills/run-evaluation/*", ".claude/skills/kaggle-remote-runner/*"]
+INCLUDE = [
+    ".claude/skills/run-evaluation/*",
+    ".claude/skills/kaggle-remote-runner/*",
+    ".claude/skills/run-analysis/*",
+]
 SIMILAR = 0.7
 MIN_LEN = 25
 RECORDS = (
@@ -59,6 +64,13 @@ CITE_INLINE = re.compile(
     r"([A-Za-zÀ-ž][\w'-]+)(?: et al\.| & [A-Za-zÀ-ž][\w'-]+)? \((\d{4})(?![\d가-힣])"
 )
 REFERENCE = re.compile(r"^- ([^\s,]+?)[,.] .*?\((\d{4})", re.MULTILINE)
+TABLE_REF = re.compile(r"tables/([\w.-]+\.(?:csv|json))")
+SUMMARY = re.compile(r"artifacts/[^/]+/summary\.md")
+NOT_VALUE = re.compile(
+    r"`[^`\n]*`|\(https?://[^)]*\)|\d{4}-\d{2}-\d{2}|\b[A-Z]+-?\d+\b"
+    r"|95% (?:신뢰)?구간|검정력 \d+%|[<>≤≥] ?-?[\d.]+|기준 -?[\d.]+|(?<![\d.,])1(?=회|명당)"
+)
+NUMBER = re.compile(r"(?<![\w.])-?\d{1,3}(?:,\d{3})+(?:\.\d+)?%?|(?<![\w.])-?\d+(?:\.\d+)?%?")
 
 
 def excluded(path: str) -> bool:
@@ -253,6 +265,67 @@ def check_file(path: str) -> tuple[list[str], list[str]]:
     return errors, check_blank_runs(text, path)
 
 
+def table_values(folder: Path, name: str = "*") -> list[float]:
+    values = []
+    for f in sorted((folder / "tables").glob(name)):
+        if f.suffix == ".csv":
+            with f.open(encoding="utf-8", newline="") as fh:
+                cells = [c for row in csv.reader(fh) for c in row]
+        elif f.suffix == ".json":
+            cells = json_leaves(json.loads(f.read_text(encoding="utf-8")))
+        else:
+            continue
+        for c in cells:
+            try:
+                values.append(abs(float(str(c).rpartition("=")[2])))
+            except (TypeError, ValueError):
+                pass
+    return values
+
+
+def json_leaves(data: object) -> list[object]:
+    if isinstance(data, dict):
+        return [x for v in data.values() for x in json_leaves(v)]
+    if isinstance(data, list):
+        return [x for v in data for x in json_leaves(v)]
+    return [data]
+
+
+def unmatched_numbers(text: str, values: list[float]) -> list[str]:
+    missing = []
+    for token in NUMBER.findall(NOT_VALUE.sub(" ", text)):
+        digits = token.rstrip("%").replace(",", "")
+        x = abs(float(digits))
+        tol = 0.5 * 10 ** -len(digits.partition(".")[2]) + 1e-9
+        scales = (1, 100) if token.endswith("%") else (1,)
+        if not any(abs(v * s - x) <= tol for v in values for s in scales):
+            missing.append(token)
+    return missing
+
+
+def check_summary(path: str) -> list[str]:
+    folder = (ROOT / path).parent
+    if not (folder / "tables").is_dir():
+        return []
+    every = table_values(folder)
+    missing = []
+    for block in re.split(r"\n\s*\n|\n(?=- )", (ROOT / path).read_text(encoding="utf-8")):
+        cited = sorted(set(TABLE_REF.findall(block)))
+        values = [v for name in cited for v in table_values(folder, name)] if cited else every
+        missing += unmatched_numbers(block, values)
+    if not missing:
+        return []
+    return [f"tables/에 없는 수치 {len(missing)}건: {path} ({', '.join(missing)})"]
+
+
+def summaries() -> int:
+    paths = [a for a in sys.argv[2:]] or tracked("artifacts/*/summary.md")
+    for p in paths:
+        for w in check_summary(Path(p).as_posix()):
+            print(f"알림: {w}")
+    return 0
+
+
 def hook() -> None:
     data = json.load(sys.stdin)
     tool_input = data.get("tool_input", {})
@@ -274,6 +347,8 @@ def hook() -> None:
             errors += check_refs(new)
     if file_path in record_files():
         warnings += check_history()
+    if SUMMARY.fullmatch(path):
+        warnings += check_summary(path)
     lines = [f"오류: {e}" for e in errors] + [f"알림: {w}" for w in warnings]
     if not lines:
         return
@@ -340,6 +415,10 @@ def branch() -> int:
             )
             errors += [f"{m.group(1)}: {e}" for e in check_refs(added)]
     warnings += check_history()
+    for p in git_text(
+        "diff", "--name-only", "--diff-filter=d", "origin/main...HEAD", "--", "artifacts/*/summary.md"
+    ).split():
+        warnings += check_summary(p)
     if "+++ b/SPEC.md" in diff:
         warnings.append("SPEC.md는 시작 명세로 고정한 문서다. 바꾼 이유를 보고에 적는다")
     warnings += [f"반영 대기: {item}" for item in pending_items()]
@@ -386,5 +465,7 @@ if __name__ == "__main__":
         hook()
     elif "--pending" in sys.argv:
         sys.exit(pending())
+    elif "--summary" in sys.argv:
+        sys.exit(summaries())
     else:
         sys.exit(branch())

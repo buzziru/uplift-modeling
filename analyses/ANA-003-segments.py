@@ -98,7 +98,7 @@ def _(df, ecdf_by_group, mo, out, segment_profile):
             mo.ui.table(profile.round(3)),
             history_fig,
             mo.md(f"""
-    - 데이터가 보여 주는 것: 둘 다 산 고객의 `history` 중앙값은 {p.loc["both", "history_median"]:.0f}로, 남성 상품만({p.loc["mens_only", "history_median"]:.0f}), 여성 상품만({p.loc["womens_only", "history_median"]:.0f})의 세 배가 넘는다. 신규 고객 비율({p.loc["both", "newbie_share"]:.0%})과 Multichannel 비율({p.loc["both", "multichannel_share"]:.0%})도 높다.
+    - 데이터가 보여 주는 것: 둘 다 산 고객의 `history` 중앙값은 {p.loc["both", "history_median"]:.0f}로, 남성 상품만({p.loc["mens_only", "history_median"]:.0f}), 여성 상품만({p.loc["womens_only", "history_median"]:.0f})보다 크다. 신규 고객 비율({p.loc["both", "newbie_share"]:.0%})과 Multichannel 비율({p.loc["both", "multichannel_share"]:.0%})도 높다.
     - 주의할 점: 둘 다 산 고객의 `history` 최솟값은 {p.loc["both", "history_min"]:.2f}이고, 그 아래인 고객이 한 명도 없다. 두 종류를 사려면 적어도 두 개를 사야 하므로 구매액이 큰 것의 일부는 정의에서 나온다. 다만 하한이 29.99의 약 일곱 배라, 원본을 만들 때 둘 다 산 고객에게 따로 정한 경계로 보인다(Multichannel의 200 하한과 같은 꼴). 한 종류만 산 고객 중 이 하한 이상인 고객만 비교해도 차이가 남는지는 아래 표로 본다.
     - 남성 상품만 산 고객과 여성 상품만 산 고객은 `history` 분포가 거의 겹친다. 두 세그먼트의 다른 특성도 거의 같다.
     - 답할 수 없는 것: 가족을 위한 구매인지, 한 사람이 두 종류를 산 것인지는 데이터로 가를 수 없다. 구매 횟수, 받는 사람, 배송지가 없다.
@@ -119,7 +119,7 @@ def _(df, mo, out, profile_above_floor):
             mo.md(f"### history {both_min:.0f} 이상인 고객만 비교"),
             mo.ui.table(above_floor.round(3)),
             mo.md(f"""
-    - 하한을 맞추면 중앙값이 둘 다 산 고객 {q.loc["both", "history_median"]:.0f}, 남성 상품만 {q.loc["mens_only", "history_median"]:.0f}, 여성 상품만 {q.loc["womens_only", "history_median"]:.0f}로, 세 배가 넘던 차이가 {q.loc["both", "history_median"] / q.loc["mens_only", "history_median"]:.1f}배로 줄어든다. 차이의 대부분은 하한에서 나왔다.
+    - 하한을 맞추면 중앙값이 둘 다 산 고객 {q.loc["both", "history_median"]:.0f}, 남성 상품만 {q.loc["mens_only", "history_median"]:.0f}, 여성 상품만 {q.loc["womens_only", "history_median"]:.0f}로, 세 배가 넘던 차이가 {q.loc["mens_only", "level_median_ratio"]:.1f}배로 줄어든다. 차이의 대부분은 하한에서 나왔다.
     - Multichannel 비율도 {q.loc["both", "multichannel_share"]:.0%} 대 {q.loc["mens_only", "multichannel_share"]:.0%}로 비슷해진다. A3에서 보는 Multichannel과 둘 다 산 고객의 관계도 두 세그먼트가 같은 200 하한을 가진 데서 나온 것일 수 있다.
     - 그래서 "둘 다 사는 고객은 가족을 위해 사서 더 많이 산다"는 가설은 이 데이터로 뒷받침되지 않는다. 남는 차이는 작고, 가족 구매와 한 사람의 잦은 구매를 가를 변수도 없다.
     - 시사점: 구매 상품 세그먼트를 모델 입력이나 세그먼트 규칙에 쓸 때, `both`의 효과에는 200 하한이 섞인다. 규칙이 `both`를 고르면 `history`를 맞춘 비교로 다시 확인한다.
@@ -159,7 +159,7 @@ def _(df, mo, out, share_heatmap, share_table):
     """),
             channel_fig,
             mo.md(f"""
-    - Multichannel 고객은 둘 다 산 비율이 {by_channel.loc["Multichannel", "product=both"]:.1%}로, Phone({by_channel.loc["Phone", "product=both"]:.1%})과 Web({by_channel.loc["Web", "product=both"]:.1%})의 세 배다. 여러 채널로 사는 고객이 여러 종류를 산다.
+    - Multichannel 고객은 둘 다 산 비율이 {by_channel.loc["Multichannel", "product=both"]:.1%}로, Phone({by_channel.loc["Phone", "product=both"]:.1%})과 Web({by_channel.loc["Web", "product=both"]:.1%})보다 높다. 여러 채널로 사는 고객이 여러 종류를 산다.
     - 주의할 점: Multichannel 고객은 `history`가 모두 200 이상이라(`artifacts/ANA-002/tables/segment_by_channel.csv`), 이 차이에는 구매액 차이가 섞여 있다.
 
     ## A4. 지역마다 이용 채널이 다른가
@@ -224,7 +224,7 @@ def _(df, interval_plot, mo, out, segments, stacked_by_segment):
 
     - 기존 고객의 방문율({bv["newbie: 0"]:.3f})이 신규 고객({bv["newbie: 1"]:.3f})보다 높다.
     - 구매액이 클수록 방문율이 높아지다가({bv["history_segment: 1) $0 - $100"]:.3f}에서 {bv["history_segment: 4) $350 - $500"]:.3f}), 500\\~750 구간에서 {bv["history_segment: 5) $500 - $750"]:.3f}로 떨어졌다가 그 위 구간에서 다시 높다. 500달러 이상 구간은 모두 신규 고객이라(ANA-002), 구매액 효과와 신규 고객 효과가 겹친다.
-    - 둘 다 산 고객의 방문율({bv["product: both"]:.3f})이 한 종류만 산 고객(약 {bv["product: mens_only"]:.2f})의 두 배에 가깝다.
+    - 둘 다 산 고객의 방문율({bv["product: both"]:.3f})이 한 종류만 산 고객(약 {bv["product: mens_only"]:.2f})보다 높다.
     - 고객 1명당 `spend`는 대부분의 세그먼트 사이에 구간이 겹치지만, 기존 고객({bs["newbie: 0"]:.2f})과 신규 고객({bs["newbie: 1"]:.2f})은 겹치지 않는다. 기존 고객은 메일 없이도 더 많이 산다.
     """),
             spend_base_fig,
@@ -303,6 +303,7 @@ def _(df, funnel_ratio_ci, incremental_composition, mo, out, pd, segment_effects
     funnel = pd.concat([funnel_ratio_ci(df, "product", t) for t in (1, 2)], ignore_index=True)
     funnel.to_csv(out / "tables" / "funnel_by_product.csv", index=False)
     cv = composition.set_index(["outcome", "comparison", "product"])["share"]
+    nv = composition.set_index(["outcome", "comparison", "product"])["n_share"]
     fv = funnel.set_index(["treatment", "product"])
     mo.vstack(
         [
@@ -314,7 +315,7 @@ def _(df, funnel_ratio_ci, incremental_composition, mo, out, pd, segment_effects
             mo.ui.table(composition.round(3)),
             mo.md(f"""
     - 여성용 메일로 늘어난 방문의 {cv[("visit", "Womens - None", "womens_only")]:.0%}가 여성 상품만 산 고객에게서 나왔다. 남성용 메일로 늘어난 방문은 남성 상품만({cv[("visit", "Mens - None", "mens_only")]:.0%}), 여성 상품만({cv[("visit", "Mens - None", "womens_only")]:.0%}), 둘 다({cv[("visit", "Mens - None", "both")]:.0%})로 고르게 나뉜다.
-    - 둘 다 산 고객은 전체의 10%인데, 남성용 메일로 늘어난 매출의 {cv[("spend", "Mens - None", "both")]:.0%}를 차지한다. `spend` 효과의 구간이 넓어 이 몫도 흔들린다.
+    - 둘 다 산 고객은 전체의 {nv[("spend", "Mens - None", "both")]:.0%}인데, 남성용 메일로 늘어난 매출의 {cv[("spend", "Mens - None", "both")]:.0%}를 차지한다. `spend` 효과의 구간이 넓어 이 몫도 흔들린다.
 
     ### C3. 늘어난 방문 1회당 구매는 고객마다 같은가
 
@@ -355,7 +356,7 @@ def _(buyer_sample_size, df, mo, out, threshold_effects):
             mo.ui.table(thresholds.round(4)),
             mo.md(f"""
     - 남성용 메일은 200달러 넘게 사는 고객의 비율을 {th.loc[(200.0, 1), "mean_control"]:.4f}에서 {th.loc[(200.0, 1), "mean_treated"]:.4f}로 높였다(구간 {th.loc[(200.0, 1), "ci_low"]:.4f}\\~{th.loc[(200.0, 1), "ci_high"]:.4f}). 여성용은 {th.loc[(200.0, 2), "mean_treated"]:.4f}이고 구간이 0에 닿는다.
-    - 100달러 문턱에서는 두 메일 모두 비율을 대조군의 약 두 배로 높였다.
+    - 100달러 문턱에서는 대조군 {th.loc[(100.0, 1), "mean_control"]:.4f}에 비해 남성용 {th.loc[(100.0, 1), "mean_treated"]:.4f}, 여성용 {th.loc[(100.0, 2), "mean_treated"]:.4f}이다.
     - 시사점: 메일은 소액 구매만 늘린 것이 아니다. 고액 구매자 수는 여전히 적어(학습 세트 전체에서 수십 명) 세그먼트별로 나누어 보기는 어렵다.
 
     ### D3. 지금 데이터로 답할 수 없는 질문
@@ -367,7 +368,7 @@ def _(buyer_sample_size, df, mo, out, threshold_effects):
     | 둘 다 사는 고객은 가족을 위해 사나 | 구매 횟수, 받는 사람, 배송지 |
     | 구매 고객 1명당 금액이 메일마다 다른가 | 구매 고객 수. 아래 표본 크기 |
 
-    - 구매 고객 1명당 금액의 차이 10달러를 검정력 80%로 가르려면 군마다 구매 고객 {s["buyers_per_arm"]:,.0f}명이 필요하다(구매 고객 `spend`의 표준편차 {s["buyer_spend_sd"]:.0f}로 계산). 메일 받은 고객의 구매율 {s["mailed_conversion"]:.2%}로 나누면 군마다 고객 약 {s["customers_per_arm"]:,.0f}명이다. 지금 학습 세트는 군마다 약 15,000명이다.
+    - 구매 고객 1명당 금액의 차이 10달러를 검정력 80%로 가르려면 군마다 구매 고객 {s["buyers_per_arm"]:,.0f}명이 필요하다(구매 고객 `spend`의 표준편차 {s["buyer_spend_sd"]:.0f}로 계산). 메일 받은 고객의 구매율 {s["mailed_conversion"]:.2%}로 나누면 군마다 고객 약 {s["customers_per_arm"]:,.0f}명이다. 지금 학습 세트는 군마다 {s["current_customers_per_arm_min"]:,}\\~{s["current_customers_per_arm_max"]:,}명이다.
     - 후속 실험 제안: 메일 내용(상품 구성, 가격대)을 바꾼 처치를 둔 실험을 이 크기로 설계하거나, 구매 금액 대신 장바구니 크기처럼 구매 고객이 아니어도 관측되는 지표를 함께 기록한다.
     """),
         ]
