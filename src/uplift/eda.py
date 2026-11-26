@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 import numpy as np
 import pandas as pd
 
@@ -257,20 +259,27 @@ def profile_above_floor(df: pd.DataFrame, by: str, level: str) -> pd.DataFrame:
     return out.assign(level_median_ratio=level_median / out["history_median"])
 
 
-def stacked_by_segment(
-    df: pd.DataFrame, segments: list[str], outcomes: list[str], kind: str
-) -> pd.DataFrame:
-    frames = []
-    for by in segments:
-        if kind == "means":
-            parts = [group_means(df, by, outcomes)]
-        else:
-            parts = [segment_effects(df, by, y).assign(outcome=y) for y in outcomes]
-        for part in parts:
-            frames.append(part.rename(columns={by: "level"}).assign(segment=by))
-    out = pd.concat(frames, ignore_index=True)
+def _stack(segments: list[str], frames: Callable[[str], list[pd.DataFrame]]) -> pd.DataFrame:
+    out = pd.concat(
+        [
+            part.rename(columns={by: "level"}).assign(segment=by)
+            for by in segments
+            for part in frames(by)
+        ],
+        ignore_index=True,
+    )
     out["label"] = out["segment"] + ": " + out["level"].astype(str)
     return out
+
+
+def stacked_means(df: pd.DataFrame, segments: list[str], outcomes: list[str]) -> pd.DataFrame:
+    return _stack(segments, lambda by: [group_means(df, by, outcomes)])
+
+
+def stacked_effects(df: pd.DataFrame, segments: list[str], outcomes: list[str]) -> pd.DataFrame:
+    return _stack(
+        segments, lambda by: [segment_effects(df, by, y).assign(outcome=y) for y in outcomes]
+    )
 
 
 def buyer_sample_size(df: pd.DataFrame, mde: float) -> pd.DataFrame:

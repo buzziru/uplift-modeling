@@ -21,7 +21,8 @@ from uplift.eda import (
     segment_profile,
     share_table,
     spearman_matrix,
-    stacked_by_segment,
+    stacked_effects,
+    stacked_means,
     threshold_effects,
 )
 
@@ -219,11 +220,12 @@ def test_profile_above_floor_uses_level_minimum():
     assert out.loc["both", "level_median_ratio"] == 1.0
 
 
-def test_stacked_by_segment_labels_rows(trial):
-    means = stacked_by_segment(trial, ["seg"], ["visit"], "means")
-    effects = stacked_by_segment(trial, ["seg"], ["visit", "spend"], "effects")
-    assert set(means["label"]) == {"seg: a", "seg: b"}
-    assert len(effects) == 12
+def test_stacked_means_labels_rows(trial):
+    assert set(stacked_means(trial, ["seg"], ["visit"])["label"]) == {"seg: a", "seg: b"}
+
+
+def test_stacked_effects_row_per_outcome(trial):
+    assert len(stacked_effects(trial, ["seg"], ["visit", "spend"])) == 12
 
 
 def test_buyer_sample_size_scales_by_conversion(trial):

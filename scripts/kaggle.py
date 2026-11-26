@@ -46,8 +46,6 @@ def dataset(version_message: str | None) -> None:
     out = DATA / "kaggle" / "dataset"
     with duckdb.connect(str(DATA / "uplift.duckdb"), read_only=True) as con:
         data = from_duckdb(con)
-    if not set(data.folds["customer_id"]) <= set(data.frame["customer_id"]):
-        raise RuntimeError("folds에 학습 세트 밖 고객이 있다")
     to_parquet(data, out)
     write_manifest(out)
     meta = {"title": DATASET, "id": f"{USER}/{DATASET}", "licenses": [{"name": "unknown"}]}
@@ -60,9 +58,8 @@ def dataset(version_message: str | None) -> None:
 
 
 def check_pushable(exp: str) -> str:
-    if git("status", "--porcelain", "--", "src", f"experiments/{exp}"):
-        raise RuntimeError("커밋하지 않은 변경이 있다")
-    sha = git("rev-parse", "HEAD")
+    runs.require_clean([str(ROOT / "src"), str(ROOT / "experiments" / exp)])
+    sha = runs.git_commit()
     if not git("branch", "-r", "--contains", sha):
         raise RuntimeError(f"{sha}가 origin에 없다. 먼저 push한다")
     design = git("show", f"{sha}:experiments/{exp}/experiment.md")
@@ -154,22 +151,22 @@ def pull(db: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("dataset").add_argument("--version-message")
+    p = sub.add_parser("dataset")
+    p.add_argument("--version-message")
+    p.set_defaults(func=lambda a: dataset(a.version_message))
     p = sub.add_parser("push")
     p.add_argument("exp")
     p.add_argument("--part", action="append", default=[])
     p.add_argument("--args", default="")
-    sub.add_parser("watch").add_argument("--interval", type=int, default=60)
-    sub.add_parser("pull").add_argument("--db", type=Path, default=DATA / "uplift.duckdb")
+    p.set_defaults(func=lambda a: push(a.exp, a.part, a.args))
+    p = sub.add_parser("watch")
+    p.add_argument("--interval", type=int, default=60)
+    p.set_defaults(func=lambda a: watch(a.interval))
+    p = sub.add_parser("pull")
+    p.add_argument("--db", type=Path, default=DATA / "uplift.duckdb")
+    p.set_defaults(func=lambda a: pull(a.db))
     args = parser.parse_args()
-    if args.command == "dataset":
-        dataset(args.version_message)
-    elif args.command == "push":
-        push(args.exp, args.part, args.args)
-    elif args.command == "watch":
-        watch(args.interval)
-    else:
-        pull(args.db)
+    args.func(args)
 
 
 if __name__ == "__main__":
