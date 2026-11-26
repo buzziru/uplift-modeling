@@ -28,7 +28,7 @@ def arm_models_oof(
             rows = train & (treatment == arm)
             model = lgb.LGBMClassifier(**params, random_state=seed, verbose=-1)
             model.fit(x[rows], outcome[rows])
-            pred[:, j] = model.predict_proba(x[test])[:, 1]
+            pred[:, j] = np.asarray(model.predict_proba(x[test]))[:, 1]
         return pred
 
     return oof_predict(fit_predict, folds)

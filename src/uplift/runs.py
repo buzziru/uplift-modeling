@@ -78,7 +78,9 @@ def _insert(con: duckdb.DuckDBPyConnection, table: str, ddl: str, rows: pd.DataF
 
 
 def record_metrics(con: duckdb.DuckDBPyConnection, run_id: str, metrics: pd.DataFrame) -> None:
-    rows = metrics.assign(run_id=run_id)[["run_id", "model_id", "metric", "fold", "value"]]
+    rows = metrics.assign(run_id=run_id).reindex(
+        columns=["run_id", "model_id", "metric", "fold", "value"]
+    )
     _insert(con, "metrics", METRICS_DDL, rows)
 
 
@@ -86,7 +88,12 @@ def record_predictions(
     con: duckdb.DuckDBPyConnection, run_id: str, predictions: pd.DataFrame
 ) -> None:
     columns = ["run_id", "model_id", "customer_id", "treatment_id", "fold", "score"]
-    _insert(con, "predictions", PREDICTIONS_DDL, predictions.assign(run_id=run_id)[columns])
+    _insert(
+        con,
+        "predictions",
+        PREDICTIONS_DDL,
+        predictions.assign(run_id=run_id).reindex(columns=columns),
+    )
 
 
 def record_table(
@@ -107,6 +114,7 @@ def load_table(con: duckdb.DuckDBPyConnection, run_id: str, name: str) -> pd.Dat
 
 
 def load_run_config(con: duckdb.DuckDBPyConnection, run_id: str) -> dict:
-    return json.loads(
-        con.execute("SELECT config FROM runs WHERE run_id = ?", [run_id]).fetchone()[0]
-    )
+    row = con.execute("SELECT config FROM runs WHERE run_id = ?", [run_id]).fetchone()
+    if row is None:
+        raise KeyError(f"{run_id} 실행이 없다")
+    return json.loads(row[0])
