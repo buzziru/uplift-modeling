@@ -4,6 +4,7 @@ import re
 import subprocess
 import sys
 from fnmatch import fnmatch
+from functools import cache
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -197,9 +198,25 @@ def check_copies(new_text: str, path: str) -> tuple[list[str], list[str]]:
     return errors, warnings
 
 
+@cache
+def all_files() -> tuple[str, ...]:
+    return tuple(tracked())
+
+
+def existing_path(phrase: str) -> bool:
+    if re.search(r"\s", phrase) or not re.search(r"/|\.\w+$", phrase):
+        return False
+    pattern = re.sub(r"<[^>]+>", "*", phrase.rstrip("/"))
+    return any(
+        fnmatch(f, p) for f in all_files() for p in (pattern, pattern + "/*", "*/" + pattern)
+    )
+
+
 def check_removed(old_text: str, new_text: str) -> list[str]:
     phrases = set(re.findall(r"`([^`\n]{10,})`|\"([^\"\n]{10,})\"", old_text))
-    removed = {p for pair in phrases for p in pair if p and p not in new_text}
+    removed = {
+        p for pair in phrases for p in pair if p and p not in new_text and not existing_path(p)
+    }
     warnings = []
     for f in scope_files():
         body = f.read_text(encoding="utf-8")
@@ -306,8 +323,10 @@ def check_summary(path: str) -> list[str]:
     if not (folder / "tables").is_dir():
         return []
     every = table_values(folder)
+    text = (ROOT / path).read_text(encoding="utf-8")
+    first = re.search(r"^## ", text, re.MULTILINE)
     missing = []
-    for block in re.split(r"\n\s*\n|\n(?=- )", (ROOT / path).read_text(encoding="utf-8")):
+    for block in re.split(r"\n\s*\n|\n(?=- )", text[first.start() :] if first else text):
         cited = sorted(set(TABLE_REF.findall(block)))
         values = [v for name in cited for v in table_values(folder, name)] if cited else every
         missing += unmatched_numbers(block, values)

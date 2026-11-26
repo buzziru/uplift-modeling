@@ -304,8 +304,32 @@ def test_check_removed_ignores_phrases_under_ten_characters(tmp_path, monkeypatc
     monkeypatch.setattr(check_docs, "ROOT", tmp_path)
     (tmp_path / "a.md").write_text("`docs/a.md`와 `docs/abcde.md`가 남았다.\n", encoding="utf-8")
     monkeypatch.setattr(check_docs, "scope_files", lambda: [tmp_path / "a.md"])
+    monkeypatch.setattr(check_docs, "all_files", lambda: ())
     old = "`docs/a.md`와 `docs/abcde.md`"
     assert check_docs.check_removed(old, "") == ['지운 표현이 남음: "docs/abcde.md" in a.md']
+
+
+def test_check_removed_skips_paths_that_still_exist(tmp_path, monkeypatch):
+    monkeypatch.setattr(check_docs, "ROOT", tmp_path)
+    (tmp_path / "a.md").write_text(
+        "`docs/THEORY.md`, `artifacts/<ID>/summary.md`, `docs/plans/`, `summary.md`, "
+        '`docs/gone-file.md`, "지운 문장이 여기 남았다"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(check_docs, "scope_files", lambda: [tmp_path / "a.md"])
+    monkeypatch.setattr(
+        check_docs,
+        "all_files",
+        lambda: ("docs/THEORY.md", "artifacts/ANA-001/summary.md", "docs/plans/ROADMAP.md"),
+    )
+    old = (
+        "`docs/THEORY.md` `artifacts/<ID>/summary.md` `docs/plans/` `summary.md` "
+        '`docs/gone-file.md` "지운 문장이 여기 남았다"'
+    )
+    assert sorted(check_docs.check_removed(old, "")) == [
+        '지운 표현이 남음: "docs/gone-file.md" in a.md',
+        '지운 표현이 남음: "지운 문장이 여기 남았다" in a.md',
+    ]
 
 
 def test_unmatched_numbers_rounds_scales_percent_and_skips_non_values():
@@ -333,6 +357,28 @@ def test_check_summary_matches_numbers_against_cited_tables_only(tmp_path, monke
     (tmp_path / "artifacts" / "EXP-009").mkdir()
     (tmp_path / "artifacts" / "EXP-009" / "summary.md").write_text("0.7", encoding="utf-8")
     assert check_docs.check_summary("artifacts/EXP-009/summary.md") == []
+
+
+def test_check_summary_skips_header_before_first_section(tmp_path, monkeypatch):
+    monkeypatch.setattr(check_docs, "ROOT", tmp_path)
+    folder = tmp_path / "artifacts" / "EXP-009"
+    (folder / "tables").mkdir(parents=True)
+    (folder / "tables" / "a.csv").write_text("x\n0.5\n", encoding="utf-8")
+    (folder / "summary.md").write_text(
+        "# 요약\n\n학습 세트 44,800명, 부트스트랩 1,000회.\n\n## 결론 0.5\n\n값 0.5와 0.7.\n",
+        encoding="utf-8",
+    )
+    assert check_docs.check_summary("artifacts/EXP-009/summary.md") == [
+        "tables/에 없는 수치 1건: artifacts/EXP-009/summary.md (0.7)"
+    ]
+    (folder / "summary.md").write_text("## 결론 0.7\n\n값 0.5.\n", encoding="utf-8")
+    assert check_docs.check_summary("artifacts/EXP-009/summary.md") == [
+        "tables/에 없는 수치 1건: artifacts/EXP-009/summary.md (0.7)"
+    ]
+    (folder / "summary.md").write_text("값 0.5와 0.7.\n", encoding="utf-8")
+    assert check_docs.check_summary("artifacts/EXP-009/summary.md") == [
+        "tables/에 없는 수치 1건: artifacts/EXP-009/summary.md (0.7)"
+    ]
 
 
 def test_table_values_reads_numbers_in_column_labels(tmp_path):
