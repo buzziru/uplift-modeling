@@ -3,6 +3,7 @@ import sys
 
 CHECK = """
 import matplotlib as mpl
+mpl.rcParams["lines.linewidth"] = 3.3
 before = dict(mpl.rcParams)
 import uplift.budget, uplift.learners, uplift.plots, uplift.selection
 changed = sorted(k for k, v in mpl.rcParams.items() if before[k] != v)

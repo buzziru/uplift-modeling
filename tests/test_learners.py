@@ -5,8 +5,8 @@ import numpy as np
 import optuna
 import pytest
 
-from uplift.learners import METHODS, Method, tune, uplift_oof
-from uplift.methods import LgbmParams, UrfParams
+from uplift.learners import METHODS, tune, uplift_oof
+from uplift.methods import LgbmParams, Method, UrfParams
 
 SMALL: LgbmParams = {
     "n_estimators": 60,
