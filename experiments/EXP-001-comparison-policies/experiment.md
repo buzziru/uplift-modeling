@@ -23,7 +23,7 @@
   - 반응 모델: 남성용 군, 여성용 군마다 LightGBM 분류기를 따로 학습해 메일별 방문 확률을 5-fold OOF로 예측한다. 특성은 `features.feature_matrix`.
   - 반응 모델 HPO: U5 1단계와 같은 예산이다. optuna TPE sampler(sampler seed 42)로 trial 50회를 돈다. trial 점수는 seed 42 fold로 만든 두 메일 군 모델의 OOF log loss 합이다(각 모델은 자기 군 고객에서 잰다). 탐색 범위는 `num_leaves` 7\~63(로그), `learning_rate` 0.01\~0.1(로그), `n_estimators` 100\~1,000, `min_child_samples` 20\~500(로그), `subsample` 0.5\~1(`subsample_freq` 1), `colsample_bytree` 0.5\~1이다. 고른 설정을 세 seed에 그대로 쓰고 `random_state`만 seed로 바꾼다.
   - 발송 수: 반응 모델 정책은 발송 비율 10%, 20%, ..., 100%에서 잰다. U3에는 같은 발송 수로 맞출 uplift 정책이 아직 없어, 같은 발송 수 비교는 U5에서 한다.
-  - 추정량: `value.compare_methods`. AIPW의 μ̂는 처치군별 logistic regression의 OOF 예측(`oof.outcome_model_oof`)이고 같은 seed의 fold를 쓴다.
+  - 추정량: `value.compare_estimators`. AIPW의 μ̂는 처치군별 logistic regression의 OOF 예측(`oof.outcome_model_oof`)이고 같은 seed의 fold를 쓴다.
   - 구간: 고객 복원 추출 부트스트랩 1,000회, μ̂ 고정, 부트스트랩 seed는 실행 seed.
   - outcome model 설명력: 처치군마다 R² = 1 − (μ̂의 제곱오차) / (처치군 평균 OOF 예측의 제곱오차)를 logistic regression과 반응 모델 HPO 설정의 LightGBM으로 잰다. AIPW 폭 / Hájek 폭은 근사적으로 √(1 − R²)이므로, AIPW가 10% 좁아지려면 R²가 약 0.19여야 한다. 판정에는 쓰지 않고 판정 결과의 해석에 쓴다.
 - 판정 규칙:

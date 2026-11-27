@@ -66,13 +66,13 @@ def compute(cfg: Config, data: TrainData) -> Computed:
             policies[f"response_{round(r * 100)}"] = policy.top_k(scores, round(r * n))
         for name, pol in policies.items():
             values.append(
-                value.compare_methods(pol, t, y, mu, n_boot=cfg.n_boot, seed=s).assign(
+                value.compare_estimators(pol, t, y, mu, n_boot=cfg.n_boot, seed=s).assign(
                     seed=s, policy=name
                 )
             )
         for a, b in cfg.differences:
             diffs.append(
-                value.compare_methods(
+                value.compare_estimators(
                     policies[a], t, y, mu, baseline=policies[b], n_boot=cfg.n_boot, seed=s
                 ).assign(seed=s, comparison=f"{a} - {b}")
             )

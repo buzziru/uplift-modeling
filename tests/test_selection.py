@@ -1,8 +1,11 @@
+import numpy as np
 import pandas as pd
+import pytest
 
-from uplift.selection import choose_method
+from uplift.learners import Method
+from uplift.selection import choose_method, seed_gap
 
-ORDER = ["s", "t", "x"]
+ORDER: list[Method] = ["s_learner", "t_learner", "x_learner"]
 
 
 def _scores(values):
@@ -15,27 +18,61 @@ def _scores(values):
     )
 
 
+@pytest.mark.parametrize(
+    ("diff", "expected"),
+    [
+        ([0.010, 0.011, 0.012], {"mean_diff": 0.011, "seed_range": 0.002, "threshold": 0.0038}),
+        ([0.010, -0.010, 0.012], {"mean_diff": 0.004, "seed_range": 0.022, "threshold": 0.022}),
+    ],
+    ids=["floor", "seed_range"],
+)
+def test_seed_gap_takes_larger_of_range_and_floor(diff, expected):
+    assert seed_gap(np.array(diff), 0.0038) == pytest.approx(expected)
+
+
 def test_picks_simplest_method_within_threshold_of_leader():
-    table, chosen = choose_method(
-        _scores({"s": [0.180, 0.181, 0.179], "t": [0.181, 0.183, 0.182], "x": [0.15, 0.15, 0.15]}),
+    _, chosen = choose_method(
+        _scores(
+            {
+                "s_learner": [0.180, 0.181, 0.179],
+                "t_learner": [0.181, 0.183, 0.182],
+                "x_learner": [0.15, 0.15, 0.15],
+            }
+        ),
         ORDER,
         0.0038,
     )
-    assert chosen == "s"
-    assert table.loc[table["method"] == "x", "distinguishable"].item()
+    assert chosen == "s_learner"
+
+
+def test_marks_clearly_worse_method_distinguishable():
+    table, _ = choose_method(
+        _scores({"s_learner": [0.180, 0.181, 0.179], "x_learner": [0.15, 0.15, 0.15]}),
+        ORDER,
+        0.0038,
+    )
+    assert table.loc[table["method"] == "x_learner", "distinguishable"].item()
 
 
 def test_floor_applies_when_pair_range_is_small():
     table, chosen = choose_method(
-        _scores({"s": [0.170, 0.170, 0.170], "t": [0.175, 0.175, 0.175]}), ORDER, 0.0038
+        _scores({"s_learner": [0.170, 0.170, 0.170], "t_learner": [0.175, 0.175, 0.175]}),
+        ORDER,
+        0.0038,
     )
-    row = table.set_index("method").loc["s"]
-    assert (row["seed_range"], row["threshold"], chosen) == (0, 0.0038, "t")
+    row = table.set_index("method").loc["s_learner"]
+    assert (row["seed_range"], row["threshold"], chosen) == (0, 0.0038, "t_learner")
 
 
 def test_pair_range_widens_threshold_beyond_floor():
-    table, chosen = choose_method(
-        _scores({"s": [0.170, 0.180, 0.172], "t": [0.180, 0.181, 0.180]}), ORDER, 0.0038
+    _, chosen = choose_method(
+        _scores({"s_learner": [0.170, 0.180, 0.172], "t_learner": [0.180, 0.181, 0.180]}),
+        ORDER,
+        0.0038,
     )
-    assert table.set_index("method").loc["s", "threshold"] > 0.0038
-    assert chosen == "s"
+    assert chosen == "s_learner"
+
+
+def test_rejects_method_missing_from_order():
+    with pytest.raises(ValueError, match="dr_learner"):
+        choose_method(_scores({"dr_learner": [0.1, 0.1, 0.1]}), ORDER, 0.0038)

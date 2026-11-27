@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 
 from uplift import policy, value
+from uplift.selection import seed_gap
 
 RATIOS = tuple(i / 10 for i in range(1, 10))
 
@@ -38,15 +39,15 @@ def budget_differences(
 
 
 def judge_budget(differences: pd.DataFrame, floor: float) -> pd.DataFrame:
-    table = differences.groupby("send_ratio")["estimate"].agg(
-        mean_diff="mean", low="min", high="max"
+    table = pd.DataFrame(
+        [
+            {"send_ratio": ratio, **seed_gap(group.to_numpy(dtype=float), floor)}
+            for ratio, group in differences.groupby("send_ratio")["estimate"]
+        ]
     )
-    table["seed_range"] = table["high"] - table["low"]
-    table = table.drop(columns=["low", "high"])
-    table["threshold"] = np.maximum(table["seed_range"], floor)
     table["winner"] = np.select(
         [table["mean_diff"] >= table["threshold"], -table["mean_diff"] >= table["threshold"]],
         ["uplift", "response"],
         "tie",
     )
-    return table.reset_index()
+    return table
