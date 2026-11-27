@@ -2,7 +2,7 @@
 
 실행 `cfb0d1dade18`(`experiments/EXP-001-comparison-policies/run.py compute`). 데이터는 학습 세트 44,800명, 결과 변수는 `visit`, fold seed 42, 154, 1592의 5-fold OOF다. 구간은 고객 복원 추출 부트스트랩 1,000회의 95% 구간이다.
 
-## 추정량은 Hájek이다. AIPW 폭은 Hájek의 0.984배라 문턱에 닿지 않는다
+## 추정량은 Hájek이다. AIPW 폭은 Hájek의 0.984배라 판정 임계값에 닿지 않는다
 
 정책 차이 셋과 seed 셋의 아홉 구간 폭 평균은 IPW 0.0107, Hájek 0.0097, AIPW 0.0095다. Hájek은 IPW의 0.907배, AIPW는 Hájek의 0.984배다(`tables/estimator_choice.csv`). 아홉 폭 모두에서 대소가 평균과 같았다(`tables/estimator_widths.csv`).
 

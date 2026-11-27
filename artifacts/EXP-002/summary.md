@@ -4,7 +4,7 @@
 
 ## 일곱 방법 모두 1위 transformed outcome과 가를 수 없어, 판정 규칙대로 S-learner를 고른다
 
-세 seed 평균 정책 가치는 transformed outcome 0.1830이 가장 크고 T-learner 0.1809가 가장 작다(`tables/method_scores.csv`). 1위와의 평균 차이는 0.0001\~0.0022이고, 쌍마다 문턱은 0.0038\~0.0052라 모든 쌍이 문턱 아래다(`tables/pair_thresholds.csv`). 그래서 단순한 순서의 첫 방법 S-learner(0.1817)를 고른다(`tables/method_choice.csv`).
+세 seed 평균 정책 가치는 transformed outcome 0.1830이 가장 크고 T-learner 0.1809가 가장 작다(`tables/method_scores.csv`). 1위와의 평균 차이는 0.0001\~0.0022이고, 쌍마다 판정 임계값은 0.0038\~0.0052라 모든 쌍이 임계값 아래다(`tables/pair_thresholds.csv`). 그래서 단순한 순서의 첫 방법 S-learner(0.1817)를 고른다(`tables/method_choice.csv`).
 
 ## 어느 방법의 고른 정책도 전체 남성용 발송보다 낫다고 말할 수 없다
 
@@ -20,9 +20,9 @@
 
 S-learner 정책 − 같은 발송 수의 반응 모델 정책 차이는 seed마다 0.0021, −0.0010, 0.0023이고 세 구간 모두 0을 포함한다(`tables/response_same_send.csv`).
 
-## 구매 상품 세그먼트 특성은 T-learner를 세 seed 모두 높였지만 차이가 문턱보다 작다
+## 구매 상품 세그먼트 특성은 T-learner를 세 seed 모두 높였지만 차이가 판정 임계값보다 작다
 
-세그먼트 한 변수 특성 − `mens`·`womens` 특성 차이는 0.0008, 0.0007, 0.0014다(`tables/feature_compare.csv`). 방법 비교의 문턱 하한 0.0038보다 작다(`tables/pair_thresholds.csv`).
+세그먼트 한 변수 특성 − `mens`·`womens` 특성 차이는 0.0008, 0.0007, 0.0014다(`tables/feature_compare.csv`). 방법 비교의 판정 임계값 하한 0.0038보다 작다(`tables/pair_thresholds.csv`).
 
 ## 메일 대 미발송 순위는 여성용만 잡히고 남성용은 거의 잡히지 않는다
 

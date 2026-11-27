@@ -4,7 +4,7 @@
 
 ## visit에서 S-learner 정책이 반응 모델 정책을 이기는 발송 비율이 없다
 
-발송 비율 10%\~90% 아홉 개 가운데 uplift가 문턱 이상으로 이긴 비율은 없다. 반응 모델은 50%(평균 차이 −0.0042, 문턱 0.0039)와 60%(−0.0049, 문턱 0.0042)에서 이겼고, 나머지 일곱 비율은 가를 수 없다(`tables/budget_judgement.csv`, `figures/budget_differences.png`).
+발송 비율 10%\~90% 아홉 개 가운데 uplift가 판정 임계값 이상으로 이긴 비율은 없다. 반응 모델은 50%(평균 차이 −0.0042, 임계값 0.0039)와 60%(−0.0049, 임계값 0.0042)에서 이겼고, 나머지 일곱 비율은 가를 수 없다(`tables/budget_judgement.csv`, `figures/budget_differences.png`).
 
 ## visit 차이는 20%\~70%에서 세 seed 모두 음수다
 

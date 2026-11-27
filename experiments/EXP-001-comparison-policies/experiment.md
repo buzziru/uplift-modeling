@@ -39,7 +39,7 @@
   - 반응 모델을 기본값으로 두는 안. 기본값 LightGBM은 처치군 안 R²가 음수라 과적합하고, 1단계에서 HPO를 받는 uplift 방법보다 불리하다.
   - HPO trial을 OOF 정책 가치로 평가하는 안. 정책 가치의 구간 폭(약 0.012)이 trial 사이 차이보다 커서 운 좋은 trial을 고르기 쉽고, 어느 추정량으로 잴지는 이 실험이 정한다. 반응 모델은 방문 확률을 맞히는 모델이라 log loss가 그 목적이다.
   - 예산을 시간으로 맞추는 안. 빠른 방법이 trial을 더 받아 같은 예산이 되지 않는다.
-  - AIPW outcome model에 반응 모델과 같은 HPO나 특성 공학을 하는 안. outcome model이 나빠도 AIPW는 편향되지 않고 폭만 달라지는데, 위 점검의 R²(0.03 안팎)로 보면 10% 문턱에 필요한 0.19에 닿기 어렵다. 그래서 logistic regression을 유지하고 설명력을 결과로 보고한다.
+  - AIPW outcome model에 반응 모델과 같은 HPO나 특성 공학을 하는 안. outcome model이 나빠도 AIPW는 편향되지 않고 폭만 달라지는데, 위 점검의 R²(0.03 안팎)로 보면 10% 판정 임계값에 필요한 0.19에 닿기 어렵다. 그래서 logistic regression을 유지하고 설명력을 결과로 보고한다.
 
 ## 계획
 
@@ -51,8 +51,8 @@
 ## 결과 해석
 
 - 판정(실행 `cfb0d1dade18`, `artifacts/EXP-001/`):
-  - 추정량은 Hájek이다. 아홉 폭의 평균에서 Hájek이 IPW의 0.907배로 기본이 되었고, AIPW는 Hájek의 0.984배라 10% 문턱에 닿지 않았다. 아홉 폭 모두 평균과 대소가 같았다(`tables/estimator_choice.csv`, `tables/estimator_widths.csv`).
-  - 이 결과는 설계 절의 근사와 맞는다. 처치군 안 R²가 0.023\~0.029라 √(1 − R²)는 0.985\~0.988이다(`tables/outcome_r2.csv`). HPO 설정의 LightGBM은 R² 0.023\~0.025로 logistic regression과 같은 수준이다. outcome model을 바꿔도 설명력이 거의 늘지 않으므로, 자원을 더 들여도 문턱에 필요한 R² 약 0.19에는 닿기 어렵다.
+  - 추정량은 Hájek이다. 아홉 폭의 평균에서 Hájek이 IPW의 0.907배로 기본이 되었고, AIPW는 Hájek의 0.984배라 10% 판정 임계값에 닿지 않았다. 아홉 폭 모두 평균과 대소가 같았다(`tables/estimator_choice.csv`, `tables/estimator_widths.csv`).
+  - 이 결과는 설계 절의 근사와 맞는다. 처치군 안 R²가 0.023\~0.029라 √(1 − R²)는 0.985\~0.988이다(`tables/outcome_r2.csv`). HPO 설정의 LightGBM은 R² 0.023\~0.025로 logistic regression과 같은 수준이다. outcome model을 바꿔도 설명력이 거의 늘지 않으므로, 자원을 더 들여도 판정 임계값에 필요한 R² 약 0.19에는 닿기 어렵다.
   - seed 간 범위는 반응 모델 100% − 전체 발송 차이의 Hájek 점추정 범위 0.0038이다(`tables/seed_range.csv`). U5 판정 규칙에 참고값으로 넘긴다.
   - 비교 정책의 OOF 정책 가치(Hájek)는 전체 발송 0.1828, 무작위 타겟팅 0.1468, 반응 모델 100% 발송 0.1789\~0.1827이다(`tables/policy_values.csv`). 반응 모델이 메일을 고르게 해도 모두에게 남성용을 보내는 것보다 높지 않았다(차이의 구간이 세 seed 모두 0을 포함, `tables/policy_differences.csv`). ANA-003에서 남성용 메일의 `visit` 효과가 거의 모든 세그먼트에서 여성용과 같거나 컸던 것(`artifacts/ANA-003/tables/segment_effects.csv`)과 맞는다. 이 대응은 결과를 본 뒤의 해석이고, 설계 절에 미리 적은 예상은 아니다.
 - 설계와 달라진 점:

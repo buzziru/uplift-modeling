@@ -77,7 +77,7 @@
 ## 2026-11-26 1단계 방법론은 S-learner다
 
 - 결정: M2 1단계 방법론은 S-learner다.
-- 근거: EXP-002 판정 규칙(설계 절, 결과보다 먼저 커밋)을 그대로 적용했다. 일곱 방법 모두 1위 transformed outcome과의 평균 차이(0.0007\~0.0022)가 문턱(0.0038\~0.0052)보다 작아, 단순한 순서의 첫 방법을 골랐다(`artifacts/EXP-002/tables/pair_thresholds.csv`, 학습 세트 44,800명, seed 셋). 어느 방법의 고른 정책도 전체 남성용 발송(0.1828)보다 낫다고 말할 수 없다(`artifacts/EXP-002/tables/policy_values.csv`). 예산 제약에서도 S-learner 정책이 같은 발송 수의 반응 모델 정책을 `visit`에서 이기는 발송 비율이 없다(`artifacts/ANA-004/tables/budget_judgement.csv`).
+- 근거: EXP-002 판정 규칙(설계 절, 결과보다 먼저 커밋)을 그대로 적용했다. 일곱 방법 모두 1위 transformed outcome과의 평균 차이(0.0007\~0.0022)가 판정 임계값(0.0038\~0.0052)보다 작아, 단순한 순서의 첫 방법을 골랐다(`artifacts/EXP-002/tables/pair_thresholds.csv`, 학습 세트 44,800명, seed 셋). 어느 방법의 고른 정책도 전체 남성용 발송(0.1828)보다 낫다고 말할 수 없다(`artifacts/EXP-002/tables/policy_values.csv`). 예산 제약에서도 S-learner 정책이 같은 발송 수의 반응 모델 정책을 `visit`에서 이기는 발송 비율이 없다(`artifacts/ANA-004/tables/budget_judgement.csv`).
 - 기각한 대안: 1위 transformed outcome. 1위와의 차이를 학습 운과 가를 수 없다. seed를 늘려 다시 재는 안. 방법마다 Kaggle 실행이 늘고, 2단계에서 다시 넓게 탐색한다.
 - 정본: 아직 없음. 2단계 실험의 설정에 반영한다.
 - 승인: 2026-11-26
