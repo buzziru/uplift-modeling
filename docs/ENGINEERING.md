@@ -247,7 +247,15 @@
 ## 2026-11-27 pytest는 한 프로세스로 돌리고 pytest-xdist는 쓰지 않는다
 
 - 결정: pytest를 pytest-xdist로 나눠 돌리지 않는다.
-- 근거: 메인 결정(2026-11-27, 사용자 지시 "병렬 실행 검토"). 2026-11-27 이 PC(8코어)에서 이 브랜치의 커밋 `ca2125f`~`526889a` 사이 작업 트리로 잰 값이다. 직렬 `uv run pytest -q`는 41초였고, `uv run --with pytest-xdist pytest -q -n <N>`은 더 느렸다(`-n 4` 52초, `OMP_NUM_THREADS=1`로 LightGBM 스레드를 묶어도 50초, `-n auto` 156초). 그래서 스레드 경합보다 worker마다 드는 시작 비용이 원인으로 보인다. `uv run pytest --collect-only -q`의 수집에만 8초가 들고, worker마다 causalml 등을 다시 import한다. 검사 목록은 명령마다 `time`으로 잰 값(pytest 41초, `uv run pyright` 25초, `uv run marimo check analyses` 4초, check_docs 2초, ruff 1초 이하)을 더하면 약 73초였다. 셸에서 모든 명령을 백그라운드로 띄우고 `wait`까지 잰 동시 실행은 51초였다. PR 생성 검사는 solo-harness #30부터 check 명령을 돌리지 않고 `record.mjs checks`의 통과 기록만 확인하므로, 검사 목록은 PR 전에 한 번 돈다. 측정 출력은 파일로 남기지 않았다.
-- 기각한 대안: pytest-xdist. 위 측정에서 느렸다. 테스트가 늘어 직렬 pytest가 수집 비용의 몇 배가 되면 다시 잰다. 검사 목록을 동시에 돌리는 `.claude/harness/` 실행 스크립트(check에 그 명령 하나만 등록). PR마다 약 22초를 아끼지만 스크립트와 테스트를 유지해야 한다. `record.mjs checks`가 눈에 띄게 길어지면 다시 재고, 그때는 이 스크립트가 명령을 한꺼번에 띄우고 실패한 명령의 출력만 모으게 한다.
+- 근거: 메인 결정(2026-11-27, 사용자 지시 "병렬 실행 검토"). 2026-11-27 이 PC(8코어)에서 이 브랜치의 커밋 `ca2125f`\~`526889a` 사이 작업 트리로 잰 값이다. 직렬 `uv run pytest -q`는 41초였고, `uv run --with pytest-xdist pytest -q -n <N>`은 더 느렸다(`-n 4` 52초, `OMP_NUM_THREADS=1`로 LightGBM 스레드를 묶어도 50초, `-n auto` 156초). 그래서 스레드 경합보다 worker마다 드는 시작 비용이 원인으로 보인다. `uv run pytest --collect-only -q`의 수집에만 8초가 들고, worker마다 causalml 등을 다시 import한다. 측정 출력은 파일로 남기지 않았다.
+- 기각한 대안: pytest-xdist. 위 측정에서 느렸다. 테스트가 늘어 직렬 pytest가 수집 비용의 몇 배가 되면 다시 잰다.
 - 정본: `pyproject.toml`(dev 의존성에 pytest-xdist가 없음)
 - 승인: 메인 결정(라이브러리 선택)이라 승인 대상이 아니다.
+
+## 2026-11-27 검사 목록은 차례로 돌리고 동시 실행 스크립트를 두지 않는다
+
+- 결정: `.claude/harness/config.json`의 `check`에 명령을 하나씩 등록하고, `record.mjs checks`가 그 명령들을 차례로 돌리게 둔다.
+- 근거: 사용자 결정(2026-11-27, "가)로 진행해"). solo-harness #30부터 PR 생성 검사는 check 명령을 돌리지 않고 `record.mjs checks`의 통과 기록이 head와 같은 트리인지만 확인한다. 그래서 검사를 어떻게 돌릴지는 프로젝트가 정한다. 바로 위 항목과 같은 조건(2026-11-27, 이 PC 8코어, 같은 커밋 범위의 작업 트리)에서 명령마다 `time`으로 잰 값(pytest 41초, `uv run pyright` 25초, `uv run marimo check analyses` 4초, check_docs 2초, ruff 1초 이하)을 더하면 약 73초였다. 셸에서 모든 명령을 백그라운드로 띄우고 `wait`까지 잰 동시 실행은 51초였다. 측정 출력은 파일로 남기지 않았다.
+- 기각한 대안: 검사 목록을 동시에 돌리는 `.claude/harness/` 실행 스크립트를 check에 하나만 등록하는 방안. `record.mjs checks`를 돌릴 때마다 약 22초를 아끼지만 스크립트와 그 테스트를 유지해야 한다. 검사 시간이 늘어 기다림이 작업을 막으면 다시 잰다.
+- 정본: `.claude/harness/config.json`(`check`)
+- 승인: 사용자 결정(2026-11-27).
