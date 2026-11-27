@@ -13,14 +13,13 @@ def oof_predict(
     fit_predict: Callable[[np.ndarray, np.ndarray], np.ndarray], folds: np.ndarray
 ) -> np.ndarray:
     folds = np.asarray(folds)
-    out = None
-    for fold in np.unique(folds):
-        test = folds == fold
-        pred = fit_predict(~test, test)
-        if out is None:
-            out = np.empty((len(folds), *pred.shape[1:]))
+    if folds.size == 0:
+        raise ValueError("folds가 비었다")
+    tests = [folds == fold for fold in np.unique(folds)]
+    preds = [fit_predict(~test, test) for test in tests]
+    out = np.empty((len(folds), *preds[0].shape[1:]))
+    for test, pred in zip(tests, preds, strict=True):
         out[test] = pred
-    assert out is not None
     return out
 
 

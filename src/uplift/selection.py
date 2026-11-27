@@ -23,6 +23,6 @@ def choose_method(scores: pd.DataFrame, order: list[str], floor: float) -> tuple
                 "distinguishable": bool(diff.mean() >= threshold),
             }
         )
-    table = pd.DataFrame(rows).sort_values("mean", ascending=False).reset_index(drop=True)
+    table = pd.DataFrame(rows).sort_values("mean", ascending=False, kind="stable").reset_index(drop=True)
     tied = [m for m, d in zip(table["method"], table["distinguishable"], strict=True) if not d]
     return table, min(tied, key=order.index)

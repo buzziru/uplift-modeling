@@ -17,6 +17,11 @@ def test_oof_predict_never_uses_own_fold():
     assert out[:, 0].tolist() == list(range(6))
 
 
+def test_oof_predict_rejects_empty_folds():
+    with pytest.raises(ValueError, match="folds"):
+        oof_predict(lambda train, test: np.zeros(test.sum()), np.array([], dtype=int))
+
+
 def test_outcome_model_oof_gives_three_arm_probabilities():
     rng = np.random.default_rng(0)
     n = 1500
