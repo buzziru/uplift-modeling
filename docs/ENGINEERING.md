@@ -235,3 +235,19 @@
 - 기각한 대안: API 키를 Actions secret에 두는 안. 오래 쓰는 키가 저장소 설정에 남는다. Doppler에서 실행할 때 주입하는 안. Actions에 Doppler 서비스 토큰이라는 다른 오래 쓰는 비밀 값을 두게 된다.
 - 정본: `.github/workflows/daily-code-review.yml`
 - 승인: 메인 결정이라 승인 대상이 아니다.
+
+## 2026-11-27 scikit-learn을 1.10 아래로 묶고, pytest는 scikit-uplift가 내는 stable_cumsum 경고만 거른다
+
+- 결정: 의존성을 `scikit-learn<1.10`으로 묶는다. pytest 설정에서 `Function stable_cumsum is deprecated` FutureWarning만 거른다.
+- 근거: 메인 결정(2026-11-27, 사용자 지시 "경고를 감수할 필요가 있나"). 전체 pytest 경고 196건이 모두 `tests/test_ranking.py`에서 났고, 출처는 scikit-uplift 0.5.1(`ranking.py`의 `qini_auc_score`, `qini_curve`, `uplift_auc_score`)이 부르는 sklearn `stable_cumsum`이었다. scikit-uplift는 2022-08의 0.5.1 뒤 새 판이 없고, sklearn은 1.10에서 이 함수를 지운다고 경고한다. 그래서 상한 없이 두면 sklearn 판올림 때 지표 계산이 깨진다.
+- 기각한 대안: qini·uplift 곡선을 `src/uplift`에 직접 구현해 scikit-uplift를 빼는 안. 지금 판에서는 동작이 맞고, 직접 구현은 새 테스트와 기존 결과 대조가 필요해 이 경고를 치우는 일보다 크다. sklearn 1.10이 필요해질 때 다시 본다. 경고를 그대로 두는 안. 같은 메시지 196건이 다른 경고를 가린다.
+- 정본: `pyproject.toml`(`dependencies`, `[tool.pytest.ini_options]`)
+- 승인: 메인 결정(라이브러리 선택)이라 승인 대상이 아니다.
+
+## 2026-11-27 PR 전 검사 목록은 scripts/run_checks.py로 동시에 돌리고, pytest-xdist는 쓰지 않는다
+
+- 결정: `.claude/harness/config.json`의 `check` 명령을 `scripts/run_checks.py`가 한꺼번에 띄워 동시에 돌리고, 실패한 명령의 출력만 보인다. pytest는 한 프로세스로 돌린다.
+- 근거: 메인 결정(2026-11-27, 사용자 지시 "병렬 실행 검토"). 2026-11-27 이 PC(8코어)에서 잰 값이다. 명령을 차례로 돌리면 pytest 41초, pyright 25초, marimo check 4초, check_docs 2초로 약 73초였고, 동시에 돌리면 51초였다. pytest-xdist는 직렬 41초보다 느렸다(`-n 4` 52초, `OMP_NUM_THREADS=1`로 LightGBM 스레드를 묶어도 50초, `-n auto` 156초). 수집에만 8초가 들어, worker마다 causalml 등을 다시 import하는 비용이 나눠 돌려 아끼는 시간보다 컸다.
+- 기각한 대안: pytest-xdist. 위 측정에서 느렸다. 테스트가 늘어 직렬 pytest가 수집 비용의 몇 배가 되면 다시 잰다.
+- 정본: `scripts/run_checks.py`
+- 승인: 메인 결정(코드 구조)이라 승인 대상이 아니다.
