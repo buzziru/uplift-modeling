@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from typing import Any, Literal
+from typing import Any
 
 import lightgbm as lgb
 import numpy as np
@@ -13,6 +13,7 @@ from causalml.inference.meta import (
 )
 from causalml.inference.tree import UpliftRandomForestClassifier
 
+from uplift.methods import Method
 from uplift.oof import oof_predict
 from uplift.policy import CONTROL, MAILS, best_action
 from uplift.response import classifier as _clf
@@ -103,16 +104,6 @@ def urf_space(trial: optuna.trial.BaseTrial) -> dict:
         "max_features": trial.suggest_int("max_features", 3, 9),
     }
 
-
-Method = Literal[
-    "s_learner",
-    "t_learner",
-    "x_learner",
-    "dr_learner",
-    "uplift_rf",
-    "class_transformation",
-    "transformed_outcome",
-]
 
 METHODS: dict[Method, tuple[Make, Callable[[optuna.trial.BaseTrial], dict]]] = {
     "s_learner": (

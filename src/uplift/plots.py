@@ -5,7 +5,7 @@ import seaborn as sns
 from matplotlib.figure import Figure
 from matplotlib.ticker import NullFormatter, ScalarFormatter
 
-from uplift.learners import Method
+from uplift.methods import Method
 
 
 def smd_plot(smd: pd.DataFrame, threshold: float) -> Figure:
