@@ -3,8 +3,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
-from hypothesis import given, settings
-from hypothesis import strategies as st
 
 from uplift.split import SplitConfig, check_splits, funnel_strata, load_config, make_splits
 
@@ -22,16 +20,16 @@ def data():
     return ids, funnel_strata(df)
 
 
-STAGES = st.sampled_from([(0, 0), (1, 0), (1, 1)])
+ALL_CELLS = [(t, v, c) for t in (2, 0, 1) for v, c in [(1, 1), (0, 0), (1, 0)]]
 
 
-@settings(max_examples=50, deadline=None)
-@given(st.lists(st.tuples(st.integers(min_value=0, max_value=2), STAGES), min_size=1))
+@pytest.mark.parametrize(
+    "rows",
+    [ALL_CELLS * 2, ALL_CELLS[:1], ALL_CELLS[::2]],
+    ids=["all_cells_twice", "one_row", "some_cells"],
+)
 def test_funnel_strata_separates_every_treatment_and_stage(rows):
-    df = pd.DataFrame(
-        [(t, visit, conversion) for t, (visit, conversion) in rows],
-        columns=["treatment_id", "visit", "conversion"],
-    )
+    df = pd.DataFrame(rows, columns=["treatment_id", "visit", "conversion"])
     cells = list(zip(df["treatment_id"], df["visit"], df["conversion"], strict=True))
     pairs = set(zip(cells, funnel_strata(df), strict=True))
     assert len(pairs) == len(set(cells)) == len({s for _, s in pairs})

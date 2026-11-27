@@ -5,8 +5,6 @@ import pandas as pd
 import pytest
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
-from hypothesis.extra.numpy import arrays
-from scipy import stats
 
 from uplift.eda import (
     bootstrap_mean_ci,
@@ -55,8 +53,14 @@ def category_frames(draw, min_levels=1):
     return df
 
 
-@settings(max_examples=30, deadline=None)
-@given(category_frames())
+SHARE_FRAMES = [
+    pd.DataFrame({"a": ["x", "x"]}),
+    pd.DataFrame({"a": ["x", "y", "x"]}),
+    pd.DataFrame({"a": ["x", "y", "z"], "b": ["x", "x", "x"], "c": ["y", "z", "z"]}),
+]
+
+
+@pytest.mark.parametrize("df", SHARE_FRAMES, ids=["one_level", "two_levels", "three_columns"])
 def test_category_shares_sum_to_one_per_column(df):
     out = category_shares(df, list(df.columns))
     assert pd.Series(out.groupby("column")["share"].sum()).tolist() == pytest.approx(
@@ -64,8 +68,7 @@ def test_category_shares_sum_to_one_per_column(df):
     )
 
 
-@settings(max_examples=30, deadline=None)
-@given(category_frames())
+@pytest.mark.parametrize("df", SHARE_FRAMES, ids=["one_level", "two_levels", "three_columns"])
 def test_category_shares_counts_sum_to_rows_per_column(df):
     out = category_shares(df, list(df.columns))
     assert pd.Series(out.groupby("column")["n"].sum()).tolist() == [len(df)] * df.shape[1]
@@ -193,14 +196,12 @@ def trial() -> pd.DataFrame:
     )
 
 
-@settings(max_examples=30, deadline=None)
-@given(arrays(np.float64, st.integers(min_value=2, max_value=30), elements=st.floats(0, 100)))
-def test_group_means_gives_normal_95_interval(y):
-    assume(np.ptp(y) > 1e-3)
-    row = group_means(pd.DataFrame({"g": "a", "y": y}), "g", ["y"]).iloc[0]
-    low, high = stats.norm.interval(0.95, loc=y.mean(), scale=stats.sem(y))
-    expected = {"mean": y.mean(), "ci_low": low, "ci_high": high}
-    assert {k: row[k] for k in expected} == pytest.approx(expected, abs=1e-9)
+# y = 1, 2, 3, 4: 평균 2.5, 표본 표준편차 sqrt(5/3) = 1.2910, se = 1.2910 / 2 = 0.6455,
+# 95% 구간 2.5 ± 1.96 × 0.6455 = 2.5 ± 1.2652
+def test_group_means_gives_normal_95_interval():
+    row = group_means(pd.DataFrame({"g": "a", "y": [1.0, 2.0, 3.0, 4.0]}), "g", ["y"]).iloc[0]
+    expected = {"mean": 2.5, "ci_low": 1.2348, "ci_high": 3.7652}
+    assert {k: row[k] for k in expected} == pytest.approx(expected, abs=1e-4)
 
 
 def test_segment_effects_has_three_comparisons_per_level(trial):

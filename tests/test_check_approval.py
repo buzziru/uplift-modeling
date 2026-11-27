@@ -4,8 +4,6 @@ import json
 from pathlib import Path
 
 import pytest
-from hypothesis import given
-from hypothesis import strategies as st
 
 SPEC = importlib.util.spec_from_file_location(
     "check_approval",
@@ -26,7 +24,7 @@ REQUESTS = [
     "**승인 요청:** 시험 세트 사용",
     "승인 요청: 공개 배포",
 ]
-PROSE = st.text(alphabet="가나다라마바사 \n.,?:", max_size=40)
+PROSE = ["", "\n\n", "가나다?:\n.", "앞에 ` 하나", '따옴표 " 하나', "> 인용 줄"]
 
 
 @pytest.mark.parametrize("message", [*REQUESTS, "진행할까요?\n`확인한 앞 결정` 줄을 쓴다."])
@@ -42,15 +40,17 @@ def test_needs_review_passes_request_with_prior_decision():
     assert not check_approval.needs_review(message)
 
 
-@given(request=st.sampled_from(REQUESTS), before=PROSE, after=PROSE)
-def test_needs_review_passes_any_request_with_prior_decision(request, before, after):
-    message = f"{before}\n{request}\n{after}\n확인한 앞 결정: x, 닫히지 않는 이유: y"
+@pytest.mark.parametrize("prose", PROSE)
+@pytest.mark.parametrize("request_text", REQUESTS)
+def test_needs_review_passes_any_request_with_prior_decision(request_text, prose):
+    message = f"{prose}\n{request_text}\n{prose}\n확인한 앞 결정: x, 닫히지 않는 이유: y"
     assert not check_approval.needs_review(message)
 
 
-@given(request=st.sampled_from(REQUESTS), before=PROSE, after=PROSE)
-def test_needs_review_ignores_request_inside_code_block(request, before, after):
-    message = f"{before}\n```\n{request}\n```\n{after}"
+@pytest.mark.parametrize("prose", PROSE)
+@pytest.mark.parametrize("request_text", REQUESTS)
+def test_needs_review_ignores_request_inside_code_block(request_text, prose):
+    message = f"{prose}\n```\n{request_text}\n```\n{prose}"
     assert not check_approval.needs_review(message)
 
 

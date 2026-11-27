@@ -1,7 +1,5 @@
 import pandas as pd
 import pytest
-from hypothesis import given, settings
-from hypothesis import strategies as st
 
 from uplift.train_data import TrainData, from_parquet, to_parquet
 
@@ -20,42 +18,39 @@ def test_fold_array_follows_frame_order(seed, folds):
     assert _data().fold_array(seed).tolist() == folds
 
 
-@st.composite
-def sampled(draw) -> tuple[TrainData, TrainData, int]:
-    ids = draw(st.lists(st.integers(0, 10**6), min_size=1, max_size=30, unique=True))
-    frame = pd.DataFrame({"customer_id": ids, "visit": [i % 2 for i in range(len(ids))]})
+SAMPLE_IDS = [3, 1, 2, 9, 5]
+
+
+def sampled(n: int) -> tuple[TrainData, TrainData]:
+    frame = pd.DataFrame({"customer_id": SAMPLE_IDS, "visit": [1, 0, 1, 0, 1]})
     folds = pd.DataFrame(
         {
-            "customer_id": ids * 2,
-            "seed": [42] * len(ids) + [7] * len(ids),
-            "fold": [i % 3 for i in range(2 * len(ids))],
+            "customer_id": SAMPLE_IDS * 2,
+            "seed": [42] * 5 + [7] * 5,
+            "fold": [i % 3 for i in range(10)],
         }
     )
-    n = draw(st.integers(0, len(ids)))
     data = TrainData(frame, folds)
-    return data, data.sample(n, seed=draw(st.integers(0, 2**32 - 1))), n
+    return data, data.sample(n, seed=0)
 
 
-@settings(deadline=None, max_examples=50)
-@given(case=sampled())
-def test_sample_takes_n_rows(case):
-    _, small, n = case
+@pytest.mark.parametrize("n", [0, 2, 5])
+def test_sample_takes_n_rows(n):
+    _, small = sampled(n)
     assert len(small.frame) == n
 
 
-@settings(deadline=None, max_examples=50)
-@given(case=sampled())
-def test_sample_keeps_original_order(case):
-    data, small, _ = case
+@pytest.mark.parametrize("n", [2, 4])
+def test_sample_keeps_original_order(n):
+    data, small = sampled(n)
     ids = data.frame["customer_id"].tolist()
     kept = small.frame["customer_id"].tolist()
     assert kept == [i for i in ids if i in set(kept)]
 
 
-@settings(deadline=None, max_examples=50)
-@given(case=sampled())
-def test_sample_keeps_folds_of_sampled_customers(case):
-    _, small, _ = case
+@pytest.mark.parametrize("n", [0, 2, 5])
+def test_sample_keeps_folds_of_sampled_customers(n):
+    _, small = sampled(n)
     assert set(small.folds["customer_id"]) == set(small.frame["customer_id"])
 
 

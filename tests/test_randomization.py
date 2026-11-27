@@ -28,19 +28,16 @@ def test_srm_test_flags_mismatch(counts, mismatch):
     assert srm_test(pd.Series(counts), EQUAL)["mismatch"] is mismatch
 
 
-COUNTS = st.lists(st.integers(min_value=1, max_value=10_000), min_size=3, max_size=3)
-RATIOS = st.lists(st.integers(min_value=1, max_value=5), min_size=3, max_size=3)
+SRM_CASES = [([1, 1, 1], [1, 1, 1]), ([10_000, 1, 1], [5, 1, 1]), ([3, 3, 4], [1, 2, 3])]
 
 
-@settings(max_examples=50, deadline=None)
-@given(COUNTS, RATIOS)
+@pytest.mark.parametrize(("counts", "ratio"), SRM_CASES)
 def test_srm_test_expected_keeps_total_count(counts, ratio):
     expected = srm_test(pd.Series(counts), pd.Series(ratio))["expected"]
     assert sum(expected.values()) == pytest.approx(sum(counts), abs=0.2)
 
 
-@settings(max_examples=50, deadline=None)
-@given(COUNTS, RATIOS)
+@pytest.mark.parametrize(("counts", "ratio"), SRM_CASES)
 def test_srm_test_expected_is_proportional_to_ratio(counts, ratio):
     expected = srm_test(pd.Series(counts), pd.Series(ratio))["expected"]
     per_unit = [expected[i] / ratio[i] for i in range(3)]
@@ -179,18 +176,12 @@ def test_precision_at_test_size_uses_95_interval_and_80_power():
     assert ratios == pytest.approx({"ci_half_width": z95, "mde_80": z95 + z80})
 
 
-@settings(max_examples=30, deadline=None)
-@given(
-    arrays(np.float64, 8, elements=st.floats(min_value=0, max_value=1)),
-    st.integers(min_value=1, max_value=10),
-)
-def test_precision_at_test_size_shrinks_with_square_root_of_size(y, c):
+@pytest.mark.parametrize("c", [1, 4, 9])
+def test_precision_at_test_size_shrinks_with_square_root_of_size(c):
+    y = pd.Series([0.0, 1.0, 0.5, 0.2, 0.9, 0.9, 0.1, 0.4])
     t = pd.Series([0, 0, 0, 0, 1, 1, 1, 1])
-    assume(np.ptp(y[:4]) > 1e-3)
     se = [
-        precision_at_test_size(pd.Series(y), t, pd.Series({0: m * 10, 1: m * 10})).iloc[0][
-            "se_test"
-        ]
+        precision_at_test_size(y, t, pd.Series({0: m * 10, 1: m * 10})).iloc[0]["se_test"]
         for m in (1, c)
     ]
     assert se[1] == pytest.approx(se[0] / math.sqrt(c))

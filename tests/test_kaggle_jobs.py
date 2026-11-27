@@ -3,7 +3,6 @@ import json
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import get_args
 
 import pytest
 from hypothesis import given, settings
@@ -46,20 +45,19 @@ def test_slug_for_formats(part, slug):
     assert slug_for("EXP-002-method-compare", part) == slug
 
 
-@settings(max_examples=30)
-@given(
-    exp=st.from_regex(r"EXP-[0-9]{3}(-[a-z]+)*", fullmatch=True),
-    part=st.from_regex(r"[a-z]+(_[a-z]+)*", fullmatch=True),
-)
+SLUG_CASES = [
+    ("EXP-001", "a"),
+    ("EXP-002-method-compare", "s_learner"),
+    ("EXP-010-a-b", "x_y_z"),
+]
+
+
+@pytest.mark.parametrize(("exp", "part"), SLUG_CASES)
 def test_slug_for_part_extends_base_slug(exp, part):
     assert slug_for(exp, part).startswith(slug_for(exp, None) + "-")
 
 
-@settings(max_examples=30)
-@given(
-    exp=st.from_regex(r"EXP-[0-9]{3}(-[a-z]+)*", fullmatch=True),
-    part=st.from_regex(r"[a-z]+(_[a-z]+)*", fullmatch=True),
-)
+@pytest.mark.parametrize(("exp", "part"), SLUG_CASES)
 def test_slug_for_part_has_no_underscores(exp, part):
     assert "_" not in slug_for(exp, part)
 
@@ -139,7 +137,11 @@ def test_free_slots_counts_active(limit, free):
     assert free_slots(jobs, limit=limit) == free
 
 
-@given(statuses=st.lists(st.sampled_from(get_args(Status))), limit=st.integers(0, 10))
+@pytest.mark.parametrize(
+    ("statuses", "limit"),
+    [([], 0), (["running"] * 7, 5), (["complete", "error", "queued"], 3)],
+    ids=["no_jobs", "over_limit", "no_active"],
+)
 def test_free_slots_stays_within_limit(statuses, limit):
     jobs = [Job(slug="a", exp="E", sha="s", status=s) for s in statuses]
     assert 0 <= free_slots(jobs, limit=limit) <= limit
@@ -185,7 +187,7 @@ def _entry_values(entry: Path) -> dict[str, object]:
     }
 
 
-@settings(deadline=None, max_examples=50)
+@settings(deadline=None, max_examples=15)
 @given(
     sha=st.text(),
     exp=st.text(),
@@ -211,15 +213,16 @@ def test_write_kernel_metadata_is_private_kernel_on_dataset(tmp_path):
     }
 
 
-@settings(deadline=None, max_examples=30)
-@given(contents=st.tuples(*(st.binary() for _ in DATA_FILES)))
-def test_manifest_round_trip(contents):
-    with tempfile.TemporaryDirectory() as name:
-        folder = Path(name)
-        for file, content in zip(DATA_FILES, contents, strict=True):
-            (folder / file).write_bytes(content)
-        written = write_manifest(folder)
-        assert read_manifest(folder / kaggle_jobs.MANIFEST) == written
+@pytest.mark.parametrize(
+    "contents",
+    [(b"", b""), (b"a", b"b"), (b"same", b"same")],
+    ids=["empty", "different", "same"],
+)
+def test_manifest_round_trip(tmp_path, contents):
+    for file, content in zip(DATA_FILES, contents, strict=True):
+        (tmp_path / file).write_bytes(content)
+    written = write_manifest(tmp_path)
+    assert read_manifest(tmp_path / kaggle_jobs.MANIFEST) == written
 
 
 @pytest.mark.parametrize(

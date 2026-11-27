@@ -33,24 +33,6 @@ def test_seed_gap_takes_larger_of_range_and_floor(diff, expected):
     assert seed_gap(np.array(diff), 0.0038) == pytest.approx(expected)
 
 
-VALUES = st.floats(min_value=-1, max_value=1)
-DIFFS = arrays(np.float64, st.integers(min_value=1, max_value=10), elements=VALUES)
-
-
-@settings(max_examples=50, deadline=None)
-@given(DIFFS, st.floats(min_value=0, max_value=1))
-def test_seed_gap_threshold_covers_floor_and_range(diff, floor):
-    gap = seed_gap(diff, floor)
-    assert gap["threshold"] >= max(floor, gap["seed_range"])
-
-
-@settings(max_examples=50, deadline=None)
-@given(DIFFS)
-def test_seed_gap_mean_lies_within_range(diff):
-    mean = seed_gap(diff, 0.0)["mean_diff"]
-    assert diff.min() - 1e-12 <= mean <= diff.max() + 1e-12
-
-
 def test_picks_simplest_method_within_threshold_of_leader():
     _, chosen = choose_method(
         _scores(

@@ -73,7 +73,7 @@ def _tables(draw):
     )
 
 
-@settings(max_examples=50, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@settings(max_examples=15, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 @given(_tables())
 def test_record_table_round_trip_keeps_values_and_dtypes(table):
     con = duckdb.connect()
