@@ -57,6 +57,7 @@ include = ["src", "scripts", "tests"]
 pythonVersion = "3.12"
 venvPath = "."
 venv = ".venv"
+reportMissingTypeArgument = "error"
 
 [tool.marimo.runtime]
 default_sql_output = "pandas"

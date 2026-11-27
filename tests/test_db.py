@@ -52,7 +52,7 @@ def test_build_tables_drops_segment(raw):
 
 
 @st.composite
-def raw_rows(draw) -> dict:
+def raw_rows(draw) -> dict[str, object]:
     visit = draw(st.sampled_from([0, 1]))
     conversion = draw(st.sampled_from([0, visit]))
     return {

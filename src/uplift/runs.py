@@ -1,6 +1,7 @@
 import json
 import subprocess
 import uuid
+from collections.abc import Hashable, Sequence
 from datetime import UTC, datetime
 from io import StringIO
 from pathlib import Path
@@ -8,6 +9,8 @@ from pathlib import Path
 import duckdb
 import pandas as pd
 from pydantic import BaseModel, ConfigDict
+
+from uplift.methods import Params
 
 ROOT = Path(__file__).resolve().parents[2]
 RUNS_DDL = """
@@ -43,7 +46,7 @@ CREATE TABLE IF NOT EXISTS predictions (
 class RunResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    best_params: dict[str, int | float]
+    best_params: Params
     n_customers: int
     part: str | None = None
 
@@ -94,7 +97,7 @@ def _insert(con: duckdb.DuckDBPyConnection, table: str, ddl: str, rows: pd.DataF
     con.unregister("new_rows")
 
 
-def require_columns(rows: pd.DataFrame, columns: list) -> pd.DataFrame:
+def require_columns(rows: pd.DataFrame, columns: Sequence[Hashable]) -> pd.DataFrame:
     missing = [c for c in columns if c not in rows.columns]
     if missing:
         raise KeyError(f"열이 없다: {missing}")

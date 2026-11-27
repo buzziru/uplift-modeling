@@ -221,7 +221,7 @@ def test_record_metrics_rejects_missing_column():
 def _runs_with(*runs_):
     con = duckdb.connect()
     ids = [
-        record_run(con, "EXP", {"n_customers": 10, "best_params": {"x": i}} | r)
+        record_run(con, "EXP", {"n_customers": 10, "best_params": {"num_leaves": 7 + i}} | r)
         for i, r in enumerate(runs_)
     ]
     return con, ids

@@ -1,4 +1,5 @@
 import importlib.util
+from collections.abc import Sized
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -112,14 +113,14 @@ def big_repo(tmp_path_factory):
     return root, diffs
 
 
-def run_review_input(big_repo, limit: int) -> tuple[dict, list[str]]:
+def run_review_input(big_repo, limit: int) -> tuple[dict[str, Sized], list[str]]:
     root, diffs = big_repo
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(review, "MAX_CHARS", limit)
         return review.review_input([{"number": 7, "title": "t"}], diffs, root, [])
 
 
-def items(data: dict) -> int:
+def items(data: dict[str, Sized]) -> int:
     return sum(len(data[k]) for k in ("diffs", "changed_files", "context_files"))
 
 

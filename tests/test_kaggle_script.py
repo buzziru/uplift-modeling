@@ -36,7 +36,9 @@ def data(tmp_path, monkeypatch):
     return tmp_path / "data"
 
 
-def cli(monkeypatch, replies: dict[str, str], code: int = 0, remote: dict | None = None) -> None:
+def cli(
+    monkeypatch, replies: dict[str, str], code: int = 0, remote: dict[str, str] | None = None
+) -> None:
     def fake_run(cmd, **kwargs):
         words = cmd[cmd.index("kaggle") + 1 :]
         if words[:2] == ["datasets", "download"] and remote is not None:
