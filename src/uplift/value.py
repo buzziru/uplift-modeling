@@ -130,5 +130,8 @@ def compare_estimators(
     seed: int = 0,
 ) -> pd.DataFrame:
     return pd.DataFrame(
-        [value_interval(policy, treatment, outcome, e, mu, baseline, n_boot, seed) for e in ESTIMATORS]
+        [
+            value_interval(policy, treatment, outcome, e, mu, baseline, n_boot, seed)
+            for e in ESTIMATORS
+        ]
     ).assign(width=lambda d: d["high"] - d["low"])
