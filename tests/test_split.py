@@ -1,5 +1,10 @@
+from pathlib import Path
+
+import numpy as np
 import pandas as pd
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from uplift.split import SplitConfig, check_splits, funnel_strata, load_config, make_splits
 
@@ -17,12 +22,19 @@ def data():
     return ids, funnel_strata(df)
 
 
-def test_funnel_strata_separates_stage_within_treatment():
+STAGES = st.sampled_from([(0, 0), (1, 0), (1, 1)])
+
+
+@settings(max_examples=50, deadline=None)
+@given(st.lists(st.tuples(st.integers(min_value=0, max_value=2), STAGES), min_size=1))
+def test_funnel_strata_separates_every_treatment_and_stage(rows):
     df = pd.DataFrame(
-        {"treatment_id": [0, 0, 0, 2], "visit": [0, 1, 1, 1], "conversion": [0, 0, 1, 1]}
+        [(t, visit, conversion) for t, (visit, conversion) in rows],
+        columns=["treatment_id", "visit", "conversion"],
     )
-    s = funnel_strata(df)
-    assert s.tolist() == [0, 1, 2, 8]
+    cells = list(zip(df["treatment_id"], df["visit"], df["conversion"], strict=True))
+    pairs = set(zip(cells, funnel_strata(df), strict=True))
+    assert len(pairs) == len(set(cells)) == len({s for _, s in pairs})
 
 
 def _test_ids(data):
@@ -66,19 +78,33 @@ def test_check_splits_reports_missing_fold_rows(data):
     ids, strata = data
     splits, folds = make_splits(ids, strata, CFG)
     errors = check_splits(splits, folds.iloc[1:], ids)
-    assert errors == ["seed 42의 fold가 학습 고객을 한 번씩 덮지 않음"]
+    assert ["42" in e for e in errors] == [True]
 
 
-def test_check_splits_reports_duplicate_split_rows(data):
+def test_check_splits_reports_customer_twice_in_a_seed(data):
     ids, strata = data
     splits, folds = make_splits(ids, strata, CFG)
-    doubled = pd.concat([splits, splits.iloc[:1]])
-    assert check_splits(doubled, folds, ids) == ["splits가 고객마다 한 행이 아님"]
+    seed_154 = folds[folds["seed"] == 154]
+    errors = check_splits(splits, pd.concat([folds, seed_154.iloc[:1]]), ids)
+    assert ["154" in e for e in errors] == [True]
 
 
-def test_load_config_reads_yaml(tmp_path):
-    path = tmp_path / "splits.yaml"
-    path.write_text(
-        "test_size: 0.3\ntest_seed: 42\ncv_seeds: [42, 154]\nn_folds: 5\n", encoding="utf-8"
+def _test_row(splits):
+    return int(np.flatnonzero(splits["split"].to_numpy() == "test")[0])
+
+
+@pytest.mark.parametrize("change", ["duplicate", "missing"])
+def test_check_splits_reports_split_rows_not_one_per_customer(data, change):
+    ids, strata = data
+    splits, folds = make_splits(ids, strata, CFG)
+    row = _test_row(splits)
+    broken = (
+        pd.concat([splits, splits.iloc[[row]]])
+        if change == "duplicate"
+        else splits.drop(splits.index[row])
     )
-    assert load_config(path) == CFG
+    assert len(check_splits(broken, folds, ids)) == 1
+
+
+def test_split_config_file_loads_with_its_model():
+    load_config(Path(__file__).resolve().parents[1] / "scripts" / "splits.yaml")
