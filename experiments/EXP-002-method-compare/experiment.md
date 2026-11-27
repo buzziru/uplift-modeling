@@ -19,7 +19,7 @@
   - 특성 비교(보고용): T-learner를 구매 상품 세그먼트 한 변수 특성으로 같은 방식으로 한 번 더 돌린다.
 - 판정 규칙:
   - 1위: 점수가 가장 큰 방법.
-  - 가를 수 없는 차이: 1위 방법 A와 다른 방법 B마다 seed별 차이 $d_s = V_A(s) - V_B(s)$를 구한다. 평균 차이 $\bar d$가 문턱 $\max(R, 0.0038)$보다 작으면 A와 B를 가를 수 없다고 본다. $R$은 세 $d_s$의 최댓값 − 최솟값이고, 0.0038은 EXP-001의 seed 간 범위(`artifacts/EXP-001/tables/seed_range.csv`)다.
+  - 가를 수 없는 차이: 1위 방법 A와 다른 방법 B마다 seed별 차이 $d_s = V_A(s) - V_B(s)$를 구한다. 평균 차이 $\bar d$가 판정 임계값 $\max(R, 0.0038)$보다 작으면 A와 B를 가를 수 없다고 본다. $R$은 세 $d_s$의 최댓값 − 최솟값이고, 0.0038은 EXP-001의 seed 간 범위(`artifacts/EXP-001/tables/seed_range.csv`)다.
   - 선택: 1위와 가를 수 없는 방법(1위 포함) 가운데 가장 단순한 방법을 고른다. 단순한 순서는 S-learner, T-learner, class transformation, transformed outcome, X-learner, DR-learner, uplift random forest다(학습 한 번에 맞추는 모델 수와 단계가 적은 순, uplift random forest는 base learner가 없는 별도 알고리즘이고 학습이 가장 느려 맨 뒤).
   - 모든 방법의 점수가 같은 seed의 전체 발송 정책보다 낮으면, 고르지 않고 그 결과와 이유를 보고한다.
   - 판정은 방법론 승인을 요청하는 근거이고, 승인 전에 2단계로 넘어가지 않는다.
@@ -29,8 +29,8 @@
   - seed 셋으로 구한 $R$은 그 자체가 크게 흔들린다(세 값의 범위는 표준편차의 평균 1.69배, 그 표준편차는 0.89배). 0.0038 하한은 범위가 우연히 작게 나오는 경우를 막는다.
   - 기준은 학습 운만 다루고 학습 세트 고객 표본의 흔들림은 다루지 않는다. 표본 흔들림은 시험 세트 판정에서 다룬다.
 - 논의한 선택지:
-  - 문턱을 그 쌍의 $R$만으로 두는 안. 네 번에 한 번쯤 범위가 실제 흔들림보다 작게 나와 학습 운을 방법 차이로 판정한다.
-  - 문턱을 0.0038로 고정하는 안. 한쪽만 학습하는 비교에서 잰 값이라 두 방법이 모두 학습하는 비교의 흔들림보다 작을 가능성이 크다.
+  - 판정 임계값을 그 쌍의 $R$만으로 두는 안. 네 번에 한 번쯤 범위가 실제 흔들림보다 작게 나와 학습 운을 방법 차이로 판정한다.
+  - 판정 임계값을 0.0038로 고정하는 안. 한쪽만 학습하는 비교에서 잰 값이라 두 방법이 모두 학습하는 비교의 흔들림보다 작을 가능성이 크다.
   - 가를 수 없을 때 seed를 늘려 다시 재는 안. 방법마다 Kaggle 실행이 늘고, 1단계는 방법론만 고르고 2단계에서 다시 넓게 탐색한다.
   - 특성 두 안을 일곱 방법 모두에서 비교하는 안(kernel 14개). 1단계의 질문은 방법이고, 특성 비교는 방법 하나를 고정해 따로 보면 질문이 섞이지 않는다.
 
@@ -38,12 +38,12 @@
 
 - 실행 위치: Kaggle CPU kernel. 방법마다 kernel 하나(`scripts/kaggle.py push --part <방법>`)와 특성 비교 kernel 하나, 모두 여덟 개. batch CPU kernel은 동시에 다섯 개까지라 나머지는 대기열에 둔다.
 - 바꿀 파일: 이 폴더의 `config.yaml`, `run.py`, `src/uplift/features.py`(구매 상품 세그먼트 특성), `src/uplift/selection.py`(판정 규칙), 테스트. 학습기와 Kaggle 실행 코드(`src/uplift/learners.py`, `kaggle_jobs.py`, `train_data.py`, `runs.py`, `scripts/kaggle.py`)와 EXP-001 `run.py`의 `--data`·`--db` 대응은 U4에서 같은 브랜치에 더했다.
-- 산출물: `export <run_id>...`가 방법별 실행을 모아 낸다. `tables/`의 `method_scores.csv`(방법별 seed 점수와 평균), `pair_thresholds.csv`(1위와의 $\bar d$, $R$, 문턱, 가를 수 있는지), `method_choice.csv`(선택), `policy_values.csv`(구간), `response_same_send.csv`(같은 발송 수의 반응 모델과의 차이), `ranking.csv`(쌍별 Qini), `feature_compare.csv`, `hpo_trials.csv`, `metrics.json`, `figures/`.
+- 산출물: `export <run_id>...`가 방법별 실행을 모아 낸다. `tables/`의 `method_scores.csv`(방법별 seed 점수와 평균), `pair_thresholds.csv`(1위와의 $\bar d$, $R$, 판정 임계값, 가를 수 있는지), `method_choice.csv`(선택), `policy_values.csv`(구간), `response_same_send.csv`(같은 발송 수의 반응 모델과의 차이), `ranking.csv`(쌍별 Qini), `feature_compare.csv`, `hpo_trials.csv`, `metrics.json`, `figures/`.
 - smoke: 여덟 part가 모두 표본에서 돌고, export가 위 표를 모두 내는지.
 - 구현 검증: unit test(판정 규칙의 경우별 결과, 특성 함수, part 선택). 효과를 심은 합성 데이터 test는 `tests/test_learners.py`.
 
 ## 결과 해석
 
 - 판정: 일곱 방법 모두 1위 transformed outcome과 가를 수 없어, 단순한 순서의 첫 방법 S-learner를 고른다(`artifacts/EXP-002/tables/pair_thresholds.csv`, `method_choice.csv`). 1위의 평균 점수가 전체 발송 정책보다 커서 "고르지 않는다" 규칙에는 걸리지 않는다. 고른 S-learner의 평균은 전체 발송 정책보다 작고, 차이 구간은 세 seed 모두 0을 포함한다(`policy_values.csv`).
-- 설계와 달라진 점: DR-learner의 첫 실행(run 05ffc25eb647, DuckDB 기록)은 causalml `BaseDRLearner.fit`에 seed가 넘어가지 않아 교차 적합 분할이 실행마다 바뀌었다. 그 run에서 HPO 최선 trial은 0.1827, 같은 설정의 seed 42 재측정은 0.1810으로 달랐다. seed를 넘기게 고친 코드(`learners._dr`)로 그 part만 다시 돌렸다(`artifacts/EXP-002/metrics.json`의 `dr_learner`). 고치기 전 DR-learner는 평균 0.1819, 1위와의 평균 차이 0.0011, 문턱 0.0038로 1위와 가를 수 없었다. 고친 뒤에는 평균 0.1829, 차이 0.0001, 문턱 0.0040으로 역시 가를 수 없어 판정은 바뀌지 않았다(`tables/pair_thresholds.csv`).
+- 설계와 달라진 점: DR-learner의 첫 실행(run 05ffc25eb647, DuckDB 기록)은 causalml `BaseDRLearner.fit`에 seed가 넘어가지 않아 교차 적합 분할이 실행마다 바뀌었다. 그 run에서 HPO 최선 trial은 0.1827, 같은 설정의 seed 42 재측정은 0.1810으로 달랐다. seed를 넘기게 고친 코드(`learners._dr`)로 그 part만 다시 돌렸다(`artifacts/EXP-002/metrics.json`의 `dr_learner`). 고치기 전 DR-learner는 평균 0.1819, 1위와의 평균 차이 0.0011, 판정 임계값 0.0038로 1위와 가를 수 없었다. 고친 뒤에는 평균 0.1829, 차이 0.0001, 임계값 0.0040으로 역시 가를 수 없어 판정은 바뀌지 않았다(`tables/pair_thresholds.csv`).
 - 반영한 결정: 1단계 방법론을 S-learner로 정했다(사용자 승인 2026-11-26). 2단계 전에 예산 제약에서 반응 모델과 비교한다(ANA-004).
