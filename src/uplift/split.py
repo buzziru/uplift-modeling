@@ -3,11 +3,13 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sklearn.model_selection import StratifiedKFold, train_test_split
 
 
 class SplitConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     test_size: float
     test_seed: int
     cv_seeds: list[int]

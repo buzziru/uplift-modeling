@@ -23,6 +23,10 @@ class Config(ExperimentConfig):
     seed_range_difference: tuple[str, str]
 
 
+class Record(Config, runs.RunResult):
+    pass
+
+
 def interval_metrics(values: pd.DataFrame, diffs: pd.DataFrame) -> pd.DataFrame:
     long = pd.concat(
         [
@@ -85,7 +89,7 @@ def compute(cfg: Config, data: TrainData) -> Computed:
     values = pd.concat(values, ignore_index=True)
     diffs = pd.concat(diffs, ignore_index=True)
     return Computed(
-        config={"best_params": params, "n_customers": n},
+        result=runs.RunResult(best_params=params, n_customers=n),
         tables={
             "policy_values": values,
             "policy_differences": diffs,
@@ -146,16 +150,15 @@ def send_ratio_figure(values: pd.DataFrame, estimator: str):
 
 
 def export(con: duckdb.DuckDBPyConnection, run_id: str, out: Path) -> None:
-    run_cfg = runs.load_run_config(con, run_id)
-    cfg = Config(**run_cfg)
+    cfg = runs.load_run_config(con, run_id, Record)
     names = ["policy_values", "policy_differences", "outcome_r2", "response_ranking", "hpo_trials"]
     tables = {name: runs.load_table(con, run_id, name) for name in names}
     judged, summary = estimator_tables(tables["policy_differences"], cfg)
     figure = send_ratio_figure(tables["policy_values"], summary["estimator_choice"]["estimator"])
     metrics = {
         "run_id": run_id,
-        "n_customers": run_cfg["n_customers"],
-        "best_params": run_cfg["best_params"],
+        "n_customers": cfg.n_customers,
+        "best_params": cfg.best_params,
         "best_log_loss": float(tables["hpo_trials"]["value"].min()),
         **summary,
     }

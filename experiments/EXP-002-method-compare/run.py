@@ -30,6 +30,10 @@ class Config(ExperimentConfig):
     response_run: str
 
 
+class Record(Config, runs.RunResult):
+    pass
+
+
 def parts(cfg: Config) -> list[str]:
     return [*cfg.order, cfg.feature_part]
 
@@ -82,7 +86,7 @@ def compute(cfg: Config, data: TrainData, part: str) -> Computed:
 
     values = pd.DataFrame(values)
     return Computed(
-        config={"part": part, "best_params": params, "n_customers": n},
+        result=runs.RunResult(part=part, best_params=params, n_customers=n),
         tables={
             "policy_values": values,
             "ranking": pd.concat(ranks, ignore_index=True),
@@ -160,7 +164,7 @@ def export(
     run_ids: list[str],
     out: Path,
 ) -> None:
-    cfg, by_part = runs.common_config(rec, run_ids, Config)
+    cfg, by_part = runs.common_config(rec, run_ids, Record)
     tables = {
         name: pd.concat([runs.load_table(rec, r, name) for r in run_ids], ignore_index=True)
         for name in ["policy_values", "ranking", "hpo_trials"]

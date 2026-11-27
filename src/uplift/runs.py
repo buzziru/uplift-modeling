@@ -7,7 +7,7 @@ from pathlib import Path
 
 import duckdb
 import pandas as pd
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 ROOT = Path(__file__).resolve().parents[2]
 RUNS_DDL = """
@@ -40,6 +40,14 @@ CREATE TABLE IF NOT EXISTS predictions (
 """
 
 
+class RunResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    best_params: dict[str, int | float]
+    n_customers: int
+    part: str | None = None
+
+
 RUN_TABLES_DDL = """
 CREATE TABLE IF NOT EXISTS run_tables (
     run_id VARCHAR,
@@ -67,7 +75,9 @@ def git_commit() -> str:
     ).stdout.strip()
 
 
-def record_run(con: duckdb.DuckDBPyConnection, experiment_id: str, config: dict) -> str:
+def record_run(
+    con: duckdb.DuckDBPyConnection, experiment_id: str, config: dict[str, object]
+) -> str:
     con.execute(RUNS_DDL)
     run_id = uuid.uuid4().hex[:12]
     con.execute(
@@ -114,7 +124,7 @@ def record_table(
     con: duckdb.DuckDBPyConnection, run_id: str, name: str, table: pd.DataFrame
 ) -> None:
     con.execute(RUN_TABLES_DDL)
-    data = table.to_json(orient="records", double_precision=15)
+    data = table.to_json(orient="table", index=False, double_precision=15)
     con.execute("INSERT INTO run_tables VALUES (?, ?, ?)", [run_id, name, data])
 
 
@@ -124,7 +134,8 @@ def load_table(con: duckdb.DuckDBPyConnection, run_id: str, name: str) -> pd.Dat
     ).fetchone()
     if row is None:
         raise KeyError(f"{run_id}에 {name} 표가 없다")
-    return pd.read_json(StringIO(row[0]), orient="records")
+    orient = "records" if row[0].lstrip().startswith("[") else "table"
+    return pd.read_json(StringIO(row[0]), orient=orient)
 
 
 def load_scores(
@@ -151,25 +162,32 @@ def load_scores(
     return wide.loc[customers]
 
 
-def common_config[M: BaseModel](
+def common_config[M: RunResult](
     con: duckdb.DuckDBPyConnection, run_ids: list[str], model: type[M]
 ) -> tuple[M, dict[str, str]]:
-    raw = {r: load_run_config(con, r) for r in run_ids}
-    configs = {r: model(**c) for r, c in raw.items()}
-    dumps = {json.dumps(c.model_dump(), sort_keys=True) for c in configs.values()}
+    configs = {r: load_run_config(con, r, model) for r in run_ids}
+    result_fields = set(RunResult.model_fields)
+    dumps = {
+        json.dumps(c.model_dump(exclude=result_fields), sort_keys=True) for c in configs.values()
+    }
     if len(dumps) > 1:
         raise ValueError(f"실행들의 설정이 서로 다르다: {run_ids}")
-    parts = [raw[r]["part"] for r in run_ids]
-    if len(set(parts)) < len(parts):
-        raise ValueError(f"같은 part의 실행이 여럿이다: {parts}")
-    return configs[run_ids[0]], dict(zip(parts, run_ids, strict=True))
+    by_part: dict[str, str] = {}
+    for run_id in run_ids:
+        part = configs[run_id].part
+        if part is None:
+            raise ValueError(f"part가 없는 실행이다: {run_id}")
+        if part in by_part:
+            raise ValueError(f"같은 part의 실행이 여럿이다: {part}")
+        by_part[part] = run_id
+    return configs[run_ids[0]], by_part
 
 
-def load_run_config(con: duckdb.DuckDBPyConnection, run_id: str) -> dict:
+def load_run_config[M: BaseModel](con: duckdb.DuckDBPyConnection, run_id: str, model: type[M]) -> M:
     row = con.execute("SELECT config FROM runs WHERE run_id = ?", [run_id]).fetchone()
     if row is None:
         raise KeyError(f"{run_id} 실행이 없다")
-    return json.loads(row[0])
+    return model.model_validate_json(row[0])
 
 
 RECORD_TABLES = {
