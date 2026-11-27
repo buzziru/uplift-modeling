@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 SPEC = importlib.util.spec_from_file_location(
     "check_approval",
@@ -14,21 +16,20 @@ if SPEC is None or SPEC.loader is None:
 check_approval = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(check_approval)
 
+REQUESTS = [
+    "## 정해 주실 것\n1. 반응 모델의 정의",
+    "무작위 타겟팅 기준을 정해 주세요.",
+    "두 안 가운데 하나를 골라 주세요.",
+    "이대로 진행할까요?",
+    "### 승인 요청\n- 반응 모델: visit 기준",
+    "**승인 요청**: 시험 세트 사용",
+    "**승인 요청:** 시험 세트 사용",
+    "승인 요청: 공개 배포",
+]
+PROSE = st.text(alphabet="가나다라마바사 \n.,?:", max_size=40)
 
-@pytest.mark.parametrize(
-    "message",
-    [
-        "## 정해 주실 것\n1. 반응 모델의 정의",
-        "무작위 타겟팅 기준을 정해 주세요.",
-        "두 안 가운데 하나를 골라 주세요.",
-        "이대로 진행할까요?",
-        "### 승인 요청\n- 반응 모델: visit 기준",
-        "**승인 요청**: 시험 세트 사용",
-        "**승인 요청:** 시험 세트 사용",
-        "승인 요청: 공개 배포",
-        "진행할까요?\n`확인한 앞 결정` 줄을 쓴다.",
-    ],
-)
+
+@pytest.mark.parametrize("message", [*REQUESTS, "진행할까요?\n`확인한 앞 결정` 줄을 쓴다."])
 def test_needs_review_flags_request(message):
     assert check_approval.needs_review(message)
 
@@ -38,6 +39,18 @@ def test_needs_review_passes_request_with_prior_decision():
         "## 정해 주실 것\n- 시험 세트 사용\n  확인한 앞 결정: `.claude/rules/approvals.md`, "
         "닫히지 않는 이유: 시험 세트 사용은 승인 지점이다"
     )
+    assert not check_approval.needs_review(message)
+
+
+@given(request=st.sampled_from(REQUESTS), before=PROSE, after=PROSE)
+def test_needs_review_passes_any_request_with_prior_decision(request, before, after):
+    message = f"{before}\n{request}\n{after}\n확인한 앞 결정: x, 닫히지 않는 이유: y"
+    assert not check_approval.needs_review(message)
+
+
+@given(request=st.sampled_from(REQUESTS), before=PROSE, after=PROSE)
+def test_needs_review_ignores_request_inside_code_block(request, before, after):
+    message = f"{before}\n```\n{request}\n```\n{after}"
     assert not check_approval.needs_review(message)
 
 

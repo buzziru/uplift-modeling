@@ -3,6 +3,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 SPEC = importlib.util.spec_from_file_location(
     "daily_code_review",
@@ -58,6 +60,14 @@ def test_issue_body_only_when_something_to_report(text, omitted, has_body):
     assert (review.issue_body(text, "m", None, omitted) is not None) is has_body
 
 
+def test_issue_body_names_fallback_failure():
+    assert "거절" in review.issue_body("- [ ] a", "fallback", "거절", [])
+
+
+def test_issue_body_lists_omitted_items():
+    assert "diffs src/x.py" in review.issue_body(review.NO_FINDINGS, "m", None, ["diffs src/x.py"])
+
+
 class FakeAPIError(Exception):
     pass
 
@@ -90,27 +100,54 @@ def test_owned_drops_other_authors():
     assert [p["number"] for p in review.owned(prs, "o")] == [1]
 
 
-@pytest.fixture
-def many_small(repo):
-    for i in range(6):
-        (repo / "src" / "uplift" / f"m{i}.py").write_text(f"v{i} = {i}", encoding="utf-8")
-    return [{"pr": 7, "path": f"src/uplift/m{i}.py", "diff": f"+v{i} = {i}"} for i in range(6)]
+@pytest.fixture(scope="module")
+def big_repo(tmp_path_factory):
+    root = tmp_path_factory.mktemp("repo")
+    files = {".claude/rules/code-review.md": "# 기준", "src/uplift/b.py": "y = 2"}
+    files |= {f"src/uplift/m{i}.py": f"v{i} = {i}" for i in range(6)}
+    for path, text in files.items():
+        (root / path).parent.mkdir(parents=True, exist_ok=True)
+        (root / path).write_text(text, encoding="utf-8")
+    diffs = [{"pr": 7, "path": f"src/uplift/m{i}.py", "diff": f"+v{i} = {i}"} for i in range(6)]
+    return root, diffs
 
 
-@pytest.mark.parametrize("limit", [650, 750, 850])
-def test_review_input_stays_under_limit(repo, many_small, monkeypatch, limit):
-    monkeypatch.setattr(review, "MAX_CHARS", limit)
-    data, _ = review.review_input([{"number": 7, "title": "t"}], many_small, repo, [])
+def run_review_input(big_repo, limit: int) -> tuple[dict, list[str]]:
+    root, diffs = big_repo
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(review, "MAX_CHARS", limit)
+        return review.review_input([{"number": 7, "title": "t"}], diffs, root, [])
+
+
+def items(data: dict) -> int:
+    return sum(len(data[k]) for k in ("diffs", "changed_files", "context_files"))
+
+
+@pytest.fixture(scope="module")
+def full_input(big_repo):
+    data, omitted = run_review_input(big_repo, 10**9)
+    assert omitted == []
+    return data
+
+
+@settings(deadline=None, max_examples=50)
+@given(gap=st.integers(0, 2000))
+def test_review_input_stays_under_limit_or_rejects(big_repo, full_input, gap):
+    limit = review.size(full_input) - gap
+    try:
+        data, omitted = run_review_input(big_repo, limit)
+    except ValueError:
+        return
     assert review.size(data) <= limit
+    assert items(data) + len(omitted) == items(full_input)
 
 
-def test_review_input_omits_when_tight(repo, many_small, monkeypatch):
-    monkeypatch.setattr(review, "MAX_CHARS", 750)
-    _, omitted = review.review_input([{"number": 7, "title": "t"}], many_small, repo, [])
+def test_review_input_omits_when_tight(big_repo, full_input):
+    _, omitted = run_review_input(big_repo, review.size(full_input) - 1)
     assert omitted != []
 
 
 def test_review_input_rejects_base_over_limit(repo, monkeypatch):
-    monkeypatch.setattr(review, "MAX_CHARS", 10)
+    monkeypatch.setattr(review, "MAX_CHARS", 0)
     with pytest.raises(ValueError, match="기본 입력"):
         review.review_input([], [], repo, [])
