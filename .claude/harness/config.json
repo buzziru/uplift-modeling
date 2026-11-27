@@ -2,8 +2,29 @@
   "check": [
     "uv run ruff check .",
     "uv run ruff format --check .",
-    "uv run pyright",
-    "uv run pytest",
+    {
+      "run": "uv run pyright",
+      "paths": [
+        "src/",
+        "scripts/",
+        "tests/",
+        "pyproject.toml",
+        "uv.lock"
+      ]
+    },
+    {
+      "run": "uv run pytest",
+      "paths": [
+        "src/",
+        "tests/",
+        "scripts/",
+        "experiments/",
+        ".claude/harness/",
+        ".github/scripts/",
+        "pyproject.toml",
+        "uv.lock"
+      ]
+    },
     "uv run marimo check analyses",
     "uv run python .claude/harness/check_docs.py"
   ],
