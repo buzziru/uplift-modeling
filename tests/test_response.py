@@ -9,7 +9,15 @@ from uplift.methods import LgbmParams
 from uplift.policy import CONTROL, MENS, WOMENS
 from uplift.response import arm_log_loss, arm_models_oof, search_space, tune
 
-PARAMS: LgbmParams = {"n_estimators": 30, "num_leaves": 7, "min_child_samples": 10}
+PARAMS: LgbmParams = {
+    "num_leaves": 7,
+    "learning_rate": 0.1,
+    "n_estimators": 30,
+    "min_child_samples": 10,
+    "subsample": 1.0,
+    "subsample_freq": 1,
+    "colsample_bytree": 1.0,
+}
 
 
 def _data(n=600, seed=0):

@@ -51,10 +51,17 @@ def test_slug_for_formats(part, slug):
     exp=st.from_regex(r"EXP-[0-9]{3}(-[a-z]+)*", fullmatch=True),
     part=st.from_regex(r"[a-z]+(_[a-z]+)*", fullmatch=True),
 )
-def test_slug_for_part_extends_base_slug_without_underscores(exp, part):
-    slug = slug_for(exp, part)
-    assert slug.startswith(slug_for(exp, None) + "-")
-    assert "_" not in slug
+def test_slug_for_part_extends_base_slug(exp, part):
+    assert slug_for(exp, part).startswith(slug_for(exp, None) + "-")
+
+
+@settings(max_examples=30)
+@given(
+    exp=st.from_regex(r"EXP-[0-9]{3}(-[a-z]+)*", fullmatch=True),
+    part=st.from_regex(r"[a-z]+(_[a-z]+)*", fullmatch=True),
+)
+def test_slug_for_part_has_no_underscores(exp, part):
+    assert "_" not in slug_for(exp, part)
 
 
 # PUSHED, SLOT_LIMITED는 kaggle kernels push가 버전과 슬롯 제한을 알리는 출력 꼴이다

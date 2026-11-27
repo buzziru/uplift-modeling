@@ -136,10 +136,19 @@ def full_input(big_repo):
 def test_review_input_stays_under_limit_or_rejects(big_repo, full_input, gap):
     limit = review.size(full_input) - gap
     try:
-        data, omitted = run_review_input(big_repo, limit)
+        data, _ = run_review_input(big_repo, limit)
     except ValueError:
         return
     assert review.size(data) <= limit
+
+
+@settings(deadline=None, max_examples=50)
+@given(gap=st.integers(0, 2000))
+def test_review_input_keeps_or_lists_every_item(big_repo, full_input, gap):
+    try:
+        data, omitted = run_review_input(big_repo, review.size(full_input) - gap)
+    except ValueError:
+        return
     assert items(data) + len(omitted) == items(full_input)
 
 

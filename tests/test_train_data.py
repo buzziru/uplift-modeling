@@ -38,11 +38,17 @@ def sampled(draw) -> tuple[TrainData, TrainData, int]:
 
 @settings(deadline=None, max_examples=50)
 @given(case=sampled())
-def test_sample_takes_n_rows_in_original_order(case):
-    data, small, n = case
+def test_sample_takes_n_rows(case):
+    _, small, n = case
+    assert len(small.frame) == n
+
+
+@settings(deadline=None, max_examples=50)
+@given(case=sampled())
+def test_sample_keeps_original_order(case):
+    data, small, _ = case
     ids = data.frame["customer_id"].tolist()
     kept = small.frame["customer_id"].tolist()
-    assert len(kept) == n
     assert kept == [i for i in ids if i in set(kept)]
 
 

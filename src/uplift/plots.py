@@ -195,7 +195,9 @@ def budget_plot(differences: pd.DataFrame, judged: pd.DataFrame, title: str) -> 
 
 def method_score_plot(scores: pd.DataFrame, order: list[Method], reference: float) -> Figure:
     fig, ax = plt.subplots(figsize=(7, 4.5))
-    sns.stripplot(data=scores, y="method", x="value", order=order, ax=ax, size=6, alpha=0.7)
+    sns.stripplot(
+        data=scores, y="method", x="value", order=order, jitter=False, ax=ax, size=6, alpha=0.7
+    )
     means = {m: float(scores.loc[scores["method"] == m, "value"].mean()) for m in order}
     ax.scatter(
         list(means.values()), range(len(order)), marker="|", s=400, color="black", label="mean"

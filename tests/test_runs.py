@@ -7,6 +7,7 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 from uplift import runs
+from uplift.methods import LgbmParams
 from uplift.runs import (
     RunResult,
     common_config,
@@ -87,20 +88,31 @@ def test_load_table_reads_tables_recorded_before_dtype_schema():
     assert load_table(con, "r1", "t").to_dict("records") == [{"seed": 42, "width": 0.5}]
 
 
+PARAMS: LgbmParams = {
+    "num_leaves": 7,
+    "learning_rate": 0.1,
+    "n_estimators": 30,
+    "min_child_samples": 10,
+    "subsample": 1.0,
+    "subsample_freq": 1,
+    "colsample_bytree": 1.0,
+}
+
+
 class _Cfg(RunResult):
     seed: int
 
 
 def test_load_run_config_round_trips_recorded_config():
     con = duckdb.connect()
-    cfg = _Cfg(seed=1, best_params={"num_leaves": 7, "learning_rate": 0.1}, n_customers=10)
+    cfg = _Cfg(seed=1, best_params=PARAMS, n_customers=10)
     run_id = record_run(con, "EXP", cfg.model_dump(exclude_none=True))
     assert load_run_config(con, run_id, _Cfg) == cfg
 
 
 def test_load_run_config_missing_run_raises():
     con = duckdb.connect()
-    record_run(con, "EXP", {"seed": 1, "best_params": {}, "n_customers": 1})
+    record_run(con, "EXP", {"seed": 1, "best_params": PARAMS, "n_customers": 1})
     with pytest.raises(KeyError, match="r9"):
         load_run_config(con, "r9", _Cfg)
 
@@ -221,7 +233,9 @@ def test_record_metrics_rejects_missing_column():
 def _runs_with(*runs_):
     con = duckdb.connect()
     ids = [
-        record_run(con, "EXP", {"n_customers": 10, "best_params": {"num_leaves": 7 + i}} | r)
+        record_run(
+            con, "EXP", {"n_customers": 10, "best_params": PARAMS | {"num_leaves": 7 + i}} | r
+        )
         for i, r in enumerate(runs_)
     ]
     return con, ids
@@ -240,8 +254,8 @@ def test_common_config_rejects_mixed_settings():
 
 
 def test_common_config_rejects_repeated_part():
-    con, ids = _runs_with({"seed": 1, "part": "a"}, {"seed": 1, "part": "a"})
-    with pytest.raises(ValueError, match="a"):
+    con, ids = _runs_with({"seed": 1, "part": "dup"}, {"seed": 1, "part": "dup"})
+    with pytest.raises(ValueError, match="dup"):
         common_config(con, ids, _Cfg)
 
 

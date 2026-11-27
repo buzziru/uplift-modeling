@@ -7,8 +7,8 @@
     "n_estimators": 295,
     "min_child_samples": 396,
     "subsample": 0.7773856161772852,
-    "colsample_bytree": 0.8623341644699642,
-    "subsample_freq": 1
+    "subsample_freq": 1,
+    "colsample_bytree": 0.8623341644699642
   },
   "best_log_loss": 0.876557291933403,
   "estimator_choice": {

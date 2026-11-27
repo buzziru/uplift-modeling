@@ -11,6 +11,7 @@ from pydantic import PositiveFloat, TypeAdapter
 from uplift import experiment, learners, plots, policy, ranking, runs, value
 from uplift.experiment import Computed, ExperimentConfig
 from uplift.features import feature_matrix
+from uplift.methods import Method
 from uplift.policy import MAILS
 from uplift.selection import choose_method
 from uplift.train_data import TrainData, from_duckdb
@@ -24,9 +25,9 @@ POLICIES = ("chosen", "chosen - all_mens", "all_mens")
 
 class Config(ExperimentConfig):
     floor: PositiveFloat
-    order: list[learners.Method]
+    order: list[Method]
     feature_part: str
-    feature_base: learners.Method = "t_learner"
+    feature_base: Method = "t_learner"
     response_run: str
 
 
@@ -38,10 +39,10 @@ def parts(cfg: Config) -> list[str]:
     return [*cfg.order, cfg.feature_part]
 
 
-def part_setup(cfg: Config, part: str) -> tuple[learners.Method, Literal["flags", "segment"]]:
+def part_setup(cfg: Config, part: str) -> tuple[Method, Literal["flags", "segment"]]:
     if part == cfg.feature_part:
         return cfg.feature_base, "segment"
-    return TypeAdapter(learners.Method).validate_python(part), "flags"
+    return TypeAdapter(Method).validate_python(part), "flags"
 
 
 def interval_metrics(values: pd.DataFrame) -> pd.DataFrame:

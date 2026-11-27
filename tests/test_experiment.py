@@ -48,7 +48,18 @@ class _Record(ExperimentConfig, runs.RunResult):
 
 def test_record_stores_config_and_result_readable_as_one_record(monkeypatch):
     monkeypatch.setattr(runs, "git_commit", lambda: "abc")
-    result = runs.RunResult(best_params={"num_leaves": 7}, n_customers=10)
+    result = runs.RunResult(
+        best_params={
+            "num_leaves": 7,
+            "learning_rate": 0.1,
+            "n_estimators": 30,
+            "min_child_samples": 10,
+            "subsample": 1.0,
+            "subsample_freq": 1,
+            "colsample_bytree": 1.0,
+        },
+        n_customers=10,
+    )
     computed = experiment.Computed(
         result=result,
         tables={},

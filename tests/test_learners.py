@@ -13,6 +13,9 @@ SMALL: LgbmParams = {
     "num_leaves": 7,
     "min_child_samples": 20,
     "learning_rate": 0.1,
+    "subsample": 1.0,
+    "subsample_freq": 1,
+    "colsample_bytree": 1.0,
 }
 SMALL_URF: UrfParams = {
     "n_estimators": 20,

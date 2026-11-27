@@ -4,7 +4,7 @@ import sys
 CHECK = """
 import matplotlib as mpl
 before = dict(mpl.rcParams)
-import uplift.budget, uplift.plots, uplift.selection
+import uplift.budget, uplift.learners, uplift.plots, uplift.selection
 changed = sorted(k for k, v in mpl.rcParams.items() if before[k] != v)
 print(changed)
 """

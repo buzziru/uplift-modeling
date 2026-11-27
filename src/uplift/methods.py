@@ -14,7 +14,7 @@ Method = Literal[
 
 
 @with_config(ConfigDict(extra="forbid"))
-class LgbmParams(TypedDict, total=False):
+class LgbmParams(TypedDict):
     num_leaves: int
     learning_rate: float
     n_estimators: int
@@ -25,7 +25,7 @@ class LgbmParams(TypedDict, total=False):
 
 
 @with_config(ConfigDict(extra="forbid"))
-class UrfParams(TypedDict, total=False):
+class UrfParams(TypedDict):
     n_estimators: int
     max_depth: int
     min_samples_leaf: int

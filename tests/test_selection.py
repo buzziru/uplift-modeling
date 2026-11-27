@@ -5,7 +5,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
 
-from uplift.learners import Method
+from uplift.methods import Method
 from uplift.selection import choose_method, seed_gap
 
 ORDER: list[Method] = ["s_learner", "t_learner", "x_learner"]

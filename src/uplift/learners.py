@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import lightgbm as lgb
+import matplotlib as mpl
 import numpy as np
 import optuna
 import pandas as pd
@@ -21,6 +22,9 @@ from uplift.policy import CONTROL, MAILS, best_action
 from uplift.response import classifier as _clf
 from uplift.response import search_space as lgbm_space
 from uplift.value import PROPENSITY, policy_value
+
+# causalml은 import 때 plt.style.use("fivethirtyeight")로 matplotlib 전역 설정을 바꾼다
+mpl.rcdefaults()
 
 PAIR_PROPENSITY = PROPENSITY / (2 * PROPENSITY)
 FitPredict = Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray]
