@@ -247,7 +247,7 @@
 ## 2026-11-27 pytest는 한 프로세스로 돌리고 pytest-xdist는 쓰지 않는다
 
 - 결정: pytest를 pytest-xdist로 나눠 돌리지 않는다.
-- 근거: 메인 결정(2026-11-27, 사용자 지시 "병렬 실행 검토"). 2026-11-27 이 PC(8코어)에서 잰 값이다. 직렬 pytest는 41초였고, pytest-xdist는 더 느렸다(`-n 4` 52초, `OMP_NUM_THREADS=1`로 LightGBM 스레드를 묶어도 50초, `-n auto` 156초). 수집에만 8초가 들어, worker마다 causalml 등을 다시 import하는 비용이 나눠 돌려 아끼는 시간보다 컸다. 검사 목록 전체(ruff, pyright 25초, pytest, marimo check 4초, check_docs 2초)는 차례로 돌리면 약 73초, 동시에 돌리면 51초였다. 검사 목록을 돌리는 것은 플러그인의 `record.mjs checks`라 동시 실행은 플러그인에 제안했다(게시판 th-guard-check-cache).
+- 근거: 메인 결정(2026-11-27, 사용자 지시 "병렬 실행 검토"). 2026-11-27 이 PC(8코어)에서 이 브랜치의 커밋 `ca2125f`~`526889a` 사이 작업 트리로 잰 값이다. 직렬 `uv run pytest -q`는 41초였고, `uv run --with pytest-xdist pytest -q -n <N>`은 더 느렸다(`-n 4` 52초, `OMP_NUM_THREADS=1`로 LightGBM 스레드를 묶어도 50초, `-n auto` 156초). 그래서 스레드 경합보다 worker마다 드는 시작 비용이 원인으로 보인다. `uv run pytest --collect-only -q`의 수집에만 8초가 들고, worker마다 causalml 등을 다시 import한다. 검사 목록은 명령마다 `time`으로 잰 값(pytest 41초, `uv run pyright` 25초, `uv run marimo check analyses` 4초, check_docs 2초, ruff 1초 이하)을 더하면 약 73초였다. 셸에서 모든 명령을 백그라운드로 띄우고 `wait`까지 잰 동시 실행은 51초였다. 검사 목록을 돌리는 것은 플러그인의 `record.mjs checks`라, 동시 실행은 플러그인에 제안했다(게시판 th-guard-check-cache). 측정 출력은 파일로 남기지 않았다.
 - 기각한 대안: pytest-xdist. 위 측정에서 느렸다. 테스트가 늘어 직렬 pytest가 수집 비용의 몇 배가 되면 다시 잰다. 검사 목록을 동시에 돌리는 저장소 스크립트. `record.mjs checks`가 남기는 통과 기록을 남기지 못해 PR 생성 검사가 다시 돌고, 검사를 돌리는 곳이 둘이 된다.
 - 정본: `pyproject.toml`(dev 의존성에 pytest-xdist가 없음)
 - 승인: 메인 결정(라이브러리 선택)이라 승인 대상이 아니다.

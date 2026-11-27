@@ -9,7 +9,8 @@
         "scripts/",
         "tests/",
         "pyproject.toml",
-        "uv.lock"
+        "uv.lock",
+        ".python-version"
       ]
     },
     {
@@ -22,7 +23,8 @@
         ".claude/harness/",
         ".github/scripts/",
         "pyproject.toml",
-        "uv.lock"
+        "uv.lock",
+        ".python-version"
       ]
     },
     "uv run marimo check analyses",

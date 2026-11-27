@@ -1,6 +1,9 @@
 import numpy as np
 import optuna
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
+from hypothesis.extra.numpy import arrays
 
 from uplift.methods import LgbmParams
 from uplift.policy import CONTROL, MENS, WOMENS
@@ -68,14 +71,15 @@ def test_arm_models_oof_orders_columns_by_requested_arms(reordered_pred):
 LOSS_T = np.array([1, 1, 2, 2, 0, 0])
 LOSS_Y = np.array([1, 0, 1, 0, 1, 0])
 HALF = np.full((len(LOSS_T), 2), 0.5)
+PROBS = arrays(np.float64, (len(LOSS_T), 2), elements=st.floats(min_value=0.01, max_value=0.99))
 
 
-def test_arm_log_loss_ignores_control_rows_and_other_mail_column():
-    other = HALF.copy()
-    other[LOSS_T == CONTROL] = [0.01, 0.99]
-    other[LOSS_T == MENS, 1] = 0.99
-    other[LOSS_T == WOMENS, 0] = 0.01
-    assert arm_log_loss(other, LOSS_T, LOSS_Y) == pytest.approx(arm_log_loss(HALF, LOSS_T, LOSS_Y))
+@settings(max_examples=30, deadline=None)
+@given(PROBS, PROBS)
+def test_arm_log_loss_ignores_control_rows_and_other_mail_column(pred, other):
+    own = np.arange(len(LOSS_T))[LOSS_T > CONTROL], LOSS_T[LOSS_T > CONTROL] - 1
+    other[own] = pred[own]
+    assert arm_log_loss(other, LOSS_T, LOSS_Y) == pytest.approx(arm_log_loss(pred, LOSS_T, LOSS_Y))
 
 
 # 전부 0.5면 메일마다 ln 2, 합 2 ln 2 = 1.3863. 첫 Mens 고객(y=1)만 0.9면
