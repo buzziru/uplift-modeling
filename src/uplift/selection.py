@@ -1,28 +1,48 @@
+from typing import TypedDict
+
 import numpy as np
 import pandas as pd
 
+from uplift.learners import Method
 
-def choose_method(scores: pd.DataFrame, order: list[str], floor: float) -> tuple[pd.DataFrame, str]:
+
+class Gap(TypedDict):
+    mean_diff: float
+    seed_range: float
+    threshold: float
+
+
+def seed_gap(diff: np.ndarray, floor: float) -> Gap:
+    seed_range = float(diff.max() - diff.min())
+    return {
+        "mean_diff": float(diff.mean()),
+        "seed_range": seed_range,
+        "threshold": max(seed_range, floor),
+    }
+
+
+def choose_method(
+    scores: pd.DataFrame, order: list[Method], floor: float
+) -> tuple[pd.DataFrame, Method]:
     wide = scores.pivot(index="seed", columns="method", values="value")
-    methods = [str(m) for m in wide.columns]
+    unknown = set(wide.columns) - set(order)
+    if unknown:
+        raise ValueError(f"order에 없는 학습기: {sorted(unknown)}")
     values = wide.to_numpy(dtype=float)
     means = values.mean(axis=0)
     lead = int(np.argmax(means))
     rows = []
-    for j, method in enumerate(methods):
-        diff = values[:, lead] - values[:, j]
-        seed_range = float(diff.max() - diff.min())
-        threshold = max(seed_range, floor)
+    for j, method in enumerate(wide.columns):
+        gap = seed_gap(values[:, lead] - values[:, j], floor)
         rows.append(
             {
-                "method": method,
+                "method": str(method),
                 "mean": float(means[j]),
-                "mean_diff": float(diff.mean()),
-                "seed_range": seed_range,
-                "threshold": threshold,
-                "distinguishable": bool(diff.mean() >= threshold),
+                **gap,
+                "distinguishable": gap["mean_diff"] >= gap["threshold"],
             }
         )
-    table = pd.DataFrame(rows).sort_values("mean", ascending=False, kind="stable").reset_index(drop=True)
-    tied = [m for m, d in zip(table["method"], table["distinguishable"], strict=True) if not d]
-    return table, min(tied, key=order.index)
+    table = pd.DataFrame(rows).sort_values("mean", ascending=False, kind="stable")
+    table = table.reset_index(drop=True)
+    undecided = set(table.loc[~table["distinguishable"], "method"])
+    return table, next(m for m in order if m in undecided)
