@@ -3,7 +3,7 @@ from typing import TypedDict
 import numpy as np
 import pandas as pd
 
-from uplift.learners import Method
+from uplift.methods import Method
 
 
 class Gap(TypedDict):

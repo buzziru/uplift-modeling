@@ -37,15 +37,30 @@ def test_budget_differences_full_send_is_tie(planted_table):
 
 
 @pytest.mark.parametrize(
-    ("diffs", "winner", "threshold"),
+    ("diffs", "floor", "winner", "threshold"),
     [
-        ([0.010, 0.011, 0.012], "uplift", 0.0038),
-        ([-0.006, -0.005, -0.004], "response", 0.0038),
-        ([0.010, -0.010, 0.012], "tie", 0.022),
+        ([0.010, 0.011, 0.012], 0.0038, "uplift", 0.0038),
+        ([-0.006, -0.005, -0.004], 0.0038, "response", 0.0038),
+        ([0.010, -0.010, 0.012], 0.0038, "tie", 0.022),
+        ([0.25, 0.25, 0.25], 0.25, "uplift", 0.25),
+        ([-0.25, -0.25, -0.25], 0.25, "response", 0.25),
     ],
-    ids=["floor_uplift", "floor_response", "seed_range_tie"],
+    ids=[
+        "floor_uplift",
+        "floor_response",
+        "seed_range_tie",
+        "uplift_at_threshold",
+        "response_at_threshold",
+    ],
 )
-def test_judge_budget_picks_winner(diffs, winner, threshold):
+def test_judge_budget_picks_winner(diffs, floor, winner, threshold):
     table = pd.DataFrame({"send_ratio": 0.1, "seed": [1, 2, 3], "estimate": diffs})
-    row = judge_budget(table, 0.0038).iloc[0]
+    row = judge_budget(table, floor).iloc[0]
     assert (row["winner"], row["threshold"]) == (winner, pytest.approx(threshold))
+
+
+def test_judge_budget_gives_one_row_per_send_ratio():
+    table = pd.DataFrame(
+        {"send_ratio": [0.1, 0.1, 0.2, 0.2], "seed": [1, 2, 1, 2], "estimate": [0.1] * 4}
+    )
+    assert judge_budget(table, 0.0038)["send_ratio"].tolist() == [0.1, 0.2]

@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import yaml
 from matplotlib.figure import Figure
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from uplift import runs
 from uplift.policy import MAILS
@@ -18,6 +18,8 @@ from uplift.train_data import TrainData, from_duckdb, from_parquet
 
 
 class Smoke(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     sample_size: int
     n_trials: int
     n_boot: int
@@ -25,6 +27,8 @@ class Smoke(BaseModel):
 
 
 class ExperimentConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     experiment_id: str
     outcome: str
     seeds: list[int]
@@ -37,7 +41,7 @@ class ExperimentConfig(BaseModel):
 
 @dataclass
 class Computed:
-    config: dict
+    result: runs.RunResult
     tables: dict[str, pd.DataFrame]
     metrics: pd.DataFrame
     predictions: pd.DataFrame
@@ -89,7 +93,9 @@ def trial_table(trials: pd.DataFrame) -> pd.DataFrame:
 
 
 def record(rec: duckdb.DuckDBPyConnection, cfg: ExperimentConfig, computed: Computed) -> str:
-    run_id = runs.record_run(rec, cfg.experiment_id, cfg.model_dump() | computed.config)
+    run_id = runs.record_run(
+        rec, cfg.experiment_id, cfg.model_dump() | computed.result.model_dump(exclude_none=True)
+    )
     for name, table in computed.tables.items():
         runs.record_table(rec, run_id, name, table)
     runs.record_metrics(rec, run_id, computed.metrics)
@@ -98,7 +104,10 @@ def record(rec: duckdb.DuckDBPyConnection, cfg: ExperimentConfig, computed: Comp
 
 
 def write_outputs(
-    out: Path, tables: dict[str, pd.DataFrame], figures: dict[str, Figure], metrics: dict
+    out: Path,
+    tables: dict[str, pd.DataFrame],
+    figures: dict[str, Figure],
+    metrics: dict[str, object],
 ) -> None:
     (out / "tables").mkdir(parents=True, exist_ok=True)
     (out / "figures").mkdir(parents=True, exist_ok=True)

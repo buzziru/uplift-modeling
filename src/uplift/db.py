@@ -1,4 +1,6 @@
+from collections.abc import Hashable
 from pathlib import Path
+from typing import TypedDict
 
 import duckdb
 import pandas as pd
@@ -58,7 +60,7 @@ def build_tables(raw: pd.DataFrame) -> dict[str, pd.DataFrame]:
     return tables
 
 
-def category_fix_counts(raw: pd.DataFrame) -> dict:
+def category_fix_counts(raw: pd.DataFrame) -> dict[str, dict[str, int]]:
     return {
         col: {old: int(pd.Series(raw[col] == old).sum()) for old in fixes}
         for col, fixes in CATEGORY_FIXES.items()
@@ -134,7 +136,19 @@ def write_db(tables: dict[str, pd.DataFrame], path: Path) -> None:
             con.unregister("_src")
 
 
-def profile(tables: dict[str, pd.DataFrame]) -> dict:
+class Profile(TypedDict):
+    rows: dict[str, int]
+    splits: dict[str, dict[str, int]]
+    dtypes: dict[str, dict[str, str]]
+    missing: dict[str, int]
+    numeric_range: dict[str, dict[str, float]]
+    categories: dict[str, list[object]]
+    binary_rate: dict[str, float]
+    boundary_counts: dict[str, dict[str, float]]
+    by_treatment: dict[Hashable, dict[str, float]]
+
+
+def profile(tables: dict[str, pd.DataFrame]) -> Profile:
     customers = {c: tables["customers"][c].to_numpy() for c in CUSTOMER_COLUMNS}
     joined = (
         tables["assignments"]
@@ -181,7 +195,7 @@ def profile(tables: dict[str, pd.DataFrame]) -> dict:
     }
 
 
-def _boundary(values: pd.Series, side: str) -> dict:
+def _boundary(values: pd.Series, side: str) -> dict[str, float]:
     v = values.min() if side == "min" else values.max()
     return {"value": float(v), "count": int((values == v).sum())}
 

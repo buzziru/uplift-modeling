@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 USER = "buzziru"
 DATASET = "uplift-hillstrom-train"
@@ -70,6 +70,8 @@ sh(
 
 
 class Job(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     slug: str
     exp: str
     sha: str
@@ -154,9 +156,9 @@ def write_kernel(job: Job, folder: Path) -> None:
     }
     (folder / "kernel-metadata.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     entry = ENTRY.format(
-        sha=json.dumps(job.sha),
-        exp=json.dumps(job.exp),
-        args=json.dumps(job.args),
+        sha=repr(job.sha),
+        exp=repr(job.exp),
+        args=repr(job.args),
         user=USER,
         manifest=repr(job.manifest),
     )

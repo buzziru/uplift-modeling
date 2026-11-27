@@ -8,7 +8,7 @@ dependencies = [
     "pandas",
     "pyarrow",
     "duckdb",
-    "scikit-learn",
+    "scikit-learn<1.10",
     "lightgbm",
     "scikit-uplift",
     "causalml",
@@ -52,11 +52,19 @@ max-complexity = 10
 # marimo 셀 형식: 셀 끝 return, 화면에 보일 마지막 식
 "analyses/*.py" = ["PLR1711", "B018"]
 
+[tool.pytest.ini_options]
+filterwarnings = [
+    # scikit-uplift 0.5.1(2022-08 이후 새 판 없음)이 sklearn stable_cumsum을 부른다.
+    # sklearn 1.10에서 지워지므로 의존성을 scikit-learn<1.10으로 묶었다
+    "ignore:Function stable_cumsum is deprecated:FutureWarning",
+]
+
 [tool.pyright]
 include = ["src", "scripts", "tests"]
 pythonVersion = "3.12"
 venvPath = "."
 venv = ".venv"
+reportMissingTypeArgument = "error"
 
 [tool.marimo.runtime]
 default_sql_output = "pandas"

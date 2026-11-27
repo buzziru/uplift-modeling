@@ -1,3 +1,6 @@
+from collections.abc import Hashable
+from typing import TypedDict
+
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -8,7 +11,15 @@ Z95 = stats.norm.ppf(0.975)
 Z80 = stats.norm.ppf(0.8)
 
 
-def srm_test(counts: pd.Series, expected_ratio: pd.Series) -> dict:
+class SrmResult(TypedDict):
+    counts: dict[Hashable, int]
+    expected: dict[Hashable, float]
+    chi2: float
+    p_value: float
+    mismatch: bool
+
+
+def srm_test(counts: pd.Series, expected_ratio: pd.Series) -> SrmResult:
     expected = expected_ratio / expected_ratio.sum() * counts.sum()
     chi2, p = stats.chisquare(counts, expected.loc[counts.index])
     return {

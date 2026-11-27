@@ -1,8 +1,13 @@
 import duckdb
 import pandas as pd
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from uplift.db import (
+    ALLOWED,
+    BINARY_COLUMNS,
+    TREATMENTS,
     build_tables,
     category_fix_counts,
     check_tables,
@@ -37,6 +42,7 @@ def test_build_tables_ids_follow_row_order(raw):
     assert build_tables(raw)["customers"]["customer_id"].tolist() == [0, 1, 2]
 
 
+# Hillstrom segment 순서(No, Mens, Womens E-Mail)에 0, 1, 2를 붙이는 적재 규약
 def test_build_tables_maps_treatment_id(raw):
     assert build_tables(raw)["assignments"]["treatment_id"].tolist() == [0, 1, 2]
 
@@ -45,13 +51,36 @@ def test_build_tables_drops_segment(raw):
     assert "segment" not in build_tables(raw)["customers"].columns
 
 
-def test_build_tables_keeps_rows_aligned_by_customer_id(raw):
+@st.composite
+def raw_rows(draw) -> dict[str, object]:
+    visit = draw(st.sampled_from([0, 1]))
+    conversion = draw(st.sampled_from([0, visit]))
+    return {
+        "recency": draw(st.integers(1, 12)),
+        **{col: draw(st.sampled_from(sorted(values))) for col, values in ALLOWED.items()},
+        "history": draw(st.floats(0, 1e4)),
+        **{col: draw(st.sampled_from([0, 1])) for col in BINARY_COLUMNS},
+        "segment": draw(st.sampled_from(TREATMENTS["name"].tolist())),
+        "visit": visit,
+        "conversion": conversion,
+        "spend": draw(st.floats(0.01, 1e3)) if conversion else 0.0,
+    }
+
+
+@settings(deadline=None, max_examples=30)
+@given(rows=st.lists(raw_rows(), min_size=1, max_size=20))
+def test_build_tables_joins_back_to_raw_rows(rows):
+    raw = pd.DataFrame(rows)
     tables = build_tables(raw)
-    customer = tables["customers"].set_index("customer_id").loc[2]
-    outcome = tables["outcomes"].set_index("customer_id").loc[2]
-    assert customer["channel"] == "Multichannel"
-    assert customer["history"] == 30.0
-    assert outcome["spend"] == 29.99
+    joined = (
+        tables["customers"]
+        .merge(tables["assignments"], on="customer_id")
+        .merge(TREATMENTS.rename(columns={"name": "segment"}), on="treatment_id")
+        .merge(tables["outcomes"], on="customer_id")
+        .sort_values("customer_id")
+        .reset_index(drop=True)
+    )
+    pd.testing.assert_frame_equal(pd.DataFrame(joined[raw.columns]), raw, check_dtype=False)
 
 
 def test_build_tables_rejects_unknown_segment(raw):
@@ -70,6 +99,8 @@ def test_write_db_round_trip(raw, tmp_path):
     assert n == (3,)
 
 
+# profile 테스트의 기대값은 raw fixture 세 행에서 손으로 센 개수, 평균, 최솟값이다.
+# 비율 허용 오차는 적재 요약(artifacts/data/profile.json)이 적는 소수 넷째 자리다
 @pytest.fixture
 def prof(raw):
     tables = build_tables(raw)
@@ -97,23 +128,23 @@ def test_profile_counts_table_rows(prof):
     assert prof["rows"]["customers"] == 3
 
 
-def test_profile_counts_missing_values(prof):
-    assert prof["missing"]["recency"] == 0
+def test_profile_counts_missing_values(raw):
+    tables = build_tables(raw)
+    tables["customers"].loc[0, "history"] = float("nan")
+    tables["splits"] = pd.DataFrame({"customer_id": [0, 1, 2], "split": ["train"] * 3})
+    assert profile(tables)["missing"]["history"] == 1
 
 
-def test_profile_describes_columns(prof):
-    described = {
-        "range": prof["numeric_range"]["recency"],
-        "zip": prof["categories"]["zip_code"],
-        "womens": prof["binary_rate"]["womens"],
-        "dtype": prof["dtypes"]["customers"]["recency"],
-    }
-    assert described == {
-        "range": {"min": 1, "max": 12},
-        "zip": ["Rural", "Suburban", "Urban"],
-        "womens": round(2 / 3, 4),
-        "dtype": "int64",
-    }
+@pytest.mark.parametrize(
+    ("section", "column", "expected"),
+    [
+        ("numeric_range", "recency", {"min": 1, "max": 12}),
+        ("categories", "zip_code", ["Rural", "Suburban", "Urban"]),
+        ("binary_rate", "womens", pytest.approx(2 / 3, abs=1e-4)),
+    ],
+)
+def test_profile_describes_column(prof, section, column, expected):
+    assert prof[section][column] == expected
 
 
 def test_profile_counts_boundary_values(prof):
@@ -125,46 +156,78 @@ def test_profile_counts_boundary_values(prof):
 
 
 def test_tables_markdown_lists_every_table(raw):
-    md = tables_markdown(build_tables(raw), head=2)
-    for name in ["customers", "treatments", "assignments", "outcomes"]:
-        assert f"## {name}" in md
+    tables = build_tables(raw)
+    md = tables_markdown(tables, head=2)
+    assert [name for name in tables if f"## {name}" not in md] == []
+
+
+def test_category_fix_counts_typo(raw):
+    assert category_fix_counts(raw) == {"zip_code": {"Surburban": 1}}
 
 
 def test_build_tables_fixes_zip_code_typo(raw):
-    assert category_fix_counts(raw) == {"zip_code": {"Surburban": 1}}
     assert set(build_tables(raw)["customers"]["zip_code"]) == {"Urban", "Rural", "Suburban"}
 
 
 @pytest.mark.parametrize(
-    ("column", "value", "message"),
+    ("column", "value"),
     [
-        ("channel", "Mail", "channel에 허용되지 않은 값 ['Mail']"),
-        ("recency", 13, "recency가 1~12 밖"),
-        ("visit", 2, "visit이 0/1 밖"),
-        ("spend", -1.0, "spend에 음수"),
-        ("history", -1.0, "history에 음수"),
-        ("mens", 2, "mens이 0/1 밖"),
+        *((column, "x") for column in ALLOWED),
+        *((column, 2) for column in [*BINARY_COLUMNS, "visit", "conversion"]),
+        ("recency", 0),
+        ("recency", 13),
+        ("spend", -1.0),
+        ("history", -1.0),
     ],
 )
-def test_build_tables_rejects_out_of_range_values(raw, column, value, message):
+def test_build_tables_rejects_out_of_range_values(raw, column, value):
     raw.loc[0, column] = value
-    with pytest.raises(ValueError, match=message.replace("[", r"\[").replace("]", r"\]")):
+    with pytest.raises(ValueError, match=rf"(?<![a-z_]){column}(?![a-z_])"):
         build_tables(raw)
 
 
-def test_check_tables_reports_funnel_violations(raw):
-    tables = build_tables(raw)
-    tables["outcomes"].loc[0, ["visit", "conversion", "spend"]] = [0, 1, 10.0]
+def _visit_without_conversion_but_spend(tables):
     tables["outcomes"].loc[1, "spend"] = 5.0
-    errors = check_tables(tables)
-    assert "구매했는데 방문하지 않은 행" in errors
-    assert "spend > 0과 conversion = 1이 어긋남" in errors
 
 
-def test_check_tables_reports_key_mismatch(raw):
-    tables = build_tables(raw)
+def _conversion_without_visit(tables):
+    tables["outcomes"].loc[0, ["visit", "conversion", "spend"]] = [0, 1, 10.0]
+
+
+def _duplicate_customer(tables):
+    for name in ["customers", "assignments", "outcomes"]:
+        tables[name] = pd.concat([tables[name], tables[name].iloc[:1]], ignore_index=True)
+
+
+def _unknown_treatment(tables):
+    tables["assignments"].loc[0, "treatment_id"] = 3
+
+
+def _missing_outcome(tables):
     tables["outcomes"] = tables["outcomes"].iloc[1:]
-    assert check_tables(tables) == ["outcomes의 customer_id 집합이 customers와 다름"]
+
+
+@pytest.mark.parametrize(
+    "break_rule",
+    [
+        _visit_without_conversion_but_spend,
+        _conversion_without_visit,
+        _duplicate_customer,
+        _unknown_treatment,
+        _missing_outcome,
+    ],
+)
+def test_check_tables_reports_single_violation(raw, break_rule):
+    tables = build_tables(raw)
+    break_rule(tables)
+    assert len(check_tables(tables)) == 1
+
+
+@pytest.mark.parametrize("name", ["assignments", "outcomes"])
+def test_check_tables_names_table_with_key_mismatch(raw, name):
+    tables = build_tables(raw)
+    tables[name] = tables[name].iloc[1:]
+    assert [name in e for e in check_tables(tables)] == [True]
 
 
 def test_load_frame_joins_by_customer_id(raw, tmp_path):
@@ -176,11 +239,11 @@ def test_load_frame_joins_by_customer_id(raw, tmp_path):
     assert df.loc[2, ["channel", "treatment_id", "spend"]].tolist() == ["Multichannel", 2, 29.99]
 
 
-def test_load_frame_filters_split(raw, tmp_path):
+@pytest.mark.parametrize(("split", "ids"), [("train", [0, 2]), (None, [0, 1, 2])])
+def test_load_frame_filters_split(raw, tmp_path, split, ids):
     tables = build_tables(raw)
     tables["splits"] = pd.DataFrame({"customer_id": [0, 1, 2], "split": ["train", "test", "train"]})
     path = tmp_path / "split.duckdb"
     write_db(tables, path)
     with duckdb.connect(str(path)) as con:
-        assert load_frame(con, "train")["customer_id"].tolist() == [0, 2]
-        assert len(load_frame(con)) == 3
+        assert load_frame(con, split)["customer_id"].tolist() == ids

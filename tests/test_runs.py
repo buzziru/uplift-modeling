@@ -2,11 +2,14 @@ import subprocess
 
 import duckdb
 import pandas as pd
-import pydantic
 import pytest
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
 
 from uplift import runs
+from uplift.methods import LgbmParams
 from uplift.runs import (
+    RunResult,
     common_config,
     load_run_config,
     load_scores,
@@ -55,19 +58,63 @@ def test_record_predictions_appends_rows_with_run_id():
     assert out == [("r1", 2), ("r2", 2)]
 
 
-def test_record_table_round_trip():
-    con = duckdb.connect()
-    table = pd.DataFrame(
-        {"seed": [42, 154], "comparison": ["a - b", "c - d"], "width": [0.1, 1 / 3]}
+@st.composite
+def _tables(draw):
+    n = draw(st.integers(1, 5))
+    column = st.lists
+    text = st.text(st.characters(codec="utf-8", exclude_categories=["Cs"]), max_size=8)
+    return pd.DataFrame(
+        {
+            "i": draw(column(st.integers(-(2**53), 2**53), min_size=n, max_size=n)),
+            "f": draw(column(st.floats(-1e9, 1e9, allow_nan=False), min_size=n, max_size=n)),
+            "s": draw(column(text, min_size=n, max_size=n)),
+            "b": draw(column(st.booleans(), min_size=n, max_size=n)),
+        }
     )
-    record_table(con, "r1", "diffs", table)
-    pd.testing.assert_frame_equal(load_table(con, "r1", "diffs"), table)
 
 
-def test_load_run_config_returns_config():
+@settings(max_examples=15, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@given(_tables())
+def test_record_table_round_trip_keeps_values_and_dtypes(table):
     con = duckdb.connect()
-    run_id = record_run(con, "EXP-001", {"n_boot": 5})
-    assert load_run_config(con, run_id) == {"n_boot": 5}
+    record_table(con, "r1", "t", table)
+    pd.testing.assert_frame_equal(load_table(con, "r1", "t"), table, rtol=1e-13)
+
+
+def test_load_table_reads_tables_recorded_before_dtype_schema():
+    con = duckdb.connect()
+    con.execute(runs.RUN_TABLES_DDL)
+    con.execute("INSERT INTO run_tables VALUES (?, ?, ?)", ["r1", "t", '[{"seed":42,"width":0.5}]'])
+    assert load_table(con, "r1", "t").to_dict("records") == [{"seed": 42, "width": 0.5}]
+
+
+PARAMS: LgbmParams = {
+    "num_leaves": 7,
+    "learning_rate": 0.1,
+    "n_estimators": 30,
+    "min_child_samples": 10,
+    "subsample": 1.0,
+    "subsample_freq": 1,
+    "colsample_bytree": 1.0,
+}
+
+
+class _Cfg(RunResult):
+    seed: int
+
+
+def test_load_run_config_round_trips_recorded_config():
+    con = duckdb.connect()
+    cfg = _Cfg(seed=1, best_params=PARAMS, n_customers=10)
+    run_id = record_run(con, "EXP", cfg.model_dump(exclude_none=True))
+    assert load_run_config(con, run_id, _Cfg) == cfg
+
+
+def test_load_run_config_missing_run_raises():
+    con = duckdb.connect()
+    record_run(con, "EXP", {"seed": 1, "best_params": PARAMS, "n_customers": 1})
+    with pytest.raises(KeyError, match="r9"):
+        load_run_config(con, "r9", _Cfg)
 
 
 def test_load_table_missing_raises():
@@ -110,34 +157,28 @@ def test_require_clean_ignores_other_paths(repo):
     require_clean(["other"])
 
 
-def test_merge_records_copies_runs_once(tmp_path):
-    source = tmp_path / "run.duckdb"
-    with duckdb.connect(str(source)) as src:
+@pytest.fixture
+def source(tmp_path):
+    path = tmp_path / "run.duckdb"
+    with duckdb.connect(str(path)) as src:
         run_id = record_run(src, "EXP", {"a": 1})
         record_table(src, run_id, "t", pd.DataFrame({"v": [1]}))
+    return path, run_id
+
+
+def test_merge_records_copies_runs_and_tables(source):
+    path, run_id = source
     con = duckdb.connect()
-    assert merge_records(con, source) == [run_id]
+    merge_records(con, path)
     assert load_table(con, run_id, "t")["v"].tolist() == [1]
-    with pytest.raises(RuntimeError):
-        merge_records(con, source)
 
 
-def test_load_scores_pivots_arms_in_given_order():
+def test_merge_records_rejects_runs_already_merged(source):
+    path, run_id = source
     con = duckdb.connect()
-    preds = pd.DataFrame(
-        {
-            "model_id": "m",
-            "customer_id": [1, 1, 2, 2],
-            "treatment_id": [1, 2, 1, 2],
-            "fold": 0,
-            "score": [0.1, 0.2, 0.3, 0.4],
-        }
-    )
-    record_predictions(con, "r", preds)
-    scores = load_scores(con, "r", "m", (2, 1))
-    assert scores.loc[1].tolist() == [0.2, 0.1]
-    with pytest.raises(KeyError):
-        load_scores(con, "r", "other", (1, 2))
+    merge_records(con, path)
+    with pytest.raises(RuntimeError, match=run_id):
+        merge_records(con, path)
 
 
 def _scores_con():
@@ -153,6 +194,16 @@ def _scores_con():
     )
     record_predictions(con, "r", preds)
     return con
+
+
+def test_load_scores_pivots_arms_in_given_order():
+    scores = load_scores(_scores_con(), "r", "m", (2, 1))
+    assert scores.loc[1].tolist() == [0.2, 0.1]
+
+
+def test_load_scores_missing_model_raises():
+    with pytest.raises(KeyError, match="other"):
+        load_scores(_scores_con(), "r", "other", (1, 2))
 
 
 def test_load_scores_rejects_missing_arm():
@@ -179,28 +230,36 @@ def test_record_metrics_rejects_missing_column():
         )
 
 
-class _Cfg(pydantic.BaseModel):
-    seed: int
-
-
-def _runs_with(configs):
+def _runs_with(*runs_):
     con = duckdb.connect()
-    return con, [record_run(con, "EXP", c) for c in configs]
+    ids = [
+        record_run(
+            con, "EXP", {"n_customers": 10, "best_params": PARAMS | {"num_leaves": 7 + i}} | r
+        )
+        for i, r in enumerate(runs_)
+    ]
+    return con, ids
 
 
-def test_common_config_maps_parts():
-    con, ids = _runs_with([{"seed": 1, "part": "a"}, {"seed": 1, "part": "b"}])
-    cfg, by_part = common_config(con, ids, _Cfg)
-    assert (cfg, by_part) == (_Cfg(seed=1), {"a": ids[0], "b": ids[1]})
+def test_common_config_maps_parts_despite_different_run_results():
+    con, ids = _runs_with({"seed": 1, "part": "a"}, {"seed": 1, "part": "b"})
+    _, by_part = common_config(con, ids, _Cfg)
+    assert by_part == {"a": ids[0], "b": ids[1]}
 
 
 def test_common_config_rejects_mixed_settings():
-    con, ids = _runs_with([{"seed": 1, "part": "a"}, {"seed": 2, "part": "b"}])
-    with pytest.raises(ValueError, match="서로 다르다"):
+    con, ids = _runs_with({"seed": 1, "part": "a"}, {"seed": 2, "part": "b"})
+    with pytest.raises(ValueError, match=ids[1]):
         common_config(con, ids, _Cfg)
 
 
 def test_common_config_rejects_repeated_part():
-    con, ids = _runs_with([{"seed": 1, "part": "a"}, {"seed": 1, "part": "a"}])
-    with pytest.raises(ValueError, match="여럿"):
+    con, ids = _runs_with({"seed": 1, "part": "dup"}, {"seed": 1, "part": "dup"})
+    with pytest.raises(ValueError, match="dup"):
+        common_config(con, ids, _Cfg)
+
+
+def test_common_config_rejects_run_without_part():
+    con, ids = _runs_with({"seed": 1, "part": "a"}, {"seed": 1})
+    with pytest.raises(ValueError, match=ids[1]):
         common_config(con, ids, _Cfg)

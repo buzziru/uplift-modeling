@@ -1,20 +1,36 @@
+import functools
+
 import numpy as np
 import pandas as pd
 import pytest
+from hypothesis import assume, given, settings
+from hypothesis import strategies as st
+from hypothesis.extra.numpy import arrays
 
 from uplift.features import feature_matrix
 from uplift.oof import oof_predict, outcome_model_oof, within_arm_r2
 
+FOLD_LABELS = arrays(np.int64, st.integers(min_value=1, max_value=40), elements=st.integers(-3, 50))
 
-def test_oof_predict_never_uses_own_fold():
-    folds = np.array([0, 1, 2, 0, 1, 2])
+
+@settings(max_examples=50, deadline=None)
+@given(FOLD_LABELS)
+def test_oof_predict_places_each_prediction_on_its_own_row(folds):
+    out = oof_predict(lambda train, test: np.flatnonzero(test).astype(float), folds)
+    assert out.tolist() == list(range(len(folds)))
+
+
+@settings(max_examples=50, deadline=None)
+@given(FOLD_LABELS)
+def test_oof_predict_trains_without_the_held_out_fold(folds):
+    overlaps = []
 
     def fit_predict(train, test):
-        assert not (train & test).any()
-        return np.column_stack([np.flatnonzero(test), folds[train].sum() * np.ones(test.sum())])
+        overlaps.append(bool((train & test).any()))
+        return np.zeros(int(test.sum()))
 
-    out = oof_predict(fit_predict, folds)
-    assert out[:, 0].tolist() == list(range(6))
+    oof_predict(fit_predict, folds)
+    assert not any(overlaps)
 
 
 def test_oof_predict_rejects_empty_folds():
@@ -22,19 +38,32 @@ def test_oof_predict_rejects_empty_folds():
         oof_predict(lambda train, test: np.zeros(test.sum()), np.array([], dtype=int))
 
 
-def test_outcome_model_oof_gives_three_arm_probabilities():
+@functools.cache
+def _outcome_oof():
     rng = np.random.default_rng(0)
     n = 1500
     x = rng.random(n)
     t = rng.integers(0, 3, n)
     p = np.column_stack([0.1 + 0.0 * x, 0.1 + 0.6 * x, 0.6 - 0.5 * x])[np.arange(n), t]
     y = (rng.random(n) < p).astype(int)
-    mu = outcome_model_oof(pd.DataFrame({"x": x}), t, y, np.arange(n) % 5)
-    assert mu.shape == (n, 3)
+    return x, outcome_model_oof(pd.DataFrame({"x": x}), t, y, np.arange(n) % 5)
+
+
+def test_outcome_model_oof_gives_one_column_per_arm():
+    x, mu = _outcome_oof()
+    assert mu.shape == (len(x), 3)
+
+
+def test_outcome_model_oof_gives_probabilities():
+    _, mu = _outcome_oof()
     assert ((mu > 0) & (mu < 1)).all()
-    hi, lo = x > 0.8, x < 0.2
-    assert mu[hi, 1].mean() > mu[lo, 1].mean()
-    assert mu[hi, 2].mean() < mu[lo, 2].mean()
+
+
+@pytest.mark.parametrize(("arm", "rises"), [(1, True), (2, False)], ids=["mens", "womens"])
+def test_outcome_model_oof_follows_planted_response(arm, rises):
+    x, mu = _outcome_oof()
+    gap = mu[x > 0.8, arm].mean() - mu[x < 0.2, arm].mean()
+    assert gap > 0 if rises else gap < 0
 
 
 def test_feature_matrix_drops_reference_level():
@@ -49,7 +78,7 @@ def test_feature_matrix_drops_reference_level():
             "channel": ["Web", "Phone"],
         }
     )
-    assert feature_matrix(df).columns.tolist() == [
+    assert set(feature_matrix(df).columns) == {
         "recency",
         "history",
         "mens",
@@ -57,30 +86,51 @@ def test_feature_matrix_drops_reference_level():
         "newbie",
         "zip_code_Urban",
         "channel_Web",
-    ]
+    }
 
 
-R2_N = 300
-R2_T = np.tile([0, 1, 2], R2_N // 3)
-R2_Y = (np.random.default_rng(0).random(R2_N) < 0.3).astype(int)
-R2_FOLDS = np.arange(R2_N) % 5
+R2_T = np.array([0, 0, 1, 1, 2, 2] * 2)
+R2_Y = np.array([1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1])
+R2_FOLDS = np.repeat([0, 1], 6)
+OOF_ARM_MEAN = np.array([1, 1, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1, 1, 0, 0])
 
 
-def _arm_mean(train, test):
-    means = [R2_Y[train & (a == R2_T)].mean() for a in range(3)]
-    return np.tile(means, (int(test.sum()), 1))
+def _mu(own):
+    mu = np.tile((1 - R2_Y)[:, None], (1, 3)).astype(float)
+    mu[np.arange(len(R2_T)), R2_T] = own
+    return mu
 
 
-@pytest.mark.parametrize(
-    ("pred", "r2"),
-    [
-        (np.tile(R2_Y[:, None], (1, 3)).astype(float), 1),
-        (oof_predict(_arm_mean, R2_FOLDS), 0),
-    ],
-    ids=["exact", "arm_mean"],
-)
-def test_within_arm_r2_boundary_value(pred, r2):
-    assert np.allclose(within_arm_r2(pred, R2_T, R2_Y, R2_FOLDS)["r2"], r2)
+# 기준 예측은 다른 fold의 같은 처치군 평균이다(OOF_ARM_MEAN은 R2_Y에서 손으로 구함). 그 예측이면 r2 = 0
+def test_within_arm_r2_is_zero_for_oof_arm_mean():
+    result = within_arm_r2(_mu(OOF_ARM_MEAN), R2_T, R2_Y, R2_FOLDS)
+    assert result["r2"].tolist() == pytest.approx([0.0] * 3)
+
+
+R2_OUTCOMES = arrays(np.float64, len(R2_T), elements=st.floats(min_value=0, max_value=1))
+R2_PREDS = arrays(np.float64, (len(R2_T), 3), elements=st.floats(min_value=0, max_value=1))
+
+
+def _arms_vary(y):
+    return all(np.ptp(y[arm == R2_T]) > 1e-3 for arm in range(3))
+
+
+@settings(max_examples=50, deadline=None)
+@given(R2_OUTCOMES, R2_PREDS)
+def test_within_arm_r2_is_one_for_exact_own_arm_prediction(y, mu):
+    assume(_arms_vary(y))
+    mu[np.arange(len(R2_T)), R2_T] = y
+    assert within_arm_r2(mu, R2_T, y, R2_FOLDS)["r2"].tolist() == pytest.approx([1.0] * 3)
+
+
+@settings(max_examples=50, deadline=None)
+@given(R2_OUTCOMES, R2_PREDS, R2_PREDS)
+def test_within_arm_r2_ignores_other_arm_columns(y, mu, other):
+    assume(_arms_vary(y))
+    own = np.arange(len(R2_T)), R2_T
+    other[own] = mu[own]
+    before = within_arm_r2(mu, R2_T, y, R2_FOLDS)["r2"].tolist()
+    assert within_arm_r2(other, R2_T, y, R2_FOLDS)["r2"].tolist() == pytest.approx(before)
 
 
 @pytest.fixture

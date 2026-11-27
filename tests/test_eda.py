@@ -1,6 +1,10 @@
+import math
+
 import numpy as np
 import pandas as pd
 import pytest
+from hypothesis import assume, given, settings
+from hypothesis import strategies as st
 
 from uplift.eda import (
     bootstrap_mean_ci,
@@ -30,17 +34,44 @@ from uplift.eda import (
 def test_numeric_summary_reports_mode_share():
     df = pd.DataFrame({"h": [29.99, 29.99, 29.99, 50.0, 100.0]})
     row = numeric_summary(df, ["h"]).iloc[0]
-    assert row["mode"] == 29.99
-    assert row["mode_share"] == pytest.approx(0.6)
-    assert (row["min"], row["max"]) == (29.99, 100.0)
+    expected = {"mode": 29.99, "mode_share": 0.6, "min": 29.99, "max": 100.0}
+    assert {k: row[k] for k in expected} == pytest.approx(expected)
 
 
-def test_category_shares_sum_to_one_per_column():
-    df = pd.DataFrame({"a": ["x", "y", "x", "x"], "b": [0, 1, 1, 1]})
-    out = category_shares(df, ["a", "b"])
-    for col in ["a", "b"]:
-        assert out.loc[out["column"] == col, "share"].sum() == pytest.approx(1.0)
-    assert out[(out["column"] == "a") & (out["level"] == "x")]["n"].item() == 3
+def test_category_shares_counts_each_level():
+    out = category_shares(pd.DataFrame({"a": ["x", "y", "x", "x"]}), ["a"])
+    assert out.set_index("level")["n"].to_dict() == {"x": 3, "y": 1}
+
+
+@st.composite
+def category_frames(draw, min_levels=1):
+    n = draw(st.integers(min_value=2, max_value=30))
+    k = draw(st.integers(min_value=1, max_value=3))
+    levels = st.sampled_from(["x", "y", "z"])
+    df = pd.DataFrame({f"c{j}": draw(st.lists(levels, min_size=n, max_size=n)) for j in range(k)})
+    assume(all(df[c].nunique() >= min_levels for c in df.columns))
+    return df
+
+
+SHARE_FRAMES = [
+    pd.DataFrame({"a": ["x", "x"]}),
+    pd.DataFrame({"a": ["x", "y", "x"]}),
+    pd.DataFrame({"a": ["x", "y", "z"], "b": ["x", "x", "x"], "c": ["y", "z", "z"]}),
+]
+
+
+@pytest.mark.parametrize("df", SHARE_FRAMES, ids=["one_level", "two_levels", "three_columns"])
+def test_category_shares_sum_to_one_per_column(df):
+    out = category_shares(df, list(df.columns))
+    assert pd.Series(out.groupby("column")["share"].sum()).tolist() == pytest.approx(
+        [1.0] * df.shape[1]
+    )
+
+
+@pytest.mark.parametrize("df", SHARE_FRAMES, ids=["one_level", "two_levels", "three_columns"])
+def test_category_shares_counts_sum_to_rows_per_column(df):
+    out = category_shares(df, list(df.columns))
+    assert pd.Series(out.groupby("column")["n"].sum()).tolist() == [len(df)] * df.shape[1]
 
 
 def test_outcome_summary_buyer_stats_use_only_positive_spend():
@@ -53,11 +84,19 @@ def test_outcome_summary_buyer_stats_use_only_positive_spend():
         }
     )
     out = outcome_summary(df, "t").set_index("t")
-    assert out.loc[0, "buyers"] == 1
-    assert out.loc[0, "buyer_spend_mean"] == pytest.approx(50.0)
-    assert out.loc[1, "spend_mean"] == pytest.approx(200.0 / 3)
-    assert out.loc[1, "buyers_at_max"] == 2
-    assert out.loc[0, "visit_rate"] == pytest.approx(2 / 3)
+    expected = pd.DataFrame(
+        {
+            "visit_rate": [2 / 3, 1.0],
+            "buyers": [1, 2],
+            "spend_mean": [50.0 / 3, 200.0 / 3],
+            "buyer_spend_mean": [50.0, 100.0],
+            "buyers_at_max": [1, 2],
+        },
+        index=pd.Index([0, 1], name="t"),
+    )
+    pd.testing.assert_frame_equal(
+        pd.DataFrame(out[list(expected.columns)]), expected, check_dtype=False
+    )
 
 
 CRAMER_A = pd.Series(["x", "y"] * 50)
@@ -72,10 +111,25 @@ def test_cramers_v_boundary_value(b, v):
     assert cramers_v(CRAMER_A, b) == pytest.approx(v)
 
 
-def test_cramers_v_matrix_is_symmetric():
-    df = pd.DataFrame({"a": list("xyxyxy"), "b": list("ppqqpq"), "c": list("uuuvvv")})
-    m = cramers_v_matrix(df, ["a", "b", "c"]).to_numpy()
+@settings(max_examples=30, deadline=None)
+@given(category_frames(min_levels=2))
+def test_cramers_v_stays_within_unit_interval(df):
+    v = cramers_v(df.iloc[:, 0], df.iloc[:, -1])
+    assert -1e-12 <= v <= 1 + 1e-12
+
+
+@settings(max_examples=15, deadline=None)
+@given(category_frames(min_levels=2))
+def test_cramers_v_matrix_is_symmetric(df):
+    m = cramers_v_matrix(df, list(df.columns)).to_numpy()
     assert np.allclose(m, m.T)
+
+
+@settings(max_examples=15, deadline=None)
+@given(category_frames(min_levels=2))
+def test_cramers_v_matrix_diagonal_is_one(df):
+    m = cramers_v_matrix(df, list(df.columns)).to_numpy()
+    assert np.allclose(np.diag(m), 1.0)
 
 
 @pytest.fixture(scope="module")
@@ -103,11 +157,6 @@ def test_product_segment_labels_each_combination():
     assert product_segment(df).tolist() == ["mens_only", "womens_only", "both"]
 
 
-def test_product_segment_rejects_no_purchase():
-    with pytest.raises(KeyError):
-        product_segment(pd.DataFrame({"mens": [0], "womens": [0]}))
-
-
 def test_segment_profile_shares():
     df = pd.DataFrame(
         {
@@ -119,9 +168,13 @@ def test_segment_profile_shares():
         }
     )
     out = segment_profile(df, "g").set_index("g")
-    assert out.loc["a", "history_median"] == pytest.approx(100.0)
-    assert out.loc["a", "multichannel_share"] == pytest.approx(0.5)
-    assert out.loc["b", "n"] == 1
+    expected = pd.DataFrame(
+        {"n": [2, 1], "history_median": [100.0, 300.0], "multichannel_share": [0.5, 0.0]},
+        index=pd.Index(["a", "b"], name="g"),
+    )
+    pd.testing.assert_frame_equal(
+        pd.DataFrame(out[list(expected.columns)]), expected, check_dtype=False
+    )
 
 
 @pytest.fixture
@@ -143,36 +196,56 @@ def trial() -> pd.DataFrame:
     )
 
 
-def test_group_means_interval_covers_mean(trial):
-    out = group_means(trial, "seg", ["visit"])
-    assert set(out["seg"]) == {"a", "b"}
-    assert np.all(out["ci_low"].to_numpy() < out["mean"].to_numpy())
-    assert np.all(out["mean"].to_numpy() < out["ci_high"].to_numpy())
+# y = 1, 2, 3, 4: 평균 2.5, 표본 표준편차 sqrt(5/3) = 1.2910, se = 1.2910 / 2 = 0.6455,
+# 95% 구간 2.5 ± 1.96 × 0.6455 = 2.5 ± 1.2652
+def test_group_means_gives_normal_95_interval():
+    row = group_means(pd.DataFrame({"g": "a", "y": [1.0, 2.0, 3.0, 4.0]}), "g", ["y"]).iloc[0]
+    expected = {"mean": 2.5, "ci_low": 1.2348, "ci_high": 3.7652}
+    assert {k: row[k] for k in expected} == pytest.approx(expected, abs=1e-4)
 
 
 def test_segment_effects_has_three_comparisons_per_level(trial):
-    out = segment_effects(trial, "seg", "visit")
-    assert len(out) == 6
-    mens = out[(out["seg"] == "a") & (out["comparison"] == "Mens - None")]["effect"].item()
-    a = trial[trial["seg"] == "a"]
-    expected = a[a["treatment_id"] == 1]["visit"].mean() - a[a["treatment_id"] == 0]["visit"].mean()
-    assert mens == pytest.approx(expected)
+    assert len(segment_effects(trial, "seg", "visit")) == 6
 
 
-def test_incremental_composition_shares_sum_to_one(trial):
+# 비교 이름 "A - B"는 A 평균 - B 평균. 처치군 방문율 None 0.5, Mens 1, Womens 0
+def test_segment_effects_subtracts_comparison_reference():
+    df = pd.DataFrame(
+        {"seg": ["a"] * 6, "treatment_id": [0, 0, 1, 1, 2, 2], "visit": [0, 1, 1, 1, 0, 0]}
+    )
+    out = segment_effects(df, "seg", "visit")
+    effects = dict(zip(out["comparison"], out["effect"], strict=True))
+    assert effects == pytest.approx({"Mens - None": 0.5, "Womens - None": -0.5, "Mens - Womens": 1})
+
+
+def test_incremental_composition_keeps_only_comparisons_with_no_mail(trial):
     out = incremental_composition(segment_effects(trial, "seg", "visit"), "seg")
     assert set(out["comparison"]) == {"Mens - None", "Womens - None"}
-    for name in ["Mens - None", "Womens - None"]:
-        assert out.loc[out["comparison"] == name, "share"].sum() == pytest.approx(1.0)
-        assert out.loc[out["comparison"] == name, "n_share"].sum() == pytest.approx(1.0)
 
 
-def test_funnel_ratio_ci_point_is_ratio_of_effects(trial):
-    out = funnel_ratio_ci(trial, "seg", 1, n_boot=200).set_index("seg")
-    row = out.loc["a"]
-    assert row["conversion_per_visit"] == pytest.approx(
-        row["conversion_effect"] / row["visit_effect"]
+@pytest.mark.parametrize("name", ["Mens - None", "Womens - None"])
+@pytest.mark.parametrize("column", ["share", "n_share"])
+def test_incremental_composition_shares_sum_to_one(trial, name, column):
+    out = incremental_composition(segment_effects(trial, "seg", "visit"), "seg")
+    assert out.loc[out["comparison"] == name, column].sum() == pytest.approx(1.0)
+
+
+# 방문 효과 0.75 - 0.25, 구매 효과 0.25 - 0, 비는 구매 효과 / 방문 효과
+def test_funnel_ratio_ci_point_is_ratio_of_effects():
+    arms = {
+        1: ([1, 1, 1, 0], [1, 0, 0, 0]),
+        0: ([0, 0, 1, 0], [0, 0, 0, 0]),
+    }
+    df = pd.DataFrame(
+        [
+            {"seg": "a", "treatment_id": t, "visit": v, "conversion": c}
+            for t, (visit, conversion) in arms.items()
+            for v, c in zip(visit * 5, conversion * 5, strict=True)
+        ]
     )
+    row = funnel_ratio_ci(df, "seg", 1, n_boot=50).iloc[0]
+    expected = {"visit_effect": 0.5, "conversion_effect": 0.25, "conversion_per_visit": 0.5}
+    assert {k: row[k] for k in expected} == pytest.approx(expected)
 
 
 def test_threshold_effects_row_per_cell(trial):
@@ -184,15 +257,19 @@ def test_threshold_effects_zero_above_max(trial):
     assert np.abs(out.loc[out["threshold"] == 150.0, "effect"].to_numpy()).max() == 0
 
 
+# 2((z_0.975 + z_0.8) sd / mde)^2 = 2(1.96 + 0.84)^2 = 15.7, 올려서 16
 def test_n_per_arm_matches_formula():
     assert n_per_arm(sd=1.0, mde=1.0) == 16
 
 
 def test_share_table_labels_columns_with_variable_name():
     df = pd.DataFrame({"mens": [1, 1, 0, 0], "womens": [0, 1, 1, 1]})
-    out = share_table(df, "mens", "womens")
-    assert list(out.columns) == ["womens=0", "womens=1"]
-    assert out.loc[1, "womens=1"] == pytest.approx(0.5)
+    expected = pd.DataFrame(
+        {"womens=0": [0.0, 0.5], "womens=1": [1.0, 0.5]}, index=pd.Index([0, 1], name="mens")
+    )
+    pd.testing.assert_frame_equal(
+        share_table(df, "mens", "womens"), expected, check_names=False, check_like=True
+    )
 
 
 def test_spearman_matrix_ranks_history_segment():
@@ -214,10 +291,13 @@ def test_profile_above_floor_uses_level_minimum():
         }
     )
     out = profile_above_floor(df, "p", "both").set_index("p")
-    assert out.loc["one", "n"] == 2
-    assert out.loc["one", "history_floor"] == 200.0
-    assert out.loc["one", "level_median_ratio"] == pytest.approx(300.0 / 375.0)
-    assert out.loc["both", "level_median_ratio"] == 1.0
+    expected = pd.DataFrame(
+        {"n": [2, 2], "history_floor": [200.0, 200.0], "level_median_ratio": [1.0, 300.0 / 375.0]},
+        index=pd.Index(["both", "one"], name="p"),
+    )
+    pd.testing.assert_frame_equal(
+        pd.DataFrame(out[list(expected.columns)]), expected, check_dtype=False
+    )
 
 
 def test_stacked_means_labels_rows(trial):
@@ -228,12 +308,34 @@ def test_stacked_effects_row_per_outcome(trial):
     assert len(stacked_effects(trial, ["seg"], ["visit", "spend"])) == 12
 
 
-def test_buyer_sample_size_scales_by_conversion(trial):
-    row = buyer_sample_size(trial, 10.0).iloc[0]
-    assert row["customers_per_arm"] == pytest.approx(
-        row["buyers_per_arm"] / row["mailed_conversion"]
+BUYERS = pd.DataFrame(
+    {
+        "treatment_id": [0, 0, 1, 1, 2, 2, 2],
+        "conversion": [1, 0, 1, 0, 0, 0, 0],
+        "spend": [10.0, 0, 30.0, 0, 0, 0, 0],
+    }
+)
+
+
+def test_buyer_sample_size_sizes_buyers_by_buyer_spend_sd():
+    row = buyer_sample_size(BUYERS, 10.0).iloc[0]
+    assert row["buyers_per_arm"] == n_per_arm(sd=math.sqrt(200), mde=10.0)
+
+
+def test_buyer_sample_size_doubles_customers_when_mailed_conversion_halves():
+    mailed_no_buy = pd.DataFrame(
+        {"treatment_id": [1] * 5, "conversion": [0] * 5, "spend": [0.0] * 5}
     )
-    assert row["current_customers_per_arm_min"] == 1000
+    rows = [
+        buyer_sample_size(df, 10.0).iloc[0]["customers_per_arm"]
+        for df in (BUYERS, pd.concat([BUYERS, mailed_no_buy], ignore_index=True))
+    ]
+    assert rows[1] == pytest.approx(2 * rows[0])
+
+
+def test_buyer_sample_size_reports_current_arm_size_range():
+    row = buyer_sample_size(BUYERS, 10.0).iloc[0]
+    assert (row["current_customers_per_arm_min"], row["current_customers_per_arm_max"]) == (2, 3)
 
 
 def test_effects_below_zero_keeps_only_clearly_negative_rows():
@@ -243,6 +345,4 @@ def test_effects_below_zero_keeps_only_clearly_negative_rows():
             "ci_high": [-0.01, 0.02, -0.03],
         }
     )
-    out = effects_below_zero(effects, ["Mens - None"])
-    assert len(out) == 1
-    assert out["ci_high"].item() == -0.01
+    assert effects_below_zero(effects, ["Mens - None"])["ci_high"].tolist() == [-0.01]

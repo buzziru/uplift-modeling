@@ -4,11 +4,12 @@ import optuna
 import pandas as pd
 from sklearn.metrics import log_loss
 
+from uplift.methods import LgbmParams
 from uplift.oof import oof_predict
 from uplift.policy import MAILS
 
 
-def classifier(params: dict, seed: int) -> lgb.LGBMClassifier:
+def classifier(params: LgbmParams, seed: int) -> lgb.LGBMClassifier:
     return lgb.LGBMClassifier(**params, random_state=seed, verbose=-1)
 
 
@@ -17,7 +18,7 @@ def arm_models_oof(
     treatment: np.ndarray,
     outcome: np.ndarray,
     folds: np.ndarray,
-    params: dict,
+    params: LgbmParams,
     seed: int,
     arms: tuple[int, ...] = MAILS,
 ) -> np.ndarray:
@@ -52,7 +53,7 @@ def arm_log_loss(
     )
 
 
-def search_space(trial: optuna.trial.BaseTrial) -> dict:
+def search_space(trial: optuna.trial.BaseTrial) -> LgbmParams:
     return {
         "num_leaves": trial.suggest_int("num_leaves", 7, 63, log=True),
         "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.1, log=True),
@@ -71,11 +72,11 @@ def tune(
     folds: np.ndarray,
     n_trials: int,
     seed: int,
-) -> tuple[dict, pd.DataFrame]:
+) -> tuple[LgbmParams, pd.DataFrame]:
     def objective(trial: optuna.Trial) -> float:
         pred = arm_models_oof(x, treatment, outcome, folds, search_space(trial), seed)
         return arm_log_loss(pred, treatment, outcome)
 
     study = optuna.create_study(direction="minimize", sampler=optuna.samplers.TPESampler(seed=seed))
     study.optimize(objective, n_trials=n_trials)
-    return {**study.best_params, "subsample_freq": 1}, study.trials_dataframe()
+    return search_space(optuna.trial.FixedTrial(study.best_params)), study.trials_dataframe()
