@@ -46,30 +46,29 @@ ESTIMATORS: dict[
     Estimator,
     Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray | None], Terms],
 ] = {"ipw": _ipw, "hajek": _hajek, "aipw": _aipw}
-METHODS: tuple[Estimator, ...] = tuple(ESTIMATORS)
 
 
 def components(
     policy: np.ndarray,
     treatment: np.ndarray,
     outcome: np.ndarray,
-    method: Estimator,
+    estimator: Estimator,
     mu: np.ndarray | None = None,
 ) -> Terms:
     treatment = np.asarray(treatment)
     outcome = np.asarray(outcome, dtype=float)
     weight = policy[np.arange(len(treatment)), treatment] / PROPENSITY
-    return ESTIMATORS[method](policy, treatment, outcome, weight, mu)
+    return ESTIMATORS[estimator](policy, treatment, outcome, weight, mu)
 
 
 def policy_value(
     policy: np.ndarray,
     treatment: np.ndarray,
     outcome: np.ndarray,
-    method: Estimator = "ipw",
+    estimator: Estimator = "ipw",
     mu: np.ndarray | None = None,
 ) -> float:
-    num, den = components(policy, treatment, outcome, method, mu)
+    num, den = components(policy, treatment, outcome, estimator, mu)
     return float(num.sum() / den.sum())
 
 
@@ -77,16 +76,16 @@ def value_interval(
     policy: np.ndarray,
     treatment: np.ndarray,
     outcome: np.ndarray,
-    method: Estimator = "ipw",
+    estimator: Estimator = "ipw",
     mu: np.ndarray | None = None,
     baseline: np.ndarray | None = None,
     n_boot: int = 1000,
     seed: int = 0,
     level: float = 0.95,
 ) -> Interval:
-    parts = [components(policy, treatment, outcome, method, mu)]
+    parts = [components(policy, treatment, outcome, estimator, mu)]
     if baseline is not None:
-        parts.append(components(baseline, treatment, outcome, method, mu))
+        parts.append(components(baseline, treatment, outcome, estimator, mu))
 
     def estimate(idx: np.ndarray | slice) -> float:
         values = [num[idx].sum() / den[idx].sum() for num, den in parts]
@@ -97,7 +96,7 @@ def value_interval(
     boot = np.array([estimate(rng.integers(0, n, n)) for _ in range(n_boot)])
     alpha = (1 - level) / 2
     return {
-        "method": method,
+        "method": estimator,
         "estimate": estimate(slice(None)),
         "low": float(np.quantile(boot, alpha)),
         "high": float(np.quantile(boot, 1 - alpha)),
@@ -106,8 +105,8 @@ def value_interval(
 
 
 def choose_estimator(widths: pd.DataFrame, aipw_margin: float) -> EstimatorChoice:
-    w: dict[Estimator, np.ndarray] = {m: widths[m].to_numpy(dtype=float) for m in METHODS}
-    mean: dict[Estimator, float] = {m: float(w[m].mean()) for m in METHODS}
+    w: dict[Estimator, np.ndarray] = {m: widths[m].to_numpy(dtype=float) for m in ESTIMATORS}
+    mean: dict[Estimator, float] = {m: float(w[m].mean()) for m in ESTIMATORS}
     base: Estimator = "hajek" if mean["hajek"] < mean["ipw"] else "ipw"
     use_aipw = mean["aipw"] <= (1 - aipw_margin) * mean[base]
     aipw_smaller = mean["aipw"] < mean[base]
@@ -121,7 +120,7 @@ def choose_estimator(widths: pd.DataFrame, aipw_margin: float) -> EstimatorChoic
     }
 
 
-def compare_methods(
+def compare_estimators(
     policy: np.ndarray,
     treatment: np.ndarray,
     outcome: np.ndarray,
@@ -131,5 +130,5 @@ def compare_methods(
     seed: int = 0,
 ) -> pd.DataFrame:
     return pd.DataFrame(
-        [value_interval(policy, treatment, outcome, m, mu, baseline, n_boot, seed) for m in METHODS]
+        [value_interval(policy, treatment, outcome, e, mu, baseline, n_boot, seed) for e in ESTIMATORS]
     ).assign(width=lambda d: d["high"] - d["low"])

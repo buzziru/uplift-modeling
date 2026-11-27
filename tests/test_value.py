@@ -8,7 +8,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from uplift.policy import all_mens, fixed, top_k, uniform
-from uplift.value import choose_estimator, compare_methods, policy_value, value_interval
+from uplift.value import choose_estimator, compare_estimators, policy_value, value_interval
 
 POTENTIAL = np.array([[0, 1, 0], [1, 1, 1], [0, 0, 0], [0, 0, 1], [1, 0, 1], [0, 1, 0]])
 CHOICE = np.array([1, 1, 2, 2, 0, 1])
@@ -23,15 +23,15 @@ def assignments():
             yield np.array(perm)
 
 
-def estimates(method, pred=None):
+def estimates(estimator, pred=None):
     policy = fixed(CHOICE)
     mu = None if pred is None else np.repeat(pred[:, None], 3, axis=1)
     values = []
     for t in assignments():
         y = POTENTIAL[np.arange(6), t]
-        if method == "hajek" and not (t == CHOICE).any():
+        if estimator == "hajek" and not (t == CHOICE).any():
             continue
-        values.append(policy_value(policy, t, y, method, mu))
+        values.append(policy_value(policy, t, y, estimator, mu))
     return np.array(values)
 
 
@@ -40,14 +40,14 @@ def _summary(values):
 
 
 @pytest.mark.parametrize(
-    ("method", "expected"),
+    ("estimator", "expected"),
     [
         ("ipw", {"n": 90, "mean": 5 / 6, "std": 0.538}),
         ("hajek", {"n": 81, "mean": 0.841, "std": 0.245}),
     ],
 )
-def test_six_customer_example_over_all_assignments(method, expected):
-    assert _summary(estimates(method)) == pytest.approx(expected, abs=1e-3)
+def test_six_customer_example_over_all_assignments(estimator, expected):
+    assert _summary(estimates(estimator)) == pytest.approx(expected, abs=1e-3)
 
 
 @pytest.mark.parametrize(
@@ -101,7 +101,7 @@ def _planted_table():
     t, y, p = planted()
     policy = top_k(p[:, 1:] - p[:, :1], k=len(t) // 2)
     truth = (policy * p).sum(axis=1).mean()
-    return compare_methods(policy, t, y, p, n_boot=1000), truth
+    return compare_estimators(policy, t, y, p, n_boot=1000), truth
 
 
 def test_estimator_intervals_cover_planted_policy_value():
@@ -109,11 +109,11 @@ def test_estimator_intervals_cover_planted_policy_value():
     assert bool(((table["low"] <= truth) & (truth <= table["high"])).all())
 
 
-@pytest.mark.parametrize("method", ["hajek", "aipw"])
-def test_estimator_se_below_ipw(method):
+@pytest.mark.parametrize("estimator", ["hajek", "aipw"])
+def test_estimator_se_below_ipw(estimator):
     table, _ = _planted_table()
     se = dict(zip(table["method"], table["se"], strict=True))
-    assert se[method] < se["ipw"]
+    assert se[estimator] < se["ipw"]
 
 
 def test_difference_interval_covers_planted_difference():
