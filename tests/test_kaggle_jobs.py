@@ -134,6 +134,11 @@ def test_jobs_state_round_trip(tmp_path):
     assert load_jobs(tmp_path / "state.json") == [JOB]
 
 
+def test_load_jobs_raises_when_state_is_missing(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        load_jobs(tmp_path / "state.json")
+
+
 @pytest.fixture
 def kernel(tmp_path):
     write_kernel(JOB, tmp_path)

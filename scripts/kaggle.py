@@ -111,7 +111,7 @@ def push(exp: str, parts: list[str], args: str) -> None:
         raise ValueError(f"experiments/{exp}/run.py가 없다")
     sha = check_pushable(exp)
     manifest = check_dataset()
-    jobs = load_jobs(STATE)
+    jobs = load_jobs(STATE) if STATE.exists() else []
     for part in parts or [None]:
         extra = f"--part {part} {args}".strip() if part else args
         jobs.append(Job(slug=slug_for(exp, part), exp=exp, sha=sha, args=extra, manifest=manifest))
@@ -124,9 +124,7 @@ def watch(interval: int) -> None:
     while any(j.status not in DONE for j in jobs):
         for job in [j for j in jobs if j.status in ACTIVE]:
             before = job.status
-            update_status(
-                job, parse_status(kaggle("kernels", "status", f"{USER}/{job.slug}", check=False))
-            )
+            update_status(job, parse_status(kaggle("kernels", "status", f"{USER}/{job.slug}")))
             if job.status != before:
                 print(time.strftime("%H:%M:%S"), job.slug, job.status, flush=True)
         fill(jobs)
@@ -135,6 +133,8 @@ def watch(interval: int) -> None:
             time.sleep(interval)
     for job in jobs:
         print(job.slug, job.status, f"v{job.version}")
+    if any(j.status == "unknown" for j in jobs):
+        raise SystemExit("상태를 읽지 못한 작업이 있다")
 
 
 def pull(db: Path) -> None:

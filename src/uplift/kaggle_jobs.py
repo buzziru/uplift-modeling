@@ -164,8 +164,6 @@ def write_kernel(job: Job, folder: Path) -> None:
 
 
 def load_jobs(path: Path) -> list[Job]:
-    if not path.exists():
-        return []
     return JOBS.validate_json(path.read_text(encoding="utf-8"))
 
 
