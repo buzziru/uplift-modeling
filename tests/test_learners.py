@@ -29,6 +29,15 @@ def test_each_method_recovers_planted_mens_effect(method):
     assert abs(uplift[:, 1].mean()) < 0.1
 
 
+@pytest.mark.parametrize("method", list(METHODS))
+def test_same_seed_gives_same_uplift(method):
+    x, t, y, folds = _planted(n=900)
+    params = SMALL_URF if method == "uplift_rf" else SMALL
+    first = uplift_oof(method, params, 0, x, t, y, folds)
+    second = uplift_oof(method, params, 0, x, t, y, folds)
+    np.testing.assert_array_equal(first, second)
+
+
 def test_tune_returns_fixed_params_of_the_method_space():
     x, t, y, folds = _planted(n=900)
     params, trials = tune("t_learner", x, t, y, folds, n_trials=2, seed=0)

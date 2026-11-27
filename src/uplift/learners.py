@@ -48,6 +48,15 @@ def _meta(build: Callable[[dict, int], Any], propensity: bool) -> Make:
     return make
 
 
+def _dr(params: dict, seed: int) -> FitPredict:
+    def fit_predict(x, t, y, x_new):
+        model = BaseDRLearner(learner=_reg(params, seed), control_name=CONTROL)
+        model.fit(x, treatment=t, y=y, p=_pair_p(len(t)), seed=seed)
+        return np.asarray(model.predict(x_new, p=_pair_p(len(x_new))))
+
+    return fit_predict
+
+
 def _urf(params: dict, seed: int) -> FitPredict:
     def fit_predict(x, t, y, x_new):
         model = UpliftRandomForestClassifier(control_name=str(CONTROL), random_state=seed, **params)
@@ -123,10 +132,7 @@ METHODS: dict[Method, tuple[Make, Callable[[optuna.trial.BaseTrial], dict]]] = {
         ),
         lgbm_space,
     ),
-    "dr_learner": (
-        _meta(lambda p, s: BaseDRLearner(learner=_reg(p, s), control_name=CONTROL), True),
-        lgbm_space,
-    ),
+    "dr_learner": (_dr, lgbm_space),
     "uplift_rf": (_urf, urf_space),
     "class_transformation": (_class_transformation, lgbm_space),
     "transformed_outcome": (_transformed_outcome, lgbm_space),
