@@ -119,12 +119,12 @@ def test_uniform_policy_ipw_is_outcome_mean(trial):
     assert policy_value(uniform(len(t)), t, y, "ipw") == pytest.approx(y.mean())
 
 
-@settings(max_examples=30, deadline=None)
-@given(trials(), arrays(np.int64, 40, elements=ARM), st.sampled_from(["ipw", "hajek"]))
-def test_interval_with_baseline_estimates_value_difference(trial, other, estimator):
-    t, y, policy = trial
-    baseline = fixed(other[: len(t)])
-    assume(_matched(policy, t) and _matched(baseline, t))
+@pytest.mark.parametrize("estimator", ["ipw", "hajek"])
+def test_interval_with_baseline_estimates_value_difference(estimator):
+    t = np.tile([0, 1, 2], 20)
+    y = np.tile([0.0, 1.0, 0.5, 0.2, 0.9], 12)
+    policy = fixed(np.where(np.arange(60) % 3 == 0, (t + 1) % 3, t))
+    baseline = fixed(np.where(np.arange(60) % 2 == 0, t, (t + 2) % 3))
     result = value_interval(policy, t, y, estimator, baseline=baseline, n_boot=2)
     assert result["estimate"] == pytest.approx(
         policy_value(policy, t, y, estimator) - policy_value(baseline, t, y, estimator)

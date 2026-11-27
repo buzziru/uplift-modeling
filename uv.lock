@@ -1420,7 +1420,7 @@ requires-dist = [
     { name = "pyarrow" },
     { name = "pydantic" },
     { name = "pyyaml" },
-    { name = "scikit-learn" },
+    { name = "scikit-learn", specifier = "<1.10" },
     { name = "scikit-uplift" },
     { name = "scipy", specifier = ">=1.18.1" },
     { name = "seaborn" },
