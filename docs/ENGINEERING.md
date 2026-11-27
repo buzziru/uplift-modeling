@@ -244,10 +244,10 @@
 - 정본: `pyproject.toml`(`dependencies`, `[tool.pytest.ini_options]`)
 - 승인: 메인 결정(라이브러리 선택)이라 승인 대상이 아니다.
 
-## 2026-11-27 PR 전 검사 목록은 scripts/run_checks.py로 동시에 돌리고, pytest-xdist는 쓰지 않는다
+## 2026-11-27 pytest는 한 프로세스로 돌리고 pytest-xdist는 쓰지 않는다
 
-- 결정: `.claude/harness/config.json`의 `check` 명령을 `scripts/run_checks.py`가 한꺼번에 띄워 동시에 돌리고, 실패한 명령의 출력만 보인다. pytest는 한 프로세스로 돌린다.
-- 근거: 메인 결정(2026-11-27, 사용자 지시 "병렬 실행 검토"). 2026-11-27 이 PC(8코어)에서 잰 값이다. 명령을 차례로 돌리면 pytest 41초, pyright 25초, marimo check 4초, check_docs 2초로 약 73초였고, 동시에 돌리면 51초였다. pytest-xdist는 직렬 41초보다 느렸다(`-n 4` 52초, `OMP_NUM_THREADS=1`로 LightGBM 스레드를 묶어도 50초, `-n auto` 156초). 수집에만 8초가 들어, worker마다 causalml 등을 다시 import하는 비용이 나눠 돌려 아끼는 시간보다 컸다.
-- 기각한 대안: pytest-xdist. 위 측정에서 느렸다. 테스트가 늘어 직렬 pytest가 수집 비용의 몇 배가 되면 다시 잰다.
-- 정본: `scripts/run_checks.py`
-- 승인: 메인 결정(코드 구조)이라 승인 대상이 아니다.
+- 결정: pytest를 pytest-xdist로 나눠 돌리지 않는다.
+- 근거: 메인 결정(2026-11-27, 사용자 지시 "병렬 실행 검토"). 2026-11-27 이 PC(8코어)에서 잰 값이다. 직렬 pytest는 41초였고, pytest-xdist는 더 느렸다(`-n 4` 52초, `OMP_NUM_THREADS=1`로 LightGBM 스레드를 묶어도 50초, `-n auto` 156초). 수집에만 8초가 들어, worker마다 causalml 등을 다시 import하는 비용이 나눠 돌려 아끼는 시간보다 컸다. 검사 목록 전체(ruff, pyright 25초, pytest, marimo check 4초, check_docs 2초)는 차례로 돌리면 약 73초, 동시에 돌리면 51초였다. 검사 목록을 돌리는 것은 플러그인의 `record.mjs checks`라 동시 실행은 플러그인에 제안했다(게시판 th-guard-check-cache).
+- 기각한 대안: pytest-xdist. 위 측정에서 느렸다. 테스트가 늘어 직렬 pytest가 수집 비용의 몇 배가 되면 다시 잰다. 검사 목록을 동시에 돌리는 저장소 스크립트. `record.mjs checks`가 남기는 통과 기록을 남기지 못해 PR 생성 검사가 다시 돌고, 검사를 돌리는 곳이 둘이 된다.
+- 정본: `pyproject.toml`(dev 의존성에 pytest-xdist가 없음)
+- 승인: 메인 결정(라이브러리 선택)이라 승인 대상이 아니다.
