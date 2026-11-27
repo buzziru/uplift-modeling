@@ -1,6 +1,6 @@
 # EXP-002 요약: 1단계 방법론 비교
 
-실행 여덟 개(`metrics.json`의 `run_ids`, Kaggle CPU kernel). 데이터는 학습 세트 44,800명, 결과 변수는 `visit`, fold seed 42, 154, 1592의 5-fold OOF다. 방법마다 HPO trial 50회, 구간은 고객 복원 추출 부트스트랩 1,000회의 95% 구간이다. DR-learner는 처음 실행에서 교차 적합 분할에 seed가 들어가지 않아 같은 설정으로 재현되지 않았고, seed를 넘기도록 고친 코드로 그 part만 다시 돌린 실행이다.
+실행 여덟 개(`metrics.json`의 `run_ids`, Kaggle CPU kernel). 데이터는 학습 세트 44,800명, 결과 변수는 `visit`, fold seed 42, 154, 1592의 5-fold OOF다. 방법마다 HPO trial 50회, 구간은 고객 복원 추출 부트스트랩 1,000회의 95% 구간이다. DR-learner는 첫 실행에서 교차 적합 분할에 seed가 들어가지 않아 같은 설정으로 재현되지 않았다. 그래서 seed를 넘기도록 고친 코드로 그 part만 다시 돌렸고, 같은 seed로 두 번 돌린 예측이 같은지는 `tests/test_learners.py`의 `test_same_seed_gives_same_uplift`가 확인한다.
 
 ## 일곱 방법 모두 1위 transformed outcome과 가를 수 없어, 판정 규칙대로 S-learner를 고른다
 

@@ -45,5 +45,5 @@
 ## 결과 해석
 
 - 판정: 일곱 방법 모두 1위 transformed outcome과 가를 수 없어, 단순한 순서의 첫 방법 S-learner를 고른다(`artifacts/EXP-002/tables/pair_thresholds.csv`, `method_choice.csv`). 1위의 평균 점수가 전체 발송 정책보다 커서 "고르지 않는다" 규칙에는 걸리지 않는다. 고른 S-learner의 평균은 전체 발송 정책보다 작고, 차이 구간은 세 seed 모두 0을 포함한다(`policy_values.csv`).
-- 설계와 달라진 점: DR-learner는 처음 실행에서 causalml `BaseDRLearner.fit`에 seed가 넘어가지 않아 교차 적합 분할이 실행마다 바뀌었고, HPO 최선 trial(0.1827)과 같은 설정의 seed 42 재측정(0.1810)이 달랐다. `learners._dr`로 seed를 넘기게 고친 뒤 그 part만 다시 돌렸고, 판정은 바뀌지 않았다.
+- 설계와 달라진 점: DR-learner의 첫 실행(run 05ffc25eb647, DuckDB 기록)은 causalml `BaseDRLearner.fit`에 seed가 넘어가지 않아 교차 적합 분할이 실행마다 바뀌었다. 그 run에서 HPO 최선 trial은 0.1827, 같은 설정의 seed 42 재측정은 0.1810으로 달랐다. seed를 넘기게 고친 코드(`learners._dr`)로 그 part만 다시 돌렸다(`artifacts/EXP-002/metrics.json`의 `dr_learner`). 고치기 전 DR-learner는 평균 0.1819, 1위와의 평균 차이 0.0011, 문턱 0.0038로 1위와 가를 수 없었다. 고친 뒤에는 평균 0.1829, 차이 0.0001, 문턱 0.0040으로 역시 가를 수 없어 판정은 바뀌지 않았다(`tables/pair_thresholds.csv`).
 - 반영한 결정: 1단계 방법론을 S-learner로 정했다(사용자 승인 2026-11-26). 2단계 전에 예산 제약에서 반응 모델과 비교한다(ANA-004).
