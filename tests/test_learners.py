@@ -1,7 +1,9 @@
 from typing import get_args
 
 import numpy as np
+import optuna
 import pytest
+from optuna.distributions import FloatDistribution, IntDistribution
 
 from uplift.learners import METHODS, Method, tune, uplift_oof
 
@@ -38,12 +40,40 @@ def test_same_seed_gives_same_uplift(method):
     np.testing.assert_array_equal(first, second)
 
 
-def test_tune_returns_fixed_params_of_the_method_space():
+@pytest.fixture(scope="module")
+def tuned():
     x, t, y, folds = _planted(n=900)
-    params, trials = tune("t_learner", x, t, y, folds, n_trials=2, seed=0)
+    return tune("t_learner", x, t, y, folds, n_trials=2, seed=0)
+
+
+def _space(method):
+    trial = optuna.create_study().ask()
+    space = METHODS[method][1](trial)
+    return space, trial.distributions
+
+
+def test_tune_runs_requested_trials(tuned):
+    _, trials = tuned
     assert len(trials) == 2
-    assert params["subsample_freq"] == 1
-    assert 7 <= params["num_leaves"] <= 63
+
+
+def test_tune_returns_params_inside_method_space(tuned):
+    params, _ = tuned
+    _, dists = _space("t_learner")
+    outside = {
+        k: v
+        for k, d in dists.items()
+        if isinstance(d, FloatDistribution | IntDistribution)
+        and not d.low <= (v := params[k]) <= d.high
+    }
+    assert outside == {}
+
+
+def test_tune_keeps_fixed_params_of_method_space(tuned):
+    params, _ = tuned
+    space, dists = _space("t_learner")
+    fixed = {k: v for k, v in space.items() if k not in dists}
+    assert {k: params[k] for k in fixed} == fixed
 
 
 def test_method_type_lists_every_learner():

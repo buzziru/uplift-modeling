@@ -1,7 +1,8 @@
 import numpy as np
+import pytest
 from sklift.metrics import qini_curve, uplift_curve
 
-from uplift.ranking import qini_curves, ranking_scores
+from uplift.ranking import PAIRS, qini_curves, ranking_scores
 
 
 def _theory_example():
@@ -21,7 +22,8 @@ def test_uplift_curve_theory_example():
     assert f[x == 100][0] == 10
 
 
-def test_pair_scores_use_only_the_two_groups_of_each_pair():
+@pytest.fixture(scope="module")
+def planted_pairs():
     rng = np.random.default_rng(0)
     n = 3000
     t = rng.integers(0, 3, n)
@@ -29,19 +31,25 @@ def test_pair_scores_use_only_the_two_groups_of_each_pair():
     base = 0.1
     p = base + 0.3 * np.where(t == 1, effect[:, 0], 0) + 0.3 * np.where(t == 2, effect[:, 1], 0)
     y = (rng.random(n) < p).astype(int)
-    scores = ranking_scores(effect, t, y)
-    assert set(scores["comparison"]) == {"Mens vs None", "Womens vs None", "Mens vs Womens"}
+    return effect, t, y
+
+
+def test_ranking_scores_cover_every_pair(planted_pairs):
+    scores = ranking_scores(*planted_pairs)
+    assert set(scores["comparison"]) == set(PAIRS)
+
+
+def test_ranking_scores_find_planted_effects(planted_pairs):
+    scores = ranking_scores(*planted_pairs)
     assert bool((scores["qini_auc"].to_numpy() > 0).all())
+
+
+@pytest.mark.parametrize(("name", "pair"), PAIRS.items())
+def test_qini_curve_targets_only_the_two_groups_of_the_pair(planted_pairs, name, pair):
+    effect, t, y = planted_pairs
     curves = qini_curves(effect, t, y)
-    max_targeted = [
-        int(curves.loc[curves["comparison"] == name, "n_targeted"].to_numpy().max())
-        for name in ["Mens vs None", "Womens vs None", "Mens vs Womens"]
-    ]
-    assert max_targeted == [
-        int(np.isin(t, [0, 1]).sum()),
-        int(np.isin(t, [0, 2]).sum()),
-        int(np.isin(t, [1, 2]).sum()),
-    ]
+    n_targeted = curves.loc[curves["comparison"] == name, "n_targeted"].to_numpy().max()
+    assert n_targeted == np.isin(t, pair).sum()
 
 
 def test_mail_pair_ranks_by_uplift_difference():

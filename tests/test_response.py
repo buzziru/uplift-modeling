@@ -1,5 +1,6 @@
 import numpy as np
 import optuna
+import pytest
 from optuna.distributions import FloatDistribution, IntDistribution
 from sklearn.metrics import log_loss
 
@@ -17,15 +18,26 @@ def _data(n=600, seed=0):
     return x, t, y.astype(int), folds
 
 
-def test_mail_columns_follow_each_arm_own_response():
+@pytest.fixture(scope="module")
+def mail_pred():
     x, t, y, folds = _data()
-    pred = arm_models_oof(x, t, y, folds, PARAMS, seed=0)
-    assert pred.shape == (len(t), 2)
-    positive = x[:, 0] > 0
-    assert pred[positive, 0].mean() > 0.8
-    assert pred[~positive, 0].mean() < 0.2
-    assert pred[positive, 1].mean() < 0.2
-    assert pred[~positive, 1].mean() > 0.8
+    return x, arm_models_oof(x, t, y, folds, PARAMS, seed=0)
+
+
+def test_mail_prediction_has_one_column_per_mail(mail_pred):
+    x, pred = mail_pred
+    assert pred.shape == (len(x), 2)
+
+
+@pytest.mark.parametrize(
+    ("column", "positive", "high"),
+    [(0, True, True), (0, False, False), (1, True, False), (1, False, True)],
+    ids=["mens_positive", "mens_negative", "womens_positive", "womens_negative"],
+)
+def test_mail_columns_follow_each_arm_own_response(mail_pred, column, positive, high):
+    x, pred = mail_pred
+    mean = pred[(x[:, 0] > 0) == positive, column].mean()
+    assert mean > 0.8 if high else mean < 0.2
 
 
 def test_arm_log_loss_scores_each_mail_on_its_own_customers():
